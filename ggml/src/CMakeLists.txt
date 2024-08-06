@@ -1277,6 +1277,10 @@ endif()
 
 # ggml
 
+# Search for the 'log' library
+find_library(log-lib log)
+set(GGML_EXTRA_LIBS     ${GGML_EXTRA_LIBS}     ${log-lib})
+
 add_library(ggml
             ../include/ggml.h
             ../include/ggml-alloc.h
