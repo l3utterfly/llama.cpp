@@ -26,6 +26,13 @@
 
 #define UNUSED GGML_UNUSED
 
+// we force undef the i8mm feature here
+// this is because we want to compile our app WITH the i8mm feature to support faster calculations for devices that support it
+// those devices will use the special Q4_048 quants, whose code is in the ggml-arrch64.c file
+// this file contains code for "normal" quants, so we disable the i8mm feature explicitly
+// this makes running normal quants slightly slower for devices that support i8mm, but it's a small price to pay to support a wider range of deices
+#undef __ARM_FEATURE_MATMUL_INT8
+
 // some compilers don't provide _mm256_set_m128i, e.g. gcc 7
 #define MM256_SET_M128I(a, b) _mm256_insertf128_si256(_mm256_castsi128_si256(b), (a), 1)
 
