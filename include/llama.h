@@ -1130,6 +1130,12 @@ extern "C" {
                                float   penalty_repeat,  // 1.0 = disabled
                                float   penalty_freq,    // 0.0 = disabled
                                float   penalty_present, // 0.0 = disabled
+                            uint32_t   dry_penalty_last_n,
+                               float   dry_base,
+                               float   dry_multiplier,
+                               float   dry_allowed_length,
+                  const llama_token*   dry_seq_breakers,
+                              size_t   dry_seq_breakers_size,
                                 bool   penalize_nl,     // consider newlines as a repeatable token
                                 bool   ignore_eos);     // ignore the end-of-sequence token
 
