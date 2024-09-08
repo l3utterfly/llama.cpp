@@ -17,9 +17,7 @@
 #pragma warning(disable: 4244 4267) // possible loss of data
 #endif
 
-static void print_usage(int argc, char ** argv, const gpt_params & params) {
-    gpt_params_print_usage(argc, argv, params);
-
+static void print_usage(int, char ** argv) {
     LOG_TEE("\nexample usage:\n");
     LOG_TEE("\n    %s \\\n"
             "       -m model.gguf -f some-text.txt [-o imatrix.dat] [--process-output] [--verbosity 1] \\\n"
@@ -433,8 +431,8 @@ static void process_logits(
 }
 
 static bool compute_imatrix(llama_context * ctx, const gpt_params & params) {
-    const bool add_bos = llama_should_add_bos_token(llama_get_model(ctx));
-    GGML_ASSERT(llama_add_eos_token(llama_get_model(ctx)) != 1);
+    const bool add_bos = llama_add_bos_token(llama_get_model(ctx));
+    GGML_ASSERT(!llama_add_eos_token(llama_get_model(ctx)));
     const int n_ctx = llama_n_ctx(ctx);
 
     auto tim1 = std::chrono::high_resolution_clock::now();
@@ -579,8 +577,8 @@ int main(int argc, char ** argv) {
     params.logits_all = true;
     params.verbosity = 1;
 
-    if (!gpt_params_parse(argc, argv, params)) {
-        print_usage(argc, argv, params);
+    auto options = gpt_params_parser_init(params, LLAMA_EXAMPLE_COMMON, print_usage);
+    if (!gpt_params_parse(argc, argv, params, options)) {
         return 1;
     }
 
@@ -638,7 +636,8 @@ int main(int argc, char ** argv) {
 
     g_collector.save_imatrix();
 
-    llama_print_timings(ctx);
+    LOG_TEE("\n");
+    llama_perf_print(ctx, LLAMA_PERF_TYPE_CONTEXT);
 
     llama_free(ctx);
     llama_free_model(model);
