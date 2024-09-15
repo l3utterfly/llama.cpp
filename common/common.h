@@ -126,6 +126,13 @@ struct gpt_sampler_params {
     bool    ignore_eos        = false;
     bool    no_perf           = false; // disable performance metrics
 
+    // dry sampler params
+    float       dry_multiplier        = 0.0f;               // 0.0f = disabled, recommended value: 0.8f
+    float       dry_base              = 1.75f;
+    uint32_t    dry_allowed_length    = 2;
+    uint32_t    dry_penalty_last_n    = -1;                 // DRY last n tokens to penalize (0 = disable penalty, -1 = context size)
+    std::vector<llama_token> dry_seq_breakers;
+
     std::vector<enum gpt_sampler_type> samplers = {
         GPT_SAMPLER_TYPE_TOP_K,
         GPT_SAMPLER_TYPE_TFS_Z,
