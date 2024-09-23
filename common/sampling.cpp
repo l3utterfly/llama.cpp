@@ -60,6 +60,16 @@ struct ring_buffer {
         return value;
     }
 
+    T pop_back() {
+        if (sz == 0) {
+            throw std::runtime_error("ring buffer is empty");
+        }
+        pos = (pos + capacity - 1) % capacity;
+        T value = data[pos];
+        sz--;
+        return value;
+    }
+
     const T & rat(size_t i) const {
         if (i >= sz) {
             throw std::runtime_error("ring buffer: index out of bounds");
@@ -168,6 +178,12 @@ struct gpt_sampler * gpt_sampler_init(const struct llama_model * model, const st
                 params.penalty_repeat,
                 params.penalty_freq,
                 params.penalty_present,
+                params.dry_penalty_last_n,
+                params.dry_base,
+                params.dry_multiplier,
+                params.dry_allowed_length,
+                params.dry_seq_breakers.data(),
+                params.dry_seq_breakers.size(),
                 params.penalize_nl,
                 params.ignore_eos));
 
@@ -240,6 +256,19 @@ void gpt_sampler_reset(struct gpt_sampler * gsmpl) {
     llama_sampler_reset(gsmpl->grmr);
 
     llama_sampler_reset(gsmpl->chain);
+}
+
+void gpt_sampler_reset_grmr(struct gpt_sampler * gsmpl) {
+    llama_sampler_reset(gsmpl->grmr);
+}
+
+void gpt_sampler_reinit_grmr(struct gpt_sampler * gsmpl, const struct llama_model * model, std::string grammar) {
+    // free first
+    llama_sampler_free(gsmpl->grmr);
+
+    // reinit
+    gsmpl->params.grammar = grammar;
+    gsmpl->grmr = llama_sampler_init_grammar(model, grammar.c_str(), "root");
 }
 
 struct gpt_sampler * gpt_sampler_clone(gpt_sampler * gsmpl) {
@@ -318,6 +347,10 @@ uint32_t gpt_sampler_get_seed(const struct gpt_sampler * gsmpl) {
 
 llama_token_data_array * gpt_sampler_get_candidates(struct gpt_sampler * gsmpl) {
     return &gsmpl->cur_p;
+}
+
+std::vector<llama_token> gpt_sampler_get_prev(struct gpt_sampler * gsmpl) {
+    return gsmpl->prev.to_vector();
 }
 
 llama_token gpt_sampler_last(const struct gpt_sampler * gsmpl) {
@@ -447,4 +480,17 @@ std::vector<gpt_sampler_type> gpt_sampler_types_from_chars(const std::string & c
     }
 
     return samplers;
+}
+
+void gpt_sampler_rollback(
+        gpt_sampler * gsmpl,
+        int rollback_num) {
+    if(rollback_num > gsmpl->prev.size()) {
+        rollback_num = gsmpl->prev.size();
+    }
+
+    // continuously pop the last token
+    for(int i = 0; i < rollback_num; i++) {
+        gsmpl->prev.pop_back();
+    }
 }

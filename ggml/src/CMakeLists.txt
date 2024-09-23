@@ -1303,6 +1303,12 @@ endif()
 
 # ggml
 
+# Search for the 'log' library on Android
+if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Android")
+    find_library(log-lib log)
+    set(GGML_EXTRA_LIBS     ${GGML_EXTRA_LIBS}     ${log-lib})
+endif()
+
 add_library(ggml
             ../include/ggml.h
             ../include/ggml-alloc.h

@@ -553,9 +553,12 @@ void ggml_gemv_q4_0_4x4_q8_0(int n, float * restrict s, size_t bs, const void * 
     }
 #endif
 #if defined(__ARM_NEON) && defined(__ARM_FEATURE_MATMUL_INT8)
-    GGML_ASSERT(!(ggml_cpu_has_neon() && ggml_cpu_has_matmul_int8()) &&
-                "__ARM_NEON and __ARM_FEATURE_MATMUL_INT8 defined, use the Q4_0_4_8 quantization format for optimal performance");
-#elif defined(__ARM_NEON) && defined(__aarch64__) && ! ((defined(_MSC_VER)) && ! defined(__clang__))
+    // TODO: warn instead of assert
+    // GGML_ASSERT(!(ggml_cpu_has_neon() && ggml_cpu_has_matmul_int8()) &&
+    //             "__ARM_NEON and __ARM_FEATURE_MATMUL_INT8 defined, use the Q4_0_4_8 quantization format for optimal performance");
+#endif
+
+#if defined(__ARM_NEON) && defined(__aarch64__) && ! ((defined(_MSC_VER)) && ! defined(__clang__))
     const void * b_ptr = vx;
     const void * a_ptr = vy;
     float * res_ptr = s;
@@ -854,9 +857,11 @@ void ggml_gemv_q4_0_8x8_q8_0(int n, float * restrict s, size_t bs, const void * 
     }
 #endif
 #if defined(__ARM_NEON) && defined(__ARM_FEATURE_MATMUL_INT8)
-    GGML_ASSERT(ggml_cpu_has_sve() &&
-                "__ARM_FEATURE_SVE not defined, use the Q4_0_4_8 quantization format for optimal performance");
-#elif defined(__ARM_NEON) && defined(__aarch64__)
+    // TODO: warn instead of assert
+    // GGML_ASSERT(ggml_cpu_has_sve() &&
+    //             "__ARM_FEATURE_SVE not defined, use the Q4_0_4_8 quantization format for optimal performance");
+#endif
+#if defined(__ARM_NEON) && defined(__aarch64__)
     GGML_ASSERT((ggml_cpu_has_sve() || ggml_cpu_has_matmul_int8()) &&
                 "__ARM_FEATURE_SVE and __ARM_FEATURE_MATMUL_INT8 not defined, use the Q4_0_4_4 quantization format for optimal "
                 "performance");
@@ -1004,9 +1009,11 @@ void ggml_gemm_q4_0_4x4_q8_0(int n, float * restrict s, size_t bs, const void * 
     }
 #endif
 #if defined(__ARM_NEON) && defined(__ARM_FEATURE_MATMUL_INT8)
-    GGML_ASSERT(!(ggml_cpu_has_neon() && ggml_cpu_has_matmul_int8()) &&
-                "__ARM_NEON and __ARM_FEATURE_MATMUL_INT8 defined, use the Q4_0_4_8 quantization format for optimal performance");
-#elif defined(__ARM_NEON) && defined(__aarch64__) && ! ((defined(_MSC_VER)) && ! defined(__clang__))
+    // TODO: warn instead of assert
+    // GGML_ASSERT(!(ggml_cpu_has_neon() && ggml_cpu_has_matmul_int8()) &&
+    //             "__ARM_NEON and __ARM_FEATURE_MATMUL_INT8 defined, use the Q4_0_4_8 quantization format for optimal performance");
+#endif
+#if defined(__ARM_NEON) && defined(__aarch64__) && ! ((defined(_MSC_VER)) && ! defined(__clang__))
     const void * b_ptr = vx;
     const void * a_ptr = vy;
     float * res_ptr = s;
@@ -2403,9 +2410,11 @@ void ggml_gemm_q4_0_8x8_q8_0(int n, float * restrict s, size_t bs, const void * 
     }
 #endif
 #if defined(__ARM_NEON) && defined(__ARM_FEATURE_MATMUL_INT8)
-    GGML_ASSERT(ggml_cpu_has_sve() &&
-                "__ARM_FEATURE_SVE not defined, use the Q4_0_4_8 quantization format for optimal performance");
-#elif defined(__ARM_NEON) && defined(__aarch64__)
+    // TODO: warn instead of assert
+    // GGML_ASSERT(ggml_cpu_has_sve() &&
+    //             "__ARM_FEATURE_SVE not defined, use the Q4_0_4_8 quantization format for optimal performance");
+#endif
+#if defined(__ARM_NEON) && defined(__aarch64__)
     GGML_ASSERT((ggml_cpu_has_sve() || ggml_cpu_has_matmul_int8()) &&
                 "__ARM_FEATURE_SVE and __ARM_FEATURE_MATMUL_INT8 not defined, use the Q4_0_4_4 quantization format for optimal "
                 "performance");

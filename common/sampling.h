@@ -43,6 +43,8 @@ void gpt_sampler_free(struct gpt_sampler * gsmpl);
 // if accept_grammar is true, the token is accepted both by the sampling chain and the grammar
 void                 gpt_sampler_accept(struct gpt_sampler * gsmpl, llama_token token, bool accept_grammar);
 void                 gpt_sampler_reset (struct gpt_sampler * gsmpl);
+void                 gpt_sampler_reset_grmr(struct gpt_sampler * gsmpl);
+void                 gpt_sampler_reinit_grmr(struct gpt_sampler * gsmpl, const struct llama_model * model, std::string grammar);
 struct gpt_sampler * gpt_sampler_clone (struct gpt_sampler * gsmpl);
 
 // arguments can be nullptr to skip printing
@@ -66,6 +68,7 @@ uint32_t gpt_sampler_get_seed(const struct gpt_sampler * gsmpl);
 
 // access the internal list of current candidate tokens
 llama_token_data_array * gpt_sampler_get_candidates(struct gpt_sampler * gsmpl);
+std::vector<llama_token> gpt_sampler_get_prev(struct gpt_sampler * gsmpl);
 
 // get the last accepted token
 llama_token gpt_sampler_last(const struct gpt_sampler * gsmpl);
@@ -81,3 +84,4 @@ std::string gpt_sampler_type_to_str(enum gpt_sampler_type cnstr);
 
 std::vector<enum gpt_sampler_type> gpt_sampler_types_from_names(const std::vector<std::string> & names, bool allow_alt_names);
 std::vector<enum gpt_sampler_type> gpt_sampler_types_from_chars(const std::string & chars);
+void gpt_sampler_rollback(gpt_sampler * gsmpl, int rollback_num);
