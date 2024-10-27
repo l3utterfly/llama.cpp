@@ -14,13 +14,12 @@
 #include <numeric>
 #include <random>
 #include <unordered_map>
-#include <vector>
 
 static int llama_sample_dist(llama_token_data_array * cur_p, std::mt19937 & rng) {
     // iterator for the probabilities
 #ifdef __GNUC__
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wunused-local-typedefs"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-local-typedefs"
 #endif
 
     struct probs_iterator {
@@ -40,7 +39,7 @@ static int llama_sample_dist(llama_token_data_array * cur_p, std::mt19937 & rng)
     };
 
 #ifdef __GNUC__
-    #pragma GCC diagnostic pop
+#pragma GCC diagnostic pop
 #endif
 
     std::discrete_distribution<int> dist(probs_iterator{cur_p->data}, probs_iterator{cur_p->data + cur_p->size});
@@ -202,104 +201,6 @@ static uint32_t get_rng_seed(uint32_t seed) {
     return seed;
 }
 
-void llama_sampler_dry_impl(
-    llama_token_data_array * candidates,
-    const llama_token * last_tokens,
-    size_t last_tokens_size,
-    float dry_base,
-    float dry_multiplier,
-    int dry_allowed_length,
-    const llama_token * dry_seq_breakers,
-    size_t dry_seq_breakers_size) {
-    // skip dry sampler if we don't have a previous token
-    if (last_tokens_size < 1) return;
-
-    // get the last token
-    auto last_token = last_tokens[last_tokens_size - 1];
-
-    // if last token is part of the sequence breakers, skip whole sampler
-    if (std::find(dry_seq_breakers, dry_seq_breakers + dry_seq_breakers_size, last_token) != dry_seq_breakers + dry_seq_breakers_size) {
-        return;
-    }
-
-    // create an unordered map of "next tokens" <-> max match length
-    std::unordered_map<llama_token, size_t> match_lengths;
-
-    // loop through each previous token (exclude the last token)
-    for (size_t i = 0; i < last_tokens_size - 1; ++i) {
-        // skip if the compare token is not the same as the last token
-        if (last_tokens[i] != last_token) {
-            continue;
-        }
-
-        // get the next token (i + 1 is always less than last_tokens_size)
-        auto next_token = last_tokens[i + 1];
-
-        // if next token is part of the sequence breakers, skip
-        if (std::find(dry_seq_breakers, dry_seq_breakers + dry_seq_breakers_size, next_token) != dry_seq_breakers + dry_seq_breakers_size) {
-            continue;
-        }
-
-        // try to extend the match backwards (match length starts at 1 because last token is already matched)
-        size_t match_length = 1;
-
-        // loop through the previous tokens
-        for (;; match_length++) {
-            // if we have reached the start of our last tokens, break
-            if (i < match_length) break;
-
-            // compare token starts at our prev index, going backwards by match length
-            auto compare_token = last_tokens[i - match_length];
-
-            // head token starts at the end of last tokens, going backwards by match length, minus 1 because we start at the last token itself
-            auto head_token = last_tokens[last_tokens_size - 1 - match_length];
-
-            // break out of the match if any tokens don't match
-            if (compare_token != head_token) {
-                break;
-            }
-
-            // if compare token is part of the sequence breakers, break out of the match
-            if (std::find(dry_seq_breakers, dry_seq_breakers + dry_seq_breakers_size, compare_token) != dry_seq_breakers + dry_seq_breakers_size) {
-                break;
-            }
-        }
-
-        // Check if the next token exists in the map
-        auto it = match_lengths.find(next_token);
-
-        if (it == match_lengths.end()) {
-            // Key does not exist, insert the new value
-            match_lengths[next_token] = match_length;
-        } else {
-            // Key exists, update it with the max of the new value or the existing value
-            it->second = std::max(it->second, match_length);
-        }
-    }
-
-    // apply penalties
-    for (const auto& pair : match_lengths) {
-        auto next_token = pair.first;
-        auto match_length = pair.second;
-
-        // if the match length is greater than or equal to our allowed length in config, we apply penalities
-        if (match_length >= dry_allowed_length) {
-
-            // find our next token in the candidates->data
-            for (size_t i = 0; i < candidates->size; ++i) {
-                if (candidates->data[i].id == next_token) {
-                    // calculate the penalty
-                    float penalty = dry_multiplier * pow(dry_base, match_length - dry_allowed_length);
-
-                    // apply the dry penalty
-                    candidates->data[i].logit -= penalty;
-                    break;
-                }
-            }
-        }
-    }
-}
-
 // llama_sampler API
 
 const char * llama_sampler_name(const struct llama_sampler * smpl) {
@@ -334,8 +235,8 @@ struct llama_sampler * llama_sampler_clone(const struct llama_sampler * smpl) {
 
     if (smpl->ctx == nullptr) {
         return new llama_sampler {
-            /* .iface = */ smpl->iface,
-            /* .ctx   = */ nullptr,
+                /* .iface = */ smpl->iface,
+                /* .ctx   = */ nullptr,
         };
     }
 
@@ -367,10 +268,10 @@ llama_token llama_sampler_sample(struct llama_sampler * smpl, struct llama_conte
     }
 
     llama_token_data_array cur_p = {
-        /* .data       = */ cur.data(),
-        /* .size       = */ cur.size(),
-        /* .selected   = */ -1,
-        /* .sorted     = */ false,
+            /* .data       = */ cur.data(),
+            /* .size       = */ cur.size(),
+            /* .selected   = */ -1,
+            /* .sorted     = */ false,
     };
 
     llama_sampler_apply(smpl, &cur_p);
@@ -446,23 +347,23 @@ static void llama_sampler_chain_free(struct llama_sampler * smpl) {
 }
 
 static struct llama_sampler_i llama_sampler_chain_i = {
-    /* .name   = */ llama_sampler_chain_name,
-    /* .accept = */ llama_sampler_chain_accept,
-    /* .apply  = */ llama_sampler_chain_apply,
-    /* .reset  = */ llama_sampler_chain_reset,
-    /* .clone  = */ llama_sampler_chain_clone,
-    /* .free   = */ llama_sampler_chain_free,
+        /* .name   = */ llama_sampler_chain_name,
+        /* .accept = */ llama_sampler_chain_accept,
+        /* .apply  = */ llama_sampler_chain_apply,
+        /* .reset  = */ llama_sampler_chain_reset,
+        /* .clone  = */ llama_sampler_chain_clone,
+        /* .free   = */ llama_sampler_chain_free,
 };
 
 struct llama_sampler * llama_sampler_chain_init(struct llama_sampler_chain_params params) {
     return new llama_sampler {
-        /* .iface = */ &llama_sampler_chain_i,
-        /* .ctx   = */ new llama_sampler_chain {
-            /* .params      = */ params,
-            /* .samplers    = */ {},
-            /* .t_sample_us = */ 0,
-            /* .n_sample    = */ 0,
-        },
+            /* .iface = */ &llama_sampler_chain_i,
+            /* .ctx   = */ new llama_sampler_chain {
+                    /* .params      = */ params,
+                    /* .samplers    = */ {},
+                    /* .t_sample_us = */ 0,
+                    /* .n_sample    = */ 0,
+            },
     };
 }
 
@@ -520,18 +421,18 @@ static void llama_sampler_greedy_apply(struct llama_sampler * /*smpl*/, llama_to
 }
 
 static struct llama_sampler_i llama_sampler_greedy_i = {
-    /* .name   = */ llama_sampler_greedy_name,
-    /* .accept = */ nullptr,
-    /* .apply  = */ llama_sampler_greedy_apply,
-    /* .reset  = */ nullptr,
-    /* .clone  = */ nullptr,
-    /* .free   = */ nullptr,
+        /* .name   = */ llama_sampler_greedy_name,
+        /* .accept = */ nullptr,
+        /* .apply  = */ llama_sampler_greedy_apply,
+        /* .reset  = */ nullptr,
+        /* .clone  = */ nullptr,
+        /* .free   = */ nullptr,
 };
 
 struct llama_sampler * llama_sampler_init_greedy() {
     return new llama_sampler {
-        /* .iface = */ &llama_sampler_greedy_i,
-        /* .ctx   = */ nullptr,
+            /* .iface = */ &llama_sampler_greedy_i,
+            /* .ctx   = */ nullptr,
     };
 }
 
@@ -539,7 +440,7 @@ struct llama_sampler * llama_sampler_init_greedy() {
 
 struct llama_sampler_dist {
     const uint32_t seed;
-          uint32_t seed_cur;
+    uint32_t seed_cur;
 
     std::mt19937 rng;
 };
@@ -581,23 +482,23 @@ static void llama_sampler_dist_free(struct llama_sampler * smpl) {
 }
 
 static struct llama_sampler_i llama_sampler_dist_i = {
-    /* .name   = */ llama_sampler_dist_name,
-    /* .accept = */ nullptr,
-    /* .apply  = */ llama_sampler_dist_apply,
-    /* .reset  = */ llama_sampler_dist_reset,
-    /* .clone  = */ llama_sampler_dist_clone,
-    /* .free   = */ llama_sampler_dist_free,
+        /* .name   = */ llama_sampler_dist_name,
+        /* .accept = */ nullptr,
+        /* .apply  = */ llama_sampler_dist_apply,
+        /* .reset  = */ llama_sampler_dist_reset,
+        /* .clone  = */ llama_sampler_dist_clone,
+        /* .free   = */ llama_sampler_dist_free,
 };
 
 struct llama_sampler * llama_sampler_init_dist(uint32_t seed) {
     auto seed_cur = get_rng_seed(seed);
     return new llama_sampler {
-        /* .iface = */ &llama_sampler_dist_i,
-        /* .ctx   = */ new llama_sampler_dist {
-            /* .seed     = */ seed,
-            /* .seed_cur = */ seed_cur,
-            /* .rng      = */ std::mt19937(seed_cur),
-        },
+            /* .iface = */ &llama_sampler_dist_i,
+            /* .ctx   = */ new llama_sampler_dist {
+                    /* .seed     = */ seed,
+                    /* .seed_cur = */ seed_cur,
+                    /* .rng      = */ std::mt19937(seed_cur),
+            },
     };
 }
 
@@ -612,18 +513,18 @@ static void llama_sampler_softmax_apply(struct llama_sampler * /*smpl*/, llama_t
 }
 
 static struct llama_sampler_i llama_sampler_softmax_i = {
-    /* .name   = */ llama_sampler_softmax_name,
-    /* .accept = */ nullptr,
-    /* .apply  = */ llama_sampler_softmax_apply,
-    /* .reset  = */ nullptr,
-    /* .clone  = */ nullptr,
-    /* .free   = */ nullptr,
+        /* .name   = */ llama_sampler_softmax_name,
+        /* .accept = */ nullptr,
+        /* .apply  = */ llama_sampler_softmax_apply,
+        /* .reset  = */ nullptr,
+        /* .clone  = */ nullptr,
+        /* .free   = */ nullptr,
 };
 
 struct llama_sampler * llama_sampler_init_softmax() {
     return new llama_sampler {
-        /* .iface = */ &llama_sampler_softmax_i,
-        /* .ctx   = */ nullptr,
+            /* .iface = */ &llama_sampler_softmax_i,
+            /* .ctx   = */ nullptr,
     };
 }
 
@@ -652,20 +553,20 @@ static void llama_sampler_top_k_free(struct llama_sampler * smpl) {
 }
 
 static struct llama_sampler_i llama_sampler_top_k_i = {
-    /* .name   = */ llama_sampler_top_k_name,
-    /* .accept = */ nullptr,
-    /* .apply  = */ llama_sampler_top_k_apply,
-    /* .reset  = */ nullptr,
-    /* .clone  = */ llama_sampler_top_k_clone,
-    /* .free   = */ llama_sampler_top_k_free,
+        /* .name   = */ llama_sampler_top_k_name,
+        /* .accept = */ nullptr,
+        /* .apply  = */ llama_sampler_top_k_apply,
+        /* .reset  = */ nullptr,
+        /* .clone  = */ llama_sampler_top_k_clone,
+        /* .free   = */ llama_sampler_top_k_free,
 };
 
 struct llama_sampler * llama_sampler_init_top_k(int32_t k) {
     return new llama_sampler {
-        /* .iface = */ &llama_sampler_top_k_i,
-        /* .ctx   = */ new llama_sampler_top_k {
-            /* .k = */ k,
-        },
+            /* .iface = */ &llama_sampler_top_k_i,
+            /* .ctx   = */ new llama_sampler_top_k {
+                    /* .k = */ k,
+            },
     };
 }
 
@@ -718,21 +619,21 @@ static void llama_sampler_top_p_free(struct llama_sampler * smpl) {
 }
 
 static struct llama_sampler_i llama_sampler_top_p_i = {
-    /* .name   = */ llama_sampler_top_p_name,
-    /* .accept = */ nullptr,
-    /* .apply  = */ llama_sampler_top_p_apply,
-    /* .reset  = */ nullptr,
-    /* .clone  = */ llama_sampler_top_p_clone,
-    /* .free   = */ llama_sampler_top_p_free,
+        /* .name   = */ llama_sampler_top_p_name,
+        /* .accept = */ nullptr,
+        /* .apply  = */ llama_sampler_top_p_apply,
+        /* .reset  = */ nullptr,
+        /* .clone  = */ llama_sampler_top_p_clone,
+        /* .free   = */ llama_sampler_top_p_free,
 };
 
 struct llama_sampler * llama_sampler_init_top_p(float p, size_t min_keep) {
     return new llama_sampler {
-        /* .iface = */ &llama_sampler_top_p_i,
-        /* .ctx   = */ new llama_sampler_top_p {
-            /* .p        = */ p,
-            /* .min_keep = */ min_keep,
-        },
+            /* .iface = */ &llama_sampler_top_p_i,
+            /* .ctx   = */ new llama_sampler_top_p {
+                    /* .p        = */ p,
+                    /* .min_keep = */ min_keep,
+            },
     };
 }
 
@@ -814,21 +715,21 @@ static void llama_sampler_min_p_free(struct llama_sampler * smpl) {
 }
 
 static struct llama_sampler_i llama_sampler_min_p_i = {
-    /* .name   = */ llama_sampler_min_p_name,
-    /* .accept = */ nullptr,
-    /* .apply  = */ llama_sampler_min_p_apply,
-    /* .reset  = */ nullptr,
-    /* .clone  = */ llama_sampler_min_p_clone,
-    /* .free   = */ llama_sampler_min_p_free,
+        /* .name   = */ llama_sampler_min_p_name,
+        /* .accept = */ nullptr,
+        /* .apply  = */ llama_sampler_min_p_apply,
+        /* .reset  = */ nullptr,
+        /* .clone  = */ llama_sampler_min_p_clone,
+        /* .free   = */ llama_sampler_min_p_free,
 };
 
 struct llama_sampler * llama_sampler_init_min_p(float p, size_t min_keep) {
     return new llama_sampler {
-        /* .iface = */ &llama_sampler_min_p_i,
-        /* .ctx   = */ new llama_sampler_min_p {
-            /* .p        = */ p,
-            /* .min_keep = */ min_keep,
-        },
+            /* .iface = */ &llama_sampler_min_p_i,
+            /* .ctx   = */ new llama_sampler_min_p {
+                    /* .p        = */ p,
+                    /* .min_keep = */ min_keep,
+            },
     };
 }
 
@@ -909,21 +810,21 @@ static void llama_sampler_tail_free_free(struct llama_sampler * smpl) {
 }
 
 static struct llama_sampler_i llama_sampler_tail_free_i = {
-    /* .name   = */ llama_sampler_tail_free_name,
-    /* .accept = */ nullptr,
-    /* .apply  = */ llama_sampler_tail_free_apply,
-    /* .reset  = */ nullptr,
-    /* .clone  = */ llama_sampler_tail_free_clone,
-    /* .free   = */ llama_sampler_tail_free_free,
+        /* .name   = */ llama_sampler_tail_free_name,
+        /* .accept = */ nullptr,
+        /* .apply  = */ llama_sampler_tail_free_apply,
+        /* .reset  = */ nullptr,
+        /* .clone  = */ llama_sampler_tail_free_clone,
+        /* .free   = */ llama_sampler_tail_free_free,
 };
 
 struct llama_sampler * llama_sampler_init_tail_free(float z, size_t min_keep) {
     return new llama_sampler {
-        /* .iface = */ &llama_sampler_tail_free_i,
-        /* .ctx   = */ new llama_sampler_tail_free {
-            /* .z        = */ z,
-            /*. min_keep = */ min_keep,
-        },
+            /* .iface = */ &llama_sampler_tail_free_i,
+            /* .ctx   = */ new llama_sampler_tail_free {
+                    /* .z        = */ z,
+                    /*. min_keep = */ min_keep,
+            },
     };
 }
 
@@ -1008,21 +909,21 @@ static void llama_sampler_typical_free(struct llama_sampler * smpl) {
 }
 
 static struct llama_sampler_i llama_sampler_typical_i = {
-    /* .name   = */ llama_sampler_typical_name,
-    /* .accept = */ nullptr,
-    /* .apply  = */ llama_sampler_typical_apply,
-    /* .reset  = */ nullptr,
-    /* .clone  = */ llama_sampler_typical_clone,
-    /* .free   = */ llama_sampler_typical_free,
+        /* .name   = */ llama_sampler_typical_name,
+        /* .accept = */ nullptr,
+        /* .apply  = */ llama_sampler_typical_apply,
+        /* .reset  = */ nullptr,
+        /* .clone  = */ llama_sampler_typical_clone,
+        /* .free   = */ llama_sampler_typical_free,
 };
 
 struct llama_sampler * llama_sampler_init_typical(float p, size_t min_keep) {
     return new llama_sampler {
-        /* .iface = */ &llama_sampler_typical_i,
-        /* .ctx   = */ new llama_sampler_typical {
-            /* .p        = */ p,
-            /* .min_keep = */ min_keep,
-        },
+            /* .iface = */ &llama_sampler_typical_i,
+            /* .ctx   = */ new llama_sampler_typical {
+                    /* .p        = */ p,
+                    /* .min_keep = */ min_keep,
+            },
     };
 }
 
@@ -1052,20 +953,20 @@ static void llama_sampler_temp_free(struct llama_sampler * smpl) {
 }
 
 static struct llama_sampler_i llama_sampler_temp_i = {
-    /* .name   = */ llama_sampler_temp_name,
-    /* .accept = */ nullptr,
-    /* .apply  = */ llama_sampler_temp_apply,
-    /* .reset  = */ nullptr,
-    /* .clone  = */ llama_sampler_temp_clone,
-    /* .free   = */ llama_sampler_temp_free,
+        /* .name   = */ llama_sampler_temp_name,
+        /* .accept = */ nullptr,
+        /* .apply  = */ llama_sampler_temp_apply,
+        /* .reset  = */ nullptr,
+        /* .clone  = */ llama_sampler_temp_clone,
+        /* .free   = */ llama_sampler_temp_free,
 };
 
 struct llama_sampler * llama_sampler_init_temp(float temp) {
     return new llama_sampler {
-        /* .iface = */ &llama_sampler_temp_i,
-        /* .ctx   = */ new llama_sampler_temp {
-            /*.temp = */ temp,
-        },
+            /* .iface = */ &llama_sampler_temp_i,
+            /* .ctx   = */ new llama_sampler_temp {
+                    /*.temp = */ temp,
+            },
     };
 }
 
@@ -1114,14 +1015,14 @@ static void llama_sampler_temp_ext_apply(struct llama_sampler * smpl, llama_toke
         // Map the normalized entropy to the desired temperature range using the power function
         float dyn_temp = min_temp + (max_temp - min_temp) * powf(normalized_entropy, exponent_val);
 
-    #ifdef DEBUG
+#ifdef DEBUG
         LLAMA_LOG_INFO("Your text maxtemp value is: %f\n", max_temp);
         LLAMA_LOG_INFO("Entropy: %f\n", entropy);
         LLAMA_LOG_INFO("Max Possible Entropy: %f\n", max_entropy);
         LLAMA_LOG_INFO("Normalized Entropy: %f\n", normalized_entropy);
         LLAMA_LOG_INFO("Exponent: %f\n", exponent_val);
         LLAMA_LOG_INFO("Dynamic Temperature (dyn_temp): %f\n", dyn_temp);
-    #endif
+#endif
 
         // Apply the dynamically calculated temperature scaling
         llama_sampler_temp_impl(cur_p, dyn_temp);
@@ -1140,13 +1041,13 @@ static void llama_sampler_temp_ext_apply(struct llama_sampler * smpl, llama_toke
             cur_p->data[i].p /= cum_sum_double; // Re-normalize the probabilities
         }
 
-    #ifdef DEBUG
+#ifdef DEBUG
         // Print the updated top 25 probabilities after temperature scaling
         LLAMA_LOG_INFO("\nUpdated Top 25 Probabilities After Dynamic Temperature Scaling (in percentages):\n");
         for (size_t i = 0; i < 25 && i < cur_p->size; ++i) {
             LLAMA_LOG_INFO("Token %zu: %f%%\n", i + 1, cur_p->data[i].p * 100.0f);
         }
-    #endif
+#endif
     } else {
         llama_sampler_temp_impl(cur_p, ctx->temp);
     }
@@ -1162,22 +1063,22 @@ static void llama_sampler_temp_ext_free(struct llama_sampler * smpl) {
 }
 
 static struct llama_sampler_i llama_sampler_temp_ext_i = {
-    /* .name   = */ llama_sampler_temp_ext_name,
-    /* .accept = */ nullptr,
-    /* .apply  = */ llama_sampler_temp_ext_apply,
-    /* .reset  = */ nullptr,
-    /* .clone  = */ llama_sampler_temp_ext_clone,
-    /* .free   = */ llama_sampler_temp_ext_free,
+        /* .name   = */ llama_sampler_temp_ext_name,
+        /* .accept = */ nullptr,
+        /* .apply  = */ llama_sampler_temp_ext_apply,
+        /* .reset  = */ nullptr,
+        /* .clone  = */ llama_sampler_temp_ext_clone,
+        /* .free   = */ llama_sampler_temp_ext_free,
 };
 
 struct llama_sampler * llama_sampler_init_temp_ext(float temp, float delta, float exponent) {
     return new llama_sampler {
-        /* .iface = */ &llama_sampler_temp_ext_i,
-        /* .ctx   = */ new llama_sampler_temp_ext {
-            /* .temp     = */ temp,
-            /* .delta    = */ delta,
-            /* .exponent = */ exponent,
-        },
+            /* .iface = */ &llama_sampler_temp_ext_i,
+            /* .ctx   = */ new llama_sampler_temp_ext {
+                    /* .temp     = */ temp,
+                    /* .delta    = */ delta,
+                    /* .exponent = */ exponent,
+            },
     };
 }
 
@@ -1253,26 +1154,26 @@ static void llama_sampler_xtc_reset(struct llama_sampler * smpl) {
 }
 
 static struct llama_sampler_i llama_sampler_xtc_i = {
-    /* .name   = */ llama_sampler_xtc_name,
-    /* .accept = */ nullptr,
-    /* .apply  = */ llama_sample_xtc_apply,
-    /* .reset  = */ llama_sampler_xtc_reset,
-    /* .clone  = */ llama_sampler_xtc_clone,
-    /* .free   = */ llama_sampler_xtc_free,
+        /* .name   = */ llama_sampler_xtc_name,
+        /* .accept = */ nullptr,
+        /* .apply  = */ llama_sample_xtc_apply,
+        /* .reset  = */ llama_sampler_xtc_reset,
+        /* .clone  = */ llama_sampler_xtc_clone,
+        /* .free   = */ llama_sampler_xtc_free,
 };
 
 struct llama_sampler * llama_sampler_init_xtc(float p, float t, size_t min_keep, uint32_t seed) {
     auto seed_cur = get_rng_seed(seed);
     return new llama_sampler {
-        /* .iface = */ &llama_sampler_xtc_i,
-        /* .ctx   = */ new llama_sampler_xtc {
-            /* .probability   = */ p,
-            /* .threshold     = */ t,
-            /* .min_keep      = */ min_keep,
-            /* .seed          = */ seed,
-            /* .seed_cur      = */ seed_cur,
-            /* .rng           = */ std::mt19937(seed_cur),
-        },
+            /* .iface = */ &llama_sampler_xtc_i,
+            /* .ctx   = */ new llama_sampler_xtc {
+                    /* .probability   = */ p,
+                    /* .threshold     = */ t,
+                    /* .min_keep      = */ min_keep,
+                    /* .seed          = */ seed,
+                    /* .seed_cur      = */ seed_cur,
+                    /* .rng           = */ std::mt19937(seed_cur),
+            },
     };
 }
 
@@ -1282,7 +1183,7 @@ struct llama_sampler_mirostat {
     const int32_t n_vocab;
 
     const uint32_t seed;
-          uint32_t seed_cur;
+    uint32_t seed_cur;
 
     const float tau;
     const float eta;
@@ -1360,28 +1261,28 @@ static void llama_sampler_mirostat_free(struct llama_sampler * smpl) {
 }
 
 static struct llama_sampler_i llama_sampler_mirostat_i = {
-    /* .name   = */ llama_sampler_mirostat_name,
-    /* .accept = */ nullptr,
-    /* .apply  = */ llama_sampler_mirostat_apply,
-    /* .reset  = */ llama_sampler_mirostat_reset,
-    /* .clone  = */ llama_sampler_mirostat_clone,
-    /* .free   = */ llama_sampler_mirostat_free,
+        /* .name   = */ llama_sampler_mirostat_name,
+        /* .accept = */ nullptr,
+        /* .apply  = */ llama_sampler_mirostat_apply,
+        /* .reset  = */ llama_sampler_mirostat_reset,
+        /* .clone  = */ llama_sampler_mirostat_clone,
+        /* .free   = */ llama_sampler_mirostat_free,
 };
 
 struct llama_sampler * llama_sampler_init_mirostat(int32_t n_vocab, uint32_t seed, float tau, float eta, int32_t m) {
     auto seed_cur = get_rng_seed(seed);
     return new llama_sampler {
-        /* .iface = */ &llama_sampler_mirostat_i,
-        /* .ctx   = */ new llama_sampler_mirostat {
-            /* .n_vocab  = */ n_vocab,
-            /* .seed     = */ seed,
-            /* .seed_cur = */ seed_cur,
-            /* .tau      = */ tau,
-            /* .eta      = */ eta,
-            /* .m        = */ m,
-            /* .mu       = */ 2.0f*tau,
-            /* .rng      = */ std::mt19937(seed_cur),
-        },
+            /* .iface = */ &llama_sampler_mirostat_i,
+            /* .ctx   = */ new llama_sampler_mirostat {
+                    /* .n_vocab  = */ n_vocab,
+                    /* .seed     = */ seed,
+                    /* .seed_cur = */ seed_cur,
+                    /* .tau      = */ tau,
+                    /* .eta      = */ eta,
+                    /* .m        = */ m,
+                    /* .mu       = */ 2.0f*tau,
+                    /* .rng      = */ std::mt19937(seed_cur),
+            },
     };
 }
 
@@ -1389,7 +1290,7 @@ struct llama_sampler * llama_sampler_init_mirostat(int32_t n_vocab, uint32_t see
 
 struct llama_sampler_mirostat_v2 {
     const uint32_t seed;
-          uint32_t seed_cur;
+    uint32_t seed_cur;
 
     const float tau;
     const float eta;
@@ -1459,26 +1360,26 @@ static void llama_sampler_mirostat_v2_free(struct llama_sampler * smpl) {
 }
 
 static struct llama_sampler_i llama_sampler_mirostat_v2_i = {
-    /* .name   = */ llama_sampler_mirostat_v2_name,
-    /* .accept = */ nullptr,
-    /* .apply  = */ llama_sampler_mirostat_v2_apply,
-    /* .reset  = */ llama_sampler_mirostat_v2_reset,
-    /* .clone  = */ llama_sampler_mirostat_v2_clone,
-    /* .free   = */ llama_sampler_mirostat_v2_free,
+        /* .name   = */ llama_sampler_mirostat_v2_name,
+        /* .accept = */ nullptr,
+        /* .apply  = */ llama_sampler_mirostat_v2_apply,
+        /* .reset  = */ llama_sampler_mirostat_v2_reset,
+        /* .clone  = */ llama_sampler_mirostat_v2_clone,
+        /* .free   = */ llama_sampler_mirostat_v2_free,
 };
 
 struct llama_sampler * llama_sampler_init_mirostat_v2(uint32_t seed, float tau, float eta) {
     auto seed_cur = get_rng_seed(seed);
     return new llama_sampler {
-        /* .iface = */ &llama_sampler_mirostat_v2_i,
-        /* .ctx   = */ new llama_sampler_mirostat_v2 {
-            /* .seed     = */ seed,
-            /* .seed_cur = */ seed_cur,
-            /* .tau      = */ tau,
-            /* .eta      = */ eta,
-            /* .mu       = */ 2.0f*tau,
-            /* .rng      = */ std::mt19937(seed_cur),
-        },
+            /* .iface = */ &llama_sampler_mirostat_v2_i,
+            /* .ctx   = */ new llama_sampler_mirostat_v2 {
+                    /* .seed     = */ seed,
+                    /* .seed_cur = */ seed_cur,
+                    /* .tau      = */ tau,
+                    /* .eta      = */ eta,
+                    /* .mu       = */ 2.0f*tau,
+                    /* .rng      = */ std::mt19937(seed_cur),
+            },
     };
 }
 
@@ -1554,12 +1455,12 @@ static void llama_sampler_grammar_free(struct llama_sampler * smpl) {
 }
 
 static struct llama_sampler_i llama_sampler_grammar_i = {
-    /* .name   = */ llama_sampler_grammar_name,
-    /* .accept = */ llama_sampler_grammar_accept_impl,
-    /* .apply  = */ llama_sampler_grammar_apply,
-    /* .reset  = */ llama_sampler_grammar_reset,
-    /* .clone  = */ llama_sampler_grammar_clone,
-    /* .free   = */ llama_sampler_grammar_free,
+        /* .name   = */ llama_sampler_grammar_name,
+        /* .accept = */ llama_sampler_grammar_accept_impl,
+        /* .apply  = */ llama_sampler_grammar_apply,
+        /* .reset  = */ llama_sampler_grammar_reset,
+        /* .clone  = */ llama_sampler_grammar_clone,
+        /* .free   = */ llama_sampler_grammar_free,
 };
 
 struct llama_sampler * llama_sampler_init_grammar_impl(const struct llama_vocab & vocab, const char * grammar_str, const char * grammar_root) {
@@ -1567,23 +1468,23 @@ struct llama_sampler * llama_sampler_init_grammar_impl(const struct llama_vocab 
 
     if (grammar_str != nullptr && grammar_str[0] != '\0') {
         *ctx = {
-            /* .vocab        = */ &vocab,
-            /* .grammar_str  = */ grammar_str,
-            /* .grammar_root = */ grammar_root,
-            /* .grammar      = */ llama_grammar_init_impl(&vocab, grammar_str, grammar_root),
+                /* .vocab        = */ &vocab,
+                /* .grammar_str  = */ grammar_str,
+                /* .grammar_root = */ grammar_root,
+                /* .grammar      = */ llama_grammar_init_impl(&vocab, grammar_str, grammar_root),
         };
     } else {
         *ctx = {
-            /* .vocab        = */ &vocab,
-            /* .grammar_str  = */ {},
-            /* .grammar_root = */ {},
-            /* .grammar      = */ nullptr,
+                /* .vocab        = */ &vocab,
+                /* .grammar_str  = */ {},
+                /* .grammar_root = */ {},
+                /* .grammar      = */ nullptr,
         };
     }
 
     return new llama_sampler {
-        /* .iface = */ &llama_sampler_grammar_i,
-        /* .ctx   = */ ctx,
+            /* .iface = */ &llama_sampler_grammar_i,
+            /* .ctx   = */ ctx,
     };
 }
 
@@ -1598,12 +1499,6 @@ struct llama_sampler_penalties {
     const float   penalty_repeat;
     const float   penalty_freq;
     const float   penalty_present;
-
-    const uint32_t                  dry_penalty_last_n;
-    const float                     dry_base;
-    const float                     dry_multiplier;
-    const float                     dry_allowed_length;
-    std::vector<llama_token>        dry_seq_breakers;
 
     const bool    penalize_nl;
     const bool    ignore_eos;
@@ -1708,22 +1603,6 @@ static void llama_sampler_penalties_apply(struct llama_sampler * smpl, llama_tok
         // restore the logit of the newline token if it was penalized
         cur_p->data[nl_idx].logit = nl_logit;
     }
-
-    // make the ring buffer of last tokens into a vector
-    auto last_tokens = ctx->prev.to_vector();
-
-    // take the last n tokens from the ring buffer
-    if (last_tokens.size() > (size_t) ctx->dry_penalty_last_n) {
-        last_tokens.erase(last_tokens.begin(), last_tokens.end() - ctx->penalty_last_n);
-    }
-
-    // apply DRY penalty
-    llama_sampler_dry_impl(cur_p, last_tokens.data(), last_tokens.size(), ctx->dry_base, ctx->dry_multiplier, ctx->dry_allowed_length, ctx->dry_seq_breakers.data(), ctx->dry_seq_breakers.size());
-
-    if (!ctx->penalize_nl && nl_found) {
-        // restore the logit of the newline token if it was penalized
-        cur_p->data[nl_idx].logit = nl_logit;
-    }
 }
 
 static void llama_sampler_penalties_reset(struct llama_sampler * smpl) {
@@ -1741,12 +1620,6 @@ static struct llama_sampler * llama_sampler_penalties_clone(const struct llama_s
             ctx->penalty_repeat,
             ctx->penalty_freq,
             ctx->penalty_present,
-            ctx->dry_penalty_last_n,
-            ctx->dry_base,
-            ctx->dry_multiplier,
-            ctx->dry_allowed_length,
-            ctx->dry_seq_breakers.data(),
-            ctx->dry_seq_breakers.size(),
             ctx->penalize_nl,
             ctx->ignore_eos);
 
@@ -1765,12 +1638,12 @@ static void llama_sampler_penalties_free(struct llama_sampler * smpl) {
 }
 
 static struct llama_sampler_i llama_sampler_penalties_i = {
-    /* .name   = */ llama_sampler_penalties_name,
-    /* .accept = */ llama_sampler_penalties_accept,
-    /* .apply  = */ llama_sampler_penalties_apply,
-    /* .reset  = */ llama_sampler_penalties_reset,
-    /* .clone  = */ llama_sampler_penalties_clone,
-    /* .free   = */ llama_sampler_penalties_free,
+        /* .name   = */ llama_sampler_penalties_name,
+        /* .accept = */ llama_sampler_penalties_accept,
+        /* .apply  = */ llama_sampler_penalties_apply,
+        /* .reset  = */ llama_sampler_penalties_reset,
+        /* .clone  = */ llama_sampler_penalties_clone,
+        /* .free   = */ llama_sampler_penalties_free,
 };
 
 struct llama_sampler * llama_sampler_init_penalties(
@@ -1781,12 +1654,6 @@ struct llama_sampler * llama_sampler_init_penalties(
         float penalty_repeat,
         float penalty_freq,
         float penalty_present,
-        uint32_t dry_penalty_last_n,
-        float dry_base,
-        float dry_multiplier,
-        float dry_allowed_length,
-        const llama_token*   dry_seq_breakers,
-        size_t   dry_seq_breakers_size,
         bool penalize_nl,
         bool ignore_eos) {
     if (linefeed_id == LLAMA_TOKEN_NULL) {
@@ -1800,24 +1667,19 @@ struct llama_sampler * llama_sampler_init_penalties(
     penalty_last_n = std::max(penalty_last_n, 0);
 
     return new llama_sampler {
-        /* .iface = */ &llama_sampler_penalties_i,
-        /* .ctx   = */ new llama_sampler_penalties {
-            /* .n_vocab         = */ n_vocab,
-            /* .special_eos_id  = */ special_eos_id,
-            /* .linefeed_id     = */ linefeed_id,
-            /* .penalty_last_n  = */ penalty_last_n,
-            /* .penalty_repeat  = */ penalty_repeat,
-            /* .penalty_freq    = */ penalty_freq,
-            /* .penalty_present = */ penalty_present,
-            /* .dry_penalty_last_n = */ dry_penalty_last_n,
-            /* .dry_base        = */ dry_base,
-            /* .dry_multiplier  = */ dry_multiplier,
-            /* .dry_allowed_length = */ dry_allowed_length,
-            /* .dry_seq_breakers = */ std::vector<llama_token>(dry_seq_breakers, dry_seq_breakers + dry_seq_breakers_size),
-            /* .penalize_nl     = */ penalize_nl,
-            /* .ignore_eos      = */ ignore_eos,
-            /* .prev            = */ ring_buffer<llama_token>(penalty_last_n),
-        },
+            /* .iface = */ &llama_sampler_penalties_i,
+            /* .ctx   = */ new llama_sampler_penalties {
+                    /* .n_vocab         = */ n_vocab,
+                    /* .special_eos_id  = */ special_eos_id,
+                    /* .linefeed_id     = */ linefeed_id,
+                    /* .penalty_last_n  = */ penalty_last_n,
+                    /* .penalty_repeat  = */ penalty_repeat,
+                    /* .penalty_freq    = */ penalty_freq,
+                    /* .penalty_present = */ penalty_present,
+                    /* .penalize_nl     = */ penalize_nl,
+                    /* .ignore_eos      = */ ignore_eos,
+                    /* .prev            = */ ring_buffer<llama_token>(penalty_last_n),
+            },
     };
 }
 
@@ -2128,12 +1990,12 @@ static void llama_sampler_dry_free(struct llama_sampler * smpl) {
 }
 
 static struct llama_sampler_i llama_sampler_dry_i = {
-    /* .name   = */ llama_sampler_dry_name,
-    /* .accept = */ llama_sampler_dry_accept,
-    /* .apply  = */ llama_sampler_dry_apply,
-    /* .reset  = */ llama_sampler_dry_reset,
-    /* .clone  = */ llama_sampler_dry_clone,
-    /* .free   = */ llama_sampler_dry_free,
+        /* .name   = */ llama_sampler_dry_name,
+        /* .accept = */ llama_sampler_dry_accept,
+        /* .apply  = */ llama_sampler_dry_apply,
+        /* .reset  = */ llama_sampler_dry_reset,
+        /* .clone  = */ llama_sampler_dry_clone,
+        /* .free   = */ llama_sampler_dry_free,
 };
 
 struct llama_sampler * llama_sampler_init_dry_impl(const struct llama_vocab & vocab, int32_t context_size, float dry_multiplier, float dry_base, int32_t dry_allowed_length, int32_t dry_penalty_last_n, const char** seq_breakers, size_t num_breakers) {
@@ -2168,18 +2030,18 @@ struct llama_sampler * llama_sampler_init_dry_impl(const struct llama_vocab & vo
     }
 
     return new llama_sampler {
-        /* .iface = */ &llama_sampler_dry_i,
-        /* .ctx   = */ new llama_sampler_dry {
-            /* .total_context_size     = */ context_size,
-            /* .dry_multiplier         = */ dry_multiplier,
-            /* .dry_base               = */ dry_base,
-            /* .dry_allowed_length     = */ dry_allowed_length,
-            /* .dry_penalty_last_n     = */ dry_penalty_last_n,
-            /* .dry_processed_breakers = */ std::move(processed_breakers),
-            /* .dry_repeat_count       = */ dry_enabled ? std::vector<int>(effective_dry_penalty_last_n, 0) : std::vector<int>{},
-            /* .dry_max_token_repeat   = */ {},
-            /* .last_tokens            = */ dry_enabled ? ring_buffer<llama_token>(effective_dry_penalty_last_n) : ring_buffer<llama_token>(0),
-        },
+            /* .iface = */ &llama_sampler_dry_i,
+            /* .ctx   = */ new llama_sampler_dry {
+                    /* .total_context_size     = */ context_size,
+                    /* .dry_multiplier         = */ dry_multiplier,
+                    /* .dry_base               = */ dry_base,
+                    /* .dry_allowed_length     = */ dry_allowed_length,
+                    /* .dry_penalty_last_n     = */ dry_penalty_last_n,
+                    /* .dry_processed_breakers = */ std::move(processed_breakers),
+                    /* .dry_repeat_count       = */ dry_enabled ? std::vector<int>(effective_dry_penalty_last_n, 0) : std::vector<int>{},
+                    /* .dry_max_token_repeat   = */ {},
+                    /* .last_tokens            = */ dry_enabled ? ring_buffer<llama_token>(effective_dry_penalty_last_n) : ring_buffer<llama_token>(0),
+            },
     };
 }
 
@@ -2269,25 +2131,25 @@ static void llama_sampler_logit_bias_free(struct llama_sampler * smpl) {
 }
 
 static struct llama_sampler_i llama_sampler_logit_bias_i = {
-    /* .name   = */ llama_sampler_logit_bias_name,
-    /* .accept = */ nullptr,
-    /* .apply  = */ llama_sampler_logit_bias_apply,
-    /* .reset  = */ nullptr,
-    /* .clone  = */ llama_sampler_logit_bias_clone,
-    /* .free   = */ llama_sampler_logit_bias_free,
+        /* .name   = */ llama_sampler_logit_bias_name,
+        /* .accept = */ nullptr,
+        /* .apply  = */ llama_sampler_logit_bias_apply,
+        /* .reset  = */ nullptr,
+        /* .clone  = */ llama_sampler_logit_bias_clone,
+        /* .free   = */ llama_sampler_logit_bias_free,
 };
 
 struct llama_sampler * llama_sampler_init_logit_bias(
-                         int32_t   n_vocab,
-                         int32_t   n_logit_bias,
-          const llama_logit_bias * logit_bias) {
+        int32_t   n_vocab,
+        int32_t   n_logit_bias,
+        const llama_logit_bias * logit_bias) {
     return new llama_sampler {
-        /* .iface = */ &llama_sampler_logit_bias_i,
-        /* .ctx   = */ new llama_sampler_logit_bias {
-            /* .n_vocab    = */ n_vocab,
-            /* .logit_bias = */ std::vector<llama_logit_bias>(logit_bias, logit_bias + n_logit_bias),
-            /* .to_search  = */ {},
-        },
+            /* .iface = */ &llama_sampler_logit_bias_i,
+            /* .ctx   = */ new llama_sampler_logit_bias {
+                    /* .n_vocab    = */ n_vocab,
+                    /* .logit_bias = */ std::vector<llama_logit_bias>(logit_bias, logit_bias + n_logit_bias),
+                    /* .to_search  = */ {},
+            },
     };
 }
 
@@ -2494,23 +2356,23 @@ static void llama_sampler_infill_free(struct llama_sampler * smpl) {
 }
 
 static struct llama_sampler_i llama_sampler_infill_i = {
-    /* .name   = */ llama_sampler_infill_name,
-    /* .accept = */ nullptr,
-    /* .apply  = */ llama_sampler_infill_apply,
-    /* .reset  = */ nullptr,
-    /* .clone  = */ llama_sampler_infill_clone,
-    /* .free   = */ llama_sampler_infill_free,
+        /* .name   = */ llama_sampler_infill_name,
+        /* .accept = */ nullptr,
+        /* .apply  = */ llama_sampler_infill_apply,
+        /* .reset  = */ nullptr,
+        /* .clone  = */ llama_sampler_infill_clone,
+        /* .free   = */ llama_sampler_infill_free,
 };
 
 struct llama_sampler * llama_sampler_init_infill_impl(
         const struct llama_vocab & vocab) {
     return new llama_sampler {
-        /* .iface = */ &llama_sampler_infill_i,
-        /* .ctx   = */ new llama_sampler_infill {
-            /* .vocab = */ &vocab,
-            /* .buf0 = */ std::vector<char>(512),
-            /* .buf1 = */ std::vector<char>(512),
-        },
+            /* .iface = */ &llama_sampler_infill_i,
+            /* .ctx   = */ new llama_sampler_infill {
+                    /* .vocab = */ &vocab,
+                    /* .buf0 = */ std::vector<char>(512),
+                    /* .buf1 = */ std::vector<char>(512),
+            },
     };
 }
 
@@ -2563,7 +2425,7 @@ void llama_perf_sampler_print(const struct llama_sampler * chain) {
     const auto data = llama_perf_sampler(chain);
 
     LLAMA_LOG_INFO("%s:    sampling time = %10.2f ms / %5d runs   (%8.2f ms per token, %8.2f tokens per second)\n",
-            __func__, data.t_sample_ms, data.n_sample, data.t_sample_ms / data.n_sample, 1e3 / data.t_sample_ms * data.n_sample);
+                   __func__, data.t_sample_ms, data.n_sample, data.t_sample_ms / data.n_sample, 1e3 / data.t_sample_ms * data.n_sample);
 }
 
 void llama_perf_sampler_reset(struct llama_sampler * chain) {
