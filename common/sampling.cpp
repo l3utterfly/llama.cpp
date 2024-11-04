@@ -266,10 +266,14 @@ void common_sampler_reset(struct common_sampler * gsmpl) {
     llama_sampler_reset(gsmpl->chain);
 }
 
-void common_sampler_reset_grammar(struct common_sampler * gsmpl) {
+void common_sampler_reinit_grammar(struct common_sampler * gsmpl, const struct llama_model * model, const char * grammar) {
     llama_sampler_reset(gsmpl->grmr);
 
-    llama_sampler_reset(gsmpl->chain);
+    gsmpl->grmr = llama_sampler_init_grammar(model, grammar, "root");
+}
+
+void common_sampler_reset_grammar(struct common_sampler * gsmpl) {
+    llama_sampler_reset(gsmpl->grmr);
 }
 
 struct common_sampler * common_sampler_clone(common_sampler * gsmpl) {

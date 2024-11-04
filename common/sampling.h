@@ -43,6 +43,7 @@ void common_sampler_free(struct common_sampler * gsmpl);
 // if accept_grammar is true, the token is accepted both by the sampling chain and the grammar
 void                    common_sampler_accept(struct common_sampler * gsmpl, llama_token token, bool accept_grammar);
 void                    common_sampler_reset (struct common_sampler * gsmpl);
+void                    common_sampler_reinit_grammar(struct common_sampler * gsmpl, const struct llama_model * model, const char * grammar);
 void                    common_sampler_reset_grammar(struct common_sampler * gsmpl);
 struct common_sampler * common_sampler_clone (struct common_sampler * gsmpl);
 
