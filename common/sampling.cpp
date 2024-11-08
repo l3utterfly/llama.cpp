@@ -387,8 +387,8 @@ std::string common_sampler_prev_str(common_sampler * gsmpl, llama_context * ctx_
     return result;
 }
 
-const std::vector<llama_token>& common_sampler_prev(common_sampler * gsmpl) {
-    return gsmpl->prev.data;
+const std::vector<llama_token> common_sampler_prev(common_sampler * gsmpl) {
+    return gsmpl->prev.to_vector();
 }
 
 void common_sampler_rollback(common_sampler * gsmpl, int rollback_num) {

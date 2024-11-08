@@ -77,7 +77,7 @@ std::string common_sampler_print(const struct common_sampler * gsmpl);
 
 // get a string representation of the last accepted tokens
 std::string common_sampler_prev_str(common_sampler * gsmpl, llama_context * ctx, int n);
-const std::vector<llama_token>& common_sampler_prev(common_sampler * gsmpl);
+const std::vector<llama_token> common_sampler_prev(common_sampler * gsmpl);
 void common_sampler_rollback(common_sampler * gsmpl, int rollback_num);
 
 char        common_sampler_type_to_chr(enum common_sampler_type cnstr);
