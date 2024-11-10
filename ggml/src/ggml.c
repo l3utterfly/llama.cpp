@@ -556,6 +556,16 @@ FILE * ggml_fopen(const char * fname, const char * mode) {
 
     return file;
 #else
+    // if file does not have a path, we assume it's a file descriptor
+    if (strchr(fname, '/') == NULL) {
+        char *endptr;
+        long num = strtol(fname, &endptr, 10);
+        FILE *file = fdopen(dup(num), mode);
+
+        if (file != NULL) {
+            return file;
+        } 
+    }
     return fopen(fname, mode);
 #endif
 
