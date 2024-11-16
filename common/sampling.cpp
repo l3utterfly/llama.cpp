@@ -60,6 +60,17 @@ struct ring_buffer {
         return value;
     }
 
+    T pop_back() {
+        if (sz == 0) {
+            throw std::runtime_error("ring buffer is empty");
+        }
+        // Move pos backwards, wrapping around if necessary
+        pos = (pos == 0) ? capacity - 1 : pos - 1;
+        T value = data[pos];
+        sz--;
+        return value;
+    }
+
     const T & rat(size_t i) const {
         if (i >= sz) {
             throw std::runtime_error("ring buffer: index out of bounds");
@@ -163,15 +174,15 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
 
     llama_sampler_chain_add(result->chain,
             llama_sampler_init_penalties(
-                llama_n_vocab  (model),
-                llama_token_eos(model),
-                llama_token_nl (model),
-                params.penalty_last_n,
-                params.penalty_repeat,
-                params.penalty_freq,
-                params.penalty_present,
-                params.penalize_nl,
-                params.ignore_eos));
+                    llama_n_vocab  (model),
+                    llama_token_eos(model),
+                    llama_token_nl (model),
+                    params.penalty_last_n,
+                    params.penalty_repeat,
+                    params.penalty_freq,
+                    params.penalty_present,
+                    params.penalize_nl,
+                    params.ignore_eos));
 
     if (params.mirostat == 0) {
         for (const auto & cnstr : params.samplers) {
@@ -250,6 +261,16 @@ void common_sampler_reset(struct common_sampler * gsmpl) {
     llama_sampler_reset(gsmpl->grmr);
 
     llama_sampler_reset(gsmpl->chain);
+}
+
+void common_sampler_reinit_grammar(struct common_sampler * gsmpl, const struct llama_model * model, const char * grammar) {
+    llama_sampler_reset(gsmpl->grmr);
+
+    gsmpl->grmr = llama_sampler_init_grammar(model, grammar, "root");
+}
+
+void common_sampler_reset_grammar(struct common_sampler * gsmpl) {
+    llama_sampler_reset(gsmpl->grmr);
 }
 
 struct common_sampler * common_sampler_clone(common_sampler * gsmpl) {
@@ -364,6 +385,21 @@ std::string common_sampler_prev_str(common_sampler * gsmpl, llama_context * ctx_
     }
 
     return result;
+}
+
+const std::vector<llama_token> common_sampler_prev(common_sampler * gsmpl) {
+    return gsmpl->prev.to_vector();
+}
+
+void common_sampler_rollback(common_sampler * gsmpl, int rollback_num) {
+    if(rollback_num > gsmpl->prev.size()) {
+        rollback_num = gsmpl->prev.size();
+    }
+
+    // continuously pop the last token
+    for(int i = 0; i < rollback_num; i++) {
+        gsmpl->prev.pop_back();
+    }
 }
 
 char common_sampler_type_to_chr(enum common_sampler_type cnstr) {
