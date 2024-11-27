@@ -43,6 +43,8 @@ void common_sampler_free(struct common_sampler * gsmpl);
 // if accept_grammar is true, the token is accepted both by the sampling chain and the grammar
 void                    common_sampler_accept(struct common_sampler * gsmpl, llama_token token, bool accept_grammar);
 void                    common_sampler_reset (struct common_sampler * gsmpl);
+void                    common_sampler_reinit_grammar(struct common_sampler * gsmpl, const struct llama_model * model, const char * grammar);
+void                    common_sampler_reset_grammar(struct common_sampler * gsmpl);
 struct common_sampler * common_sampler_clone (struct common_sampler * gsmpl);
 
 // arguments can be nullptr to skip printing
@@ -96,6 +98,8 @@ std::string common_sampler_print(const struct common_sampler * gsmpl);
 
 // get a string representation of the last accepted tokens
 std::string common_sampler_prev_str(common_sampler * gsmpl, llama_context * ctx, int n);
+const std::vector<llama_token> common_sampler_prev(common_sampler * gsmpl);
+void common_sampler_rollback(common_sampler * gsmpl, int rollback_num);
 
 char        common_sampler_type_to_chr(enum common_sampler_type cnstr);
 std::string common_sampler_type_to_str(enum common_sampler_type cnstr);

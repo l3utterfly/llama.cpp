@@ -224,6 +224,14 @@ add_library(ggml-base
             ggml-aarch64.c
             ggml-aarch64.h)
 
+# Search for the 'log' library on Android
+if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Android")
+    find_library(log-lib log)
+    set(GGML_EXTRA_LIBS     ${GGML_EXTRA_LIBS}     ${log-lib})
+
+    target_link_libraries(ggml-base PUBLIC ${GGML_EXTRA_LIBS})
+endif()
+
 target_include_directories(ggml-base PRIVATE .)
 
 add_library(ggml

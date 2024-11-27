@@ -74,7 +74,6 @@ autogen-*.md
 !.github/workflows/*.yml
 
 # Models
-
 models/*
 models-mnt
 !models/.editorconfig

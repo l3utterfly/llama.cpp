@@ -161,6 +161,24 @@ static void ggml_print_backtrace(void) {
 }
 #endif
 
+#if defined(__ANDROID__)
+#include <android/log.h>
+
+void ggml_abort(const char * file, int line, const char * fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    
+    char message[1024];  // Adjust size as needed
+    vsnprintf(message, sizeof(message), fmt, args);
+    
+    __android_log_print(ANDROID_LOG_ERROR, "GGML", "%s:%d: %s", file, line, message);
+    
+    va_end(args);
+
+    ggml_print_backtrace();  // You may need to modify this function as well
+    abort();
+}
+#else
 void ggml_abort(const char * file, int line, const char * fmt, ...) {
     fflush(stdout);
 
@@ -176,6 +194,7 @@ void ggml_abort(const char * file, int line, const char * fmt, ...) {
     ggml_print_backtrace();
     abort();
 }
+#endif
 
 //
 // logging
@@ -550,6 +569,16 @@ FILE * ggml_fopen(const char * fname, const char * mode) {
 
     return file;
 #else
+    // if file does not have a path, we assume it's a file descriptor
+    if (strchr(fname, '/') == NULL) {
+        char *endptr;
+        long num = strtol(fname, &endptr, 10);
+        FILE *file = fdopen(dup(num), mode);
+
+        if (file != NULL) {
+            return file;
+        } 
+    }
     return fopen(fname, mode);
 #endif
 
