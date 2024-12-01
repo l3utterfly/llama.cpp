@@ -269,10 +269,6 @@ void common_sampler_reinit_grammar(struct common_sampler * gsmpl, const struct l
     gsmpl->grmr = llama_sampler_init_grammar(model, grammar, "root");
 }
 
-void common_sampler_reset_grammar(struct common_sampler * gsmpl) {
-    llama_sampler_reset(gsmpl->grmr);
-}
-
 struct common_sampler * common_sampler_clone(common_sampler * gsmpl) {
     return new common_sampler {
         /* .params = */ gsmpl->params,
