@@ -167,23 +167,11 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
     };
 
     llama_sampler_chain_add(result->chain,
-            llama_sampler_init_logit_bias(
+        llama_sampler_init_logit_bias(
                 llama_n_vocab(model),
                 params.logit_bias.size(),
                 params.logit_bias.data()));
 
-    llama_sampler_chain_add(result->chain,
-            llama_sampler_init_penalties(
-                    llama_n_vocab  (model),
-                    llama_token_eos(model),
-                    llama_token_nl (model),
-                    params.penalty_last_n,
-                    params.penalty_repeat,
-                    params.penalty_freq,
-                    params.penalty_present,
-                    params.penalize_nl,
-                    params.ignore_eos));
-  
     if (params.mirostat == 0) {
         for (const auto & cnstr : params.samplers) {
             switch (cnstr) {
