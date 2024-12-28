@@ -1,0 +1,3 @@
+root       ::= record
+record     ::= "Event: " string "\n" "Date: " string "\n" "Time: " string "\n"
+string     ::= "" [ -~]* ""
