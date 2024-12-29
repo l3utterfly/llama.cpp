@@ -5,7 +5,7 @@ endif()
 #    set(BLA_SIZEOF_INTEGER 8)
 #endif()
 
-if(${GGML_BLAS_VENDOR} MATCHES "LocalOpenBLAS")
+if(ANDROID AND ${GGML_BLAS_VENDOR} MATCHES "Generic")
     message(STATUS "Using local BLAS, Includes: ${BLAS_INCLUDE_DIRS}")
 
     ggml_add_backend_library(ggml-blas

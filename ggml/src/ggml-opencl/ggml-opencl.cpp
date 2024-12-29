@@ -25,6 +25,7 @@
 #include <vector>
 #include <string>
 #include <cmath>
+#include <dlfcn.h>
 
 #undef MIN
 #undef MAX
@@ -309,7 +310,8 @@ static ggml_backend_opencl_context * ggml_cl2_init(ggml_backend_dev_t dev) {
     struct cl_device * default_device = NULL;
 
     cl_platform_id platform_ids[NPLAT];
-    if (clGetPlatformIDs(NPLAT, platform_ids, &n_platforms) != CL_SUCCESS) {
+    auto clGetPlatformIDResult = clGetPlatformIDs(NPLAT, platform_ids, &n_platforms);
+    if (clGetPlatformIDResult != CL_SUCCESS) {
         GGML_LOG_ERROR("ggml_opencl: plaform IDs not available.\n");
         return backend_ctx;
     }
