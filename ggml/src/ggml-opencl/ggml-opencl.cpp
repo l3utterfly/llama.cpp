@@ -441,9 +441,31 @@ static ggml_backend_opencl_context * ggml_cl2_init(ggml_backend_dev_t dev) {
     dev_ctx->device = default_device->id;
     backend_ctx->device = default_device->id;
 
+    // A local ref of cl_device_id for convenience
+    cl_device_id device = backend_ctx->device;
+
+    // Check device OpenCL version, OpenCL 2.0 or above is required
+    size_t device_ver_str_size;
+    clGetDeviceInfo(device, CL_DEVICE_VERSION, 0, NULL, &device_ver_str_size);
+    char *device_ver_buffer = (char *)alloca(device_ver_str_size + 1);
+    clGetDeviceInfo(device, CL_DEVICE_VERSION, device_ver_str_size, device_ver_buffer, NULL);
+    device_ver_buffer[device_ver_str_size] = '\0';
+    GGML_LOG_INFO("ggml_opencl: device OpenCL version: %s\n", device_ver_buffer);
+
+    if (strstr(device_ver_buffer, "OpenCL 2") == NULL &&
+        strstr(device_ver_buffer, "OpenCL 3") == NULL) {
+        GGML_LOG_ERROR("ggml_opencl: OpenCL 2.0 or above is required\n");
+        return backend_ctx;
+    }
+
     if (strstr(default_device->name, "Adreno")) {
         backend_ctx->gpu_family = GPU_FAMILY::ADRENO;
         backend_ctx->adreno_gen = get_adreno_gpu_gen(default_device->name);
+
+        // we check the device version buffer if we cannot detect it from name
+        if (backend_ctx->adreno_gen == ADRENO_GPU_GEN::ADRENO_UNKNOWN) {
+            backend_ctx->adreno_gen = get_adreno_gpu_gen(device_ver_buffer);
+        }
 
         // Default wave size is 128, A8x uses 64.
         if (backend_ctx->adreno_gen == ADRENO_GPU_GEN::A8X) {
@@ -478,23 +500,6 @@ static ggml_backend_opencl_context * ggml_cl2_init(ggml_backend_dev_t dev) {
     dev_ctx->platform_name = default_device->platform->name;
     dev_ctx->device_name = default_device->name;
     backend_ctx->device_name = default_device->name;
-
-    // A local ref of cl_device_id for convenience
-    cl_device_id device = backend_ctx->device;
-
-    // Check device OpenCL version, OpenCL 2.0 or above is required
-    size_t device_ver_str_size;
-    clGetDeviceInfo(device, CL_DEVICE_VERSION, 0, NULL, &device_ver_str_size);
-    char *device_ver_buffer = (char *)alloca(device_ver_str_size + 1);
-    clGetDeviceInfo(device, CL_DEVICE_VERSION, device_ver_str_size, device_ver_buffer, NULL);
-    device_ver_buffer[device_ver_str_size] = '\0';
-    GGML_LOG_INFO("ggml_opencl: device OpenCL version: %s\n", device_ver_buffer);
-
-    if (strstr(device_ver_buffer, "OpenCL 2") == NULL &&
-        strstr(device_ver_buffer, "OpenCL 3") == NULL) {
-        GGML_LOG_ERROR("ggml_opencl: OpenCL 2.0 or above is required\n");
-        return backend_ctx;
-    }
 
     // Check driver version
     size_t driver_version_str_size;

@@ -236,12 +236,44 @@ void ggml_log_internal(enum ggml_log_level level, const char * format, ...) {
     va_end(args);
 }
 
+#ifdef __ANDROID__
+#include <android/log.h>
+
+void ggml_log_callback_default(enum ggml_log_level level, const char * text, void * user_data) {
+    (void) user_data;
+    
+    android_LogPriority priority;
+    const char* tag = "GGML";
+    
+    // Map GGML log levels to Android log priorities
+    switch (level) {
+        case GGML_LOG_LEVEL_ERROR:
+            priority = ANDROID_LOG_ERROR;
+            break;
+        case GGML_LOG_LEVEL_WARN:
+            priority = ANDROID_LOG_WARN;
+            break;
+        case GGML_LOG_LEVEL_INFO:
+            priority = ANDROID_LOG_INFO;
+            break;
+        default:
+            priority = ANDROID_LOG_DEBUG;
+            break;
+    }
+    
+    __android_log_write(priority, tag, text);
+}
+
+#else
+
 void ggml_log_callback_default(enum ggml_log_level level, const char * text, void * user_data) {
     (void) level;
     (void) user_data;
     fputs(text, stderr);
     fflush(stderr);
 }
+
+#endif
 
 //
 // end of logging block
