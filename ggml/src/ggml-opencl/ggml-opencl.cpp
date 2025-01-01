@@ -309,12 +309,16 @@ static ggml_backend_opencl_context * ggml_cl2_init(ggml_backend_dev_t dev) {
     unsigned n_devices = 0;
     struct cl_device * default_device = NULL;
 
+    GGML_LOG_INFO("ggml_opencl: getting opencl platform IDs...\n");
+
     cl_platform_id platform_ids[NPLAT];
     auto clGetPlatformIDResult = clGetPlatformIDs(NPLAT, platform_ids, &n_platforms);
     if (clGetPlatformIDResult != CL_SUCCESS) {
-        GGML_LOG_ERROR("ggml_opencl: plaform IDs not available.\n");
+        GGML_LOG_ERROR("ggml_opencl: platform IDs not available: %d.\n", clGetPlatformIDResult);
         return backend_ctx;
     }
+
+    GGML_LOG_INFO("ggml_opencl: found %d platforms", n_platforms);
 
     for (unsigned i = 0; i < n_platforms; i++) {
         struct cl_platform * p = &platforms[i];
