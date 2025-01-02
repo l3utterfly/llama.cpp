@@ -202,6 +202,7 @@ extern "C" {
     //
     // Backend registry
     //
+    GGML_API void               ggml_backend_reg_layla(bool useVulkan, bool useOpenCL);
 
     // Backend (reg) enumeration
     GGML_API size_t             ggml_backend_reg_count(void);
