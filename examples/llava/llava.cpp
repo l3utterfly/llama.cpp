@@ -101,8 +101,6 @@ static struct clip_image_grid_shape get_anyres_image_grid_shape(const std::pair<
 
 // Take the image segments in a grid configuration and return the embeddings and the number of embeddings into preallocated memory (image_embd_out)
 static bool clip_llava_handle_patches(clip_ctx * ctx_clip, std::vector<float *> & image_embd_v, struct clip_image_grid_shape grid_shape, float * image_embd_out, int * n_img_pos_out) {
-    throw new std::runtime_error("Not implemented");
-
     struct {
         struct ggml_context * ctx;
     } model;
