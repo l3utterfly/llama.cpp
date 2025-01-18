@@ -1111,6 +1111,8 @@ static ggml_cgraph * clip_image_build_graph(clip_ctx * ctx, const clip_image_f32
 
 // read and create ggml_context containing the tensors and their data
 struct clip_ctx * clip_model_load(const char * fname, const int verbosity = 1) {
+    throw new std::runtime_error("Not implemented");
+
     struct ggml_context * meta = NULL;
 
     struct gguf_init_params params = {
@@ -2444,6 +2446,8 @@ bool clip_image_encode(struct clip_ctx * ctx, const int n_threads, clip_image_f3
 }
 
 bool clip_image_batch_encode(clip_ctx * ctx, const int n_threads, const clip_image_f32_batch * imgs, float * vec) {
+    throw new std::runtime_error("Not implemented");
+
     if (!ctx->has_vision_encoder) {
         LOG_ERR("This gguf file seems to have no vision encoder\n");
         return false;

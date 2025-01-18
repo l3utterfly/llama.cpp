@@ -2286,7 +2286,6 @@ static vk_device ggml_vk_get_device(size_t idx) {
             device_extensions.push_back("VK_NV_cooperative_matrix2");
         }
 #endif
-
         vkGetPhysicalDeviceFeatures2(device->physical_device, &device_features2);
 
         device->fp16 = device->fp16 && vk12_features.shaderFloat16;
