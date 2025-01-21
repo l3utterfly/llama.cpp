@@ -2277,7 +2277,7 @@ static vk_device ggml_vk_get_device(size_t idx) {
             device_extensions.push_back("VK_NV_cooperative_matrix2");
         }
 #endif
-
+      
         VkPhysicalDeviceMaintenance4Features maint4_features {};
         maint4_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_4_FEATURES;
         if (maintenance4_support) {
@@ -2285,7 +2285,7 @@ static vk_device ggml_vk_get_device(size_t idx) {
             last_struct = (VkBaseOutStructure *)&maint4_features;
             device_extensions.push_back("VK_KHR_maintenance4");
         }
-
+      
         vkGetPhysicalDeviceFeatures2(device->physical_device, &device_features2);
 
         device->fp16 = device->fp16 && vk12_features.shaderFloat16;

@@ -19,21 +19,28 @@ if (Vulkan_FOUND)
     message(STATUS "Vulkan found")
 
     ggml_add_backend_library(ggml-vulkan
-                             ggml-vulkan.cpp
-                             ../../include/ggml-vulkan.h
-                            )
+            ggml-vulkan.cpp
+            ../../include/ggml-vulkan.h
+    )
+
+    target_include_directories(ggml-vulkan PRIVATE
+            $ENV{VULKAN_SDK}/Include
+    )
+    target_compile_definitions(ggml-vulkan PRIVATE
+            VK_USE_PLATFORM_ANDROID_KHR
+    )
 
     # Compile a test shader to determine whether GL_KHR_cooperative_matrix is supported.
     # If it's not, there will be an error to stderr.
     # If it's supported, set a define to indicate that we should compile those shaders
     execute_process(COMMAND ${Vulkan_GLSLC_EXECUTABLE} -o - -fshader-stage=compute --target-env=vulkan1.3 "${CMAKE_CURRENT_SOURCE_DIR}/vulkan-shaders/test_coopmat_support.comp"
-                    OUTPUT_VARIABLE glslc_output
-                    ERROR_VARIABLE glslc_error)
+            OUTPUT_VARIABLE glslc_output
+            ERROR_VARIABLE glslc_error)
 
     if (${glslc_error} MATCHES ".*extension not supported: GL_KHR_cooperative_matrix.*")
-        message(STATUS "GL_KHR_cooperative_matrix not supported by glslc")
+        message( "GL_KHR_cooperative_matrix not supported by glslc")
     else()
-        message(STATUS "GL_KHR_cooperative_matrix supported by glslc")
+        message( "GL_KHR_cooperative_matrix supported by glslc")
         add_compile_definitions(GGML_VULKAN_COOPMAT_GLSLC_SUPPORT)
     endif()
 
@@ -41,13 +48,13 @@ if (Vulkan_FOUND)
     # If it's not, there will be an error to stderr.
     # If it's supported, set a define to indicate that we should compile those shaders
     execute_process(COMMAND ${Vulkan_GLSLC_EXECUTABLE} -o - -fshader-stage=compute --target-env=vulkan1.3 "${CMAKE_CURRENT_SOURCE_DIR}/vulkan-shaders/test_coopmat2_support.comp"
-                    OUTPUT_VARIABLE glslc_output
-                    ERROR_VARIABLE glslc_error)
+            OUTPUT_VARIABLE glslc_output
+            ERROR_VARIABLE glslc_error)
 
     if (${glslc_error} MATCHES ".*extension not supported: GL_NV_cooperative_matrix2.*")
-        message(STATUS "GL_NV_cooperative_matrix2 not supported by glslc")
+        message( "GL_NV_cooperative_matrix2 not supported by glslc")
     else()
-        message(STATUS "GL_NV_cooperative_matrix2 supported by glslc")
+        message( "GL_NV_cooperative_matrix2 supported by glslc")
         add_compile_definitions(GGML_VULKAN_COOPMAT2_GLSLC_SUPPORT)
     endif()
 
@@ -94,7 +101,7 @@ if (Vulkan_FOUND)
             foreach(CONFIG ${CMAKE_CONFIGURATION_TYPES})
                 string(TOUPPER ${CONFIG} CONFIG)
                 set_target_properties(vulkan-shaders-gen PROPERTIES
-                    RUNTIME_OUTPUT_DIRECTORY_${CONFIG} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+                        RUNTIME_OUTPUT_DIRECTORY_${CONFIG} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
             endforeach()
         endif()
     else()
@@ -115,13 +122,13 @@ if (Vulkan_FOUND)
         include(ExternalProject)
         # Native build through ExternalProject_Add
         ExternalProject_Add(
-            vulkan-shaders-gen
-            SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/vulkan-shaders
-            CMAKE_ARGS -DCMAKE_TOOLCHAIN_FILE=${HOST_CMAKE_TOOLCHAIN_FILE}
-                    -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}
-            BUILD_COMMAND ${CMAKE_COMMAND} --build .
-            INSTALL_COMMAND ${CMAKE_COMMAND} --install .
-            INSTALL_DIR ${CMAKE_BINARY_DIR}
+                vulkan-shaders-gen
+                SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/vulkan-shaders
+                CMAKE_ARGS -DCMAKE_TOOLCHAIN_FILE=${HOST_CMAKE_TOOLCHAIN_FILE}
+                -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}
+                BUILD_COMMAND ${CMAKE_COMMAND} --build .
+                INSTALL_COMMAND ${CMAKE_COMMAND} --install .
+                INSTALL_DIR ${CMAKE_BINARY_DIR}
         )
         ExternalProject_Add_StepTargets(vulkan-shaders-gen build install)
     endif()
@@ -140,10 +147,10 @@ if (Vulkan_FOUND)
     endif()
 
     add_custom_command(
-        OUTPUT ${_ggml_vk_header}
-                ${_ggml_vk_source}
+            OUTPUT ${_ggml_vk_header}
+            ${_ggml_vk_source}
 
-        COMMAND ${_ggml_vk_genshaders_cmd}
+            COMMAND ${_ggml_vk_genshaders_cmd}
             --glslc      ${Vulkan_GLSLC_EXECUTABLE}
             --input-dir  ${_ggml_vk_input_dir}
             --output-dir ${_ggml_vk_output_dir}
@@ -151,11 +158,14 @@ if (Vulkan_FOUND)
             --target-cpp ${_ggml_vk_source}
             --no-clean
 
-        DEPENDS ${_ggml_vk_shader_deps}
-        COMMENT "Generate vulkan shaders"
+            DEPENDS ${_ggml_vk_shader_deps}
+            COMMENT "Generate vulkan shaders"
     )
 
-    target_sources(ggml-vulkan PRIVATE ${_ggml_vk_source} ${_ggml_vk_header})
+    # target_sources(ggml-vulkan PRIVATE ${_ggml_vk_source} ${_ggml_vk_header})
+
+    # we pre-generate the vulkan shaders since we are cross compiling for Android
+    target_sources(ggml-vulkan PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/ggml-vulkan-shaders.cpp ${CMAKE_CURRENT_SOURCE_DIR}/ggml-vulkan-shaders.hpp)
 
 else()
     message(WARNING "Vulkan not found")

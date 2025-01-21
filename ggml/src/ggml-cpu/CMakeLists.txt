@@ -141,21 +141,24 @@ function(ggml_add_cpu_backend_variant_impl tag_name)
                 set(FEAT_INPUT_FILE "/dev/null")
             endif()
 
-            execute_process(
-                COMMAND ${CMAKE_C_COMPILER} ${ARCH_FLAGS} -dM -E -
-                INPUT_FILE ${FEAT_INPUT_FILE}
-                OUTPUT_VARIABLE ARM_FEATURE
-                RESULT_VARIABLE ARM_FEATURE_RESULT
-            )
-            if (ARM_FEATURE_RESULT)
-                message(WARNING "Failed to get ARM features")
-            else()
-                foreach(feature DOTPROD SVE MATMUL_INT8 FMA FP16_VECTOR_ARITHMETIC)
-                    string(FIND "${ARM_FEATURE}" "__ARM_FEATURE_${feature} 1" feature_pos)
-                    if (NOT ${feature_pos} EQUAL -1)
-                        message(STATUS "ARM feature ${feature} enabled")
-                    endif()
-                endforeach()
+            # we cannot check for arm features dynamically if we are cross-compiling
+            if(NOT CMAKE_CROSSCOMPILING)
+                execute_process(
+                        COMMAND ${CMAKE_C_COMPILER} ${ARCH_FLAGS} -dM -E -
+                        INPUT_FILE ${FEAT_INPUT_FILE}
+                        OUTPUT_VARIABLE ARM_FEATURE
+                        RESULT_VARIABLE ARM_FEATURE_RESULT
+                )
+                if (ARM_FEATURE_RESULT)
+                    message(WARNING "Failed to get ARM features")
+                else()
+                    foreach(feature DOTPROD SVE MATMUL_INT8 FMA FP16_VECTOR_ARITHMETIC)
+                        string(FIND "${ARM_FEATURE}" "__ARM_FEATURE_${feature} 1" feature_pos)
+                        if (NOT ${feature_pos} EQUAL -1)
+                            message(STATUS "ARM feature ${feature} enabled")
+                        endif()
+                    endforeach()
+                endif()
             endif()
         endif()
     elseif (CMAKE_OSX_ARCHITECTURES STREQUAL "x86_64" OR CMAKE_GENERATOR_PLATFORM_LWR MATCHES "^(x86_64|i686|amd64|x64|win32)$" OR
