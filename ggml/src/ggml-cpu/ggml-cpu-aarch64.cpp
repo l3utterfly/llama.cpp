@@ -4229,19 +4229,19 @@ class extra_buffer_type : ggml::cpu::extra_buffer_type {
 };
 }  // namespace ggml::cpu::aarch64
 
-ggml_backend_buffer_type_t ggml_backend_cpu_aarch64_buffer_type(void) {
-    static struct ggml_backend_buffer_type ggml_backend_cpu_buffer_type_aarch64 = {
+static struct ggml_backend_buffer_type g_ggml_backend_cpu_buffer_type_aarch64 = {
         /* .iface    = */ {
-                           /* .get_name         = */ ggml_backend_cpu_aarch64_buffer_type_get_name,
-                           /* .alloc_buffer     = */ ggml_backend_cpu_aarch64_buffer_type_alloc_buffer,
-                           /* .get_alignment    = */ ggml_backend_cpu_aarch64_buffer_type_get_alignment,
-                           /* .get_max_size     = */ nullptr,  // defaults to SIZE_MAX
-                           /* .get_alloc_size   = */ nullptr,  // defaults to ggml_nbytes
-                           /* .is_host          = */ nullptr,
-                           },
+                                  /* .get_name         = */ ggml_backend_cpu_aarch64_buffer_type_get_name,
+                                  /* .alloc_buffer     = */ ggml_backend_cpu_aarch64_buffer_type_alloc_buffer,
+                                  /* .get_alignment    = */ ggml_backend_cpu_aarch64_buffer_type_get_alignment,
+                                  /* .get_max_size     = */ nullptr,  // defaults to SIZE_MAX
+                                  /* .get_alloc_size   = */ nullptr,  // defaults to ggml_nbytes
+                                  /* .is_host          = */ nullptr,
+                          },
         /* .device  = */ ggml_backend_reg_dev_get(ggml_backend_cpu_reg(), 0),
         /* .context = */ new ggml::cpu::aarch64::extra_buffer_type(),
-    };
+};
 
-    return &ggml_backend_cpu_buffer_type_aarch64;
+ggml_backend_buffer_type_t ggml_backend_cpu_aarch64_buffer_type(void) {
+    return &g_ggml_backend_cpu_buffer_type_aarch64;
 }

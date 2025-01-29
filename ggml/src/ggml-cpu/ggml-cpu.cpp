@@ -28,29 +28,28 @@
 #endif
 
 // ggml-backend interface
-
-std::vector<ggml_backend_buffer_type_t>& ggml_backend_cpu_get_extra_buffers_type() {
-    static std::vector<ggml_backend_buffer_type_t> bufts = []() {
-        std::vector<ggml_backend_buffer_type_t> bufts;
+static std::vector<ggml_backend_buffer_type_t> g_bufts = []() {
+    std::vector<ggml_backend_buffer_type_t> bufts;
 
 #if defined(__AMX_INT8__) && defined(__AVX512VNNI__)
-        if (ggml_backend_amx_buffer_type()) {
+    if (ggml_backend_amx_buffer_type()) {
             bufts.push_back(ggml_backend_amx_buffer_type());
         }
 #endif
 
 #ifdef GGML_USE_CPU_AARCH64
-        if (ggml_backend_cpu_aarch64_buffer_type()) {
-            bufts.push_back(ggml_backend_cpu_aarch64_buffer_type());
-        }
+    if (ggml_backend_cpu_aarch64_buffer_type()) {
+        bufts.push_back(ggml_backend_cpu_aarch64_buffer_type());
+    }
 #endif
 
-        bufts.push_back(NULL);
-
-        return bufts;
-    }();
+    bufts.push_back(NULL);
 
     return bufts;
+}();
+
+std::vector<ggml_backend_buffer_type_t>& ggml_backend_cpu_get_extra_buffers_type() {
+    return g_bufts;
 }
 
 static ggml_backend_buffer_type_t * ggml_backend_cpu_device_get_extra_buffers_type(ggml_backend_dev_t device) {
@@ -459,17 +458,22 @@ static size_t ggml_backend_cpu_reg_get_device_count(ggml_backend_reg_t reg) {
     GGML_UNUSED(reg);
 }
 
+// Global statics
+static ggml_backend_cpu_device_context g_cpu_ctx;
+static ggml_backend_device g_cpu_device;
+static bool g_is_initialized = false;
+
 static ggml_backend_dev_t ggml_backend_cpu_reg_get_device(ggml_backend_reg_t reg, size_t index) {
     GGML_ASSERT(index == 0);
 
-    static ggml_backend_cpu_device_context ctx;
-    static ggml_backend_device ggml_backend_cpu_device = {
-        /* .iface   = */ ggml_backend_cpu_device_i,
-        /* .reg     = */ reg,
-        /* .context = */ &ctx,
-    };
+    if (!g_is_initialized) {
+        g_cpu_device.iface = ggml_backend_cpu_device_i;
+        g_cpu_device.reg = reg;
+        g_cpu_device.context = &g_cpu_ctx;
+        g_is_initialized = true;
+    }
 
-    return &ggml_backend_cpu_device;
+    return &g_cpu_device;
 }
 
 // This is intended to replace the the ggml_cpu_has_* functions when loading the CPU backend dynamically,
