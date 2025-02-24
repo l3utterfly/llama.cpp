@@ -9,6 +9,9 @@ const uint64_t add_f16_f32_f16_len = 5984;
 extern unsigned char add_f32_data[5916];
 const uint64_t add_f32_len = 5916;
 
+extern unsigned char argmax_f32_data[2976];
+const uint64_t argmax_f32_len = 2976;
+
 extern unsigned char argsort_f32_data[4200];
 const uint64_t argsort_f32_len = 4200;
 
@@ -35,6 +38,9 @@ const uint64_t contig_cpy_f32_f32_len = 3164;
 
 extern unsigned char cos_f32_data[4708];
 const uint64_t cos_f32_len = 4708;
+
+extern unsigned char count_equal_i32_data[1788];
+const uint64_t count_equal_i32_len = 1788;
 
 extern unsigned char cpy_f16_f16_data[4704];
 const uint64_t cpy_f16_f16_len = 4704;
@@ -83,6 +89,12 @@ const uint64_t cpy_q8_0_f32_len = 11636;
 
 extern unsigned char dequant_f32_data[3224];
 const uint64_t dequant_f32_len = 3224;
+
+extern unsigned char dequant_iq1_m_data[30628];
+const uint64_t dequant_iq1_m_len = 30628;
+
+extern unsigned char dequant_iq1_s_data[29436];
+const uint64_t dequant_iq1_s_len = 29436;
 
 extern unsigned char dequant_iq2_s_data[37508];
 const uint64_t dequant_iq2_s_len = 37508;
@@ -158,6 +170,18 @@ const uint64_t get_rows_f32_len = 3312;
 
 extern unsigned char get_rows_f32_f32_data[3260];
 const uint64_t get_rows_f32_f32_len = 3260;
+
+extern unsigned char get_rows_iq1_m_data[26312];
+const uint64_t get_rows_iq1_m_len = 26312;
+
+extern unsigned char get_rows_iq1_m_f32_data[26268];
+const uint64_t get_rows_iq1_m_f32_len = 26268;
+
+extern unsigned char get_rows_iq1_s_data[25620];
+const uint64_t get_rows_iq1_s_len = 25620;
+
+extern unsigned char get_rows_iq1_s_f32_data[25604];
+const uint64_t get_rows_iq1_s_f32_len = 25604;
 
 extern unsigned char get_rows_iq2_s_data[31352];
 const uint64_t get_rows_iq2_s_len = 31352;
@@ -485,6 +509,126 @@ const uint64_t matmul_id_f32_f32_f16acc_coopmat_len = 15408;
 
 extern unsigned char matmul_id_f32_f32_fp32_data[10728];
 const uint64_t matmul_id_f32_f32_fp32_len = 10728;
+
+extern unsigned char matmul_id_iq1_m_f16_data[33700];
+const uint64_t matmul_id_iq1_m_f16_len = 33700;
+
+extern unsigned char matmul_id_iq1_m_f16_aligned_data[34332];
+const uint64_t matmul_id_iq1_m_f16_aligned_len = 34332;
+
+extern unsigned char matmul_id_iq1_m_f16_aligned_coopmat_data[40856];
+const uint64_t matmul_id_iq1_m_f16_aligned_coopmat_len = 40856;
+
+extern unsigned char matmul_id_iq1_m_f16_aligned_f16acc_data[34300];
+const uint64_t matmul_id_iq1_m_f16_aligned_f16acc_len = 34300;
+
+extern unsigned char matmul_id_iq1_m_f16_aligned_f16acc_coopmat_data[40856];
+const uint64_t matmul_id_iq1_m_f16_aligned_f16acc_coopmat_len = 40856;
+
+extern unsigned char matmul_id_iq1_m_f16_aligned_fp32_data[33808];
+const uint64_t matmul_id_iq1_m_f16_aligned_fp32_len = 33808;
+
+extern unsigned char matmul_id_iq1_m_f16_coopmat_data[39940];
+const uint64_t matmul_id_iq1_m_f16_coopmat_len = 39940;
+
+extern unsigned char matmul_id_iq1_m_f16_f16acc_data[33652];
+const uint64_t matmul_id_iq1_m_f16_f16acc_len = 33652;
+
+extern unsigned char matmul_id_iq1_m_f16_f16acc_coopmat_data[39924];
+const uint64_t matmul_id_iq1_m_f16_f16acc_coopmat_len = 39924;
+
+extern unsigned char matmul_id_iq1_m_f16_fp32_data[33612];
+const uint64_t matmul_id_iq1_m_f16_fp32_len = 33612;
+
+extern unsigned char matmul_id_iq1_m_f32_data[33700];
+const uint64_t matmul_id_iq1_m_f32_len = 33700;
+
+extern unsigned char matmul_id_iq1_m_f32_aligned_data[34444];
+const uint64_t matmul_id_iq1_m_f32_aligned_len = 34444;
+
+extern unsigned char matmul_id_iq1_m_f32_aligned_coopmat_data[40968];
+const uint64_t matmul_id_iq1_m_f32_aligned_coopmat_len = 40968;
+
+extern unsigned char matmul_id_iq1_m_f32_aligned_f16acc_data[34412];
+const uint64_t matmul_id_iq1_m_f32_aligned_f16acc_len = 34412;
+
+extern unsigned char matmul_id_iq1_m_f32_aligned_f16acc_coopmat_data[40968];
+const uint64_t matmul_id_iq1_m_f32_aligned_f16acc_coopmat_len = 40968;
+
+extern unsigned char matmul_id_iq1_m_f32_aligned_fp32_data[33716];
+const uint64_t matmul_id_iq1_m_f32_aligned_fp32_len = 33716;
+
+extern unsigned char matmul_id_iq1_m_f32_coopmat_data[39940];
+const uint64_t matmul_id_iq1_m_f32_coopmat_len = 39940;
+
+extern unsigned char matmul_id_iq1_m_f32_f16acc_data[33652];
+const uint64_t matmul_id_iq1_m_f32_f16acc_len = 33652;
+
+extern unsigned char matmul_id_iq1_m_f32_f16acc_coopmat_data[39924];
+const uint64_t matmul_id_iq1_m_f32_f16acc_coopmat_len = 39924;
+
+extern unsigned char matmul_id_iq1_m_f32_fp32_data[33568];
+const uint64_t matmul_id_iq1_m_f32_fp32_len = 33568;
+
+extern unsigned char matmul_id_iq1_s_f16_data[32944];
+const uint64_t matmul_id_iq1_s_f16_len = 32944;
+
+extern unsigned char matmul_id_iq1_s_f16_aligned_data[33592];
+const uint64_t matmul_id_iq1_s_f16_aligned_len = 33592;
+
+extern unsigned char matmul_id_iq1_s_f16_aligned_coopmat_data[39940];
+const uint64_t matmul_id_iq1_s_f16_aligned_coopmat_len = 39940;
+
+extern unsigned char matmul_id_iq1_s_f16_aligned_f16acc_data[33560];
+const uint64_t matmul_id_iq1_s_f16_aligned_f16acc_len = 33560;
+
+extern unsigned char matmul_id_iq1_s_f16_aligned_f16acc_coopmat_data[39940];
+const uint64_t matmul_id_iq1_s_f16_aligned_f16acc_coopmat_len = 39940;
+
+extern unsigned char matmul_id_iq1_s_f16_aligned_fp32_data[33052];
+const uint64_t matmul_id_iq1_s_f16_aligned_fp32_len = 33052;
+
+extern unsigned char matmul_id_iq1_s_f16_coopmat_data[39008];
+const uint64_t matmul_id_iq1_s_f16_coopmat_len = 39008;
+
+extern unsigned char matmul_id_iq1_s_f16_f16acc_data[32896];
+const uint64_t matmul_id_iq1_s_f16_f16acc_len = 32896;
+
+extern unsigned char matmul_id_iq1_s_f16_f16acc_coopmat_data[38992];
+const uint64_t matmul_id_iq1_s_f16_f16acc_coopmat_len = 38992;
+
+extern unsigned char matmul_id_iq1_s_f16_fp32_data[32856];
+const uint64_t matmul_id_iq1_s_f16_fp32_len = 32856;
+
+extern unsigned char matmul_id_iq1_s_f32_data[32960];
+const uint64_t matmul_id_iq1_s_f32_len = 32960;
+
+extern unsigned char matmul_id_iq1_s_f32_aligned_data[33720];
+const uint64_t matmul_id_iq1_s_f32_aligned_len = 33720;
+
+extern unsigned char matmul_id_iq1_s_f32_aligned_coopmat_data[40068];
+const uint64_t matmul_id_iq1_s_f32_aligned_coopmat_len = 40068;
+
+extern unsigned char matmul_id_iq1_s_f32_aligned_f16acc_data[33688];
+const uint64_t matmul_id_iq1_s_f32_aligned_f16acc_len = 33688;
+
+extern unsigned char matmul_id_iq1_s_f32_aligned_f16acc_coopmat_data[40068];
+const uint64_t matmul_id_iq1_s_f32_aligned_f16acc_coopmat_len = 40068;
+
+extern unsigned char matmul_id_iq1_s_f32_aligned_fp32_data[32988];
+const uint64_t matmul_id_iq1_s_f32_aligned_fp32_len = 32988;
+
+extern unsigned char matmul_id_iq1_s_f32_coopmat_data[39024];
+const uint64_t matmul_id_iq1_s_f32_coopmat_len = 39024;
+
+extern unsigned char matmul_id_iq1_s_f32_f16acc_data[32912];
+const uint64_t matmul_id_iq1_s_f32_f16acc_len = 32912;
+
+extern unsigned char matmul_id_iq1_s_f32_f16acc_coopmat_data[39008];
+const uint64_t matmul_id_iq1_s_f32_f16acc_coopmat_len = 39008;
+
+extern unsigned char matmul_id_iq1_s_f32_fp32_data[32840];
+const uint64_t matmul_id_iq1_s_f32_fp32_len = 32840;
 
 extern unsigned char matmul_id_iq2_s_f16_data[38648];
 const uint64_t matmul_id_iq2_s_f16_len = 38648;
@@ -1505,6 +1649,126 @@ const uint64_t matmul_id_q8_0_f32_f16acc_coopmat_len = 16028;
 
 extern unsigned char matmul_id_q8_0_f32_fp32_data[11008];
 const uint64_t matmul_id_q8_0_f32_fp32_len = 11008;
+
+extern unsigned char matmul_iq1_m_f16_data[33256];
+const uint64_t matmul_iq1_m_f16_len = 33256;
+
+extern unsigned char matmul_iq1_m_f16_aligned_data[33672];
+const uint64_t matmul_iq1_m_f16_aligned_len = 33672;
+
+extern unsigned char matmul_iq1_m_f16_aligned_coopmat_data[43636];
+const uint64_t matmul_iq1_m_f16_aligned_coopmat_len = 43636;
+
+extern unsigned char matmul_iq1_m_f16_aligned_f16acc_data[33640];
+const uint64_t matmul_iq1_m_f16_aligned_f16acc_len = 33640;
+
+extern unsigned char matmul_iq1_m_f16_aligned_f16acc_coopmat_data[43712];
+const uint64_t matmul_iq1_m_f16_aligned_f16acc_coopmat_len = 43712;
+
+extern unsigned char matmul_iq1_m_f16_aligned_fp32_data[33148];
+const uint64_t matmul_iq1_m_f16_aligned_fp32_len = 33148;
+
+extern unsigned char matmul_iq1_m_f16_coopmat_data[42960];
+const uint64_t matmul_iq1_m_f16_coopmat_len = 42960;
+
+extern unsigned char matmul_iq1_m_f16_f16acc_data[33208];
+const uint64_t matmul_iq1_m_f16_f16acc_len = 33208;
+
+extern unsigned char matmul_iq1_m_f16_f16acc_coopmat_data[43020];
+const uint64_t matmul_iq1_m_f16_f16acc_coopmat_len = 43020;
+
+extern unsigned char matmul_iq1_m_f16_fp32_data[33168];
+const uint64_t matmul_iq1_m_f16_fp32_len = 33168;
+
+extern unsigned char matmul_iq1_m_f32_data[33256];
+const uint64_t matmul_iq1_m_f32_len = 33256;
+
+extern unsigned char matmul_iq1_m_f32_aligned_data[33784];
+const uint64_t matmul_iq1_m_f32_aligned_len = 33784;
+
+extern unsigned char matmul_iq1_m_f32_aligned_coopmat_data[43748];
+const uint64_t matmul_iq1_m_f32_aligned_coopmat_len = 43748;
+
+extern unsigned char matmul_iq1_m_f32_aligned_f16acc_data[33752];
+const uint64_t matmul_iq1_m_f32_aligned_f16acc_len = 33752;
+
+extern unsigned char matmul_iq1_m_f32_aligned_f16acc_coopmat_data[43824];
+const uint64_t matmul_iq1_m_f32_aligned_f16acc_coopmat_len = 43824;
+
+extern unsigned char matmul_iq1_m_f32_aligned_fp32_data[33056];
+const uint64_t matmul_iq1_m_f32_aligned_fp32_len = 33056;
+
+extern unsigned char matmul_iq1_m_f32_coopmat_data[42960];
+const uint64_t matmul_iq1_m_f32_coopmat_len = 42960;
+
+extern unsigned char matmul_iq1_m_f32_f16acc_data[33208];
+const uint64_t matmul_iq1_m_f32_f16acc_len = 33208;
+
+extern unsigned char matmul_iq1_m_f32_f16acc_coopmat_data[43020];
+const uint64_t matmul_iq1_m_f32_f16acc_coopmat_len = 43020;
+
+extern unsigned char matmul_iq1_m_f32_fp32_data[33124];
+const uint64_t matmul_iq1_m_f32_fp32_len = 33124;
+
+extern unsigned char matmul_iq1_s_f16_data[32500];
+const uint64_t matmul_iq1_s_f16_len = 32500;
+
+extern unsigned char matmul_iq1_s_f16_aligned_data[32932];
+const uint64_t matmul_iq1_s_f16_aligned_len = 32932;
+
+extern unsigned char matmul_iq1_s_f16_aligned_coopmat_data[42720];
+const uint64_t matmul_iq1_s_f16_aligned_coopmat_len = 42720;
+
+extern unsigned char matmul_iq1_s_f16_aligned_f16acc_data[32900];
+const uint64_t matmul_iq1_s_f16_aligned_f16acc_len = 32900;
+
+extern unsigned char matmul_iq1_s_f16_aligned_f16acc_coopmat_data[42796];
+const uint64_t matmul_iq1_s_f16_aligned_f16acc_coopmat_len = 42796;
+
+extern unsigned char matmul_iq1_s_f16_aligned_fp32_data[32392];
+const uint64_t matmul_iq1_s_f16_aligned_fp32_len = 32392;
+
+extern unsigned char matmul_iq1_s_f16_coopmat_data[42028];
+const uint64_t matmul_iq1_s_f16_coopmat_len = 42028;
+
+extern unsigned char matmul_iq1_s_f16_f16acc_data[32452];
+const uint64_t matmul_iq1_s_f16_f16acc_len = 32452;
+
+extern unsigned char matmul_iq1_s_f16_f16acc_coopmat_data[42088];
+const uint64_t matmul_iq1_s_f16_f16acc_coopmat_len = 42088;
+
+extern unsigned char matmul_iq1_s_f16_fp32_data[32412];
+const uint64_t matmul_iq1_s_f16_fp32_len = 32412;
+
+extern unsigned char matmul_iq1_s_f32_data[32516];
+const uint64_t matmul_iq1_s_f32_len = 32516;
+
+extern unsigned char matmul_iq1_s_f32_aligned_data[33060];
+const uint64_t matmul_iq1_s_f32_aligned_len = 33060;
+
+extern unsigned char matmul_iq1_s_f32_aligned_coopmat_data[42848];
+const uint64_t matmul_iq1_s_f32_aligned_coopmat_len = 42848;
+
+extern unsigned char matmul_iq1_s_f32_aligned_f16acc_data[33028];
+const uint64_t matmul_iq1_s_f32_aligned_f16acc_len = 33028;
+
+extern unsigned char matmul_iq1_s_f32_aligned_f16acc_coopmat_data[42924];
+const uint64_t matmul_iq1_s_f32_aligned_f16acc_coopmat_len = 42924;
+
+extern unsigned char matmul_iq1_s_f32_aligned_fp32_data[32328];
+const uint64_t matmul_iq1_s_f32_aligned_fp32_len = 32328;
+
+extern unsigned char matmul_iq1_s_f32_coopmat_data[42044];
+const uint64_t matmul_iq1_s_f32_coopmat_len = 42044;
+
+extern unsigned char matmul_iq1_s_f32_f16acc_data[32468];
+const uint64_t matmul_iq1_s_f32_f16acc_len = 32468;
+
+extern unsigned char matmul_iq1_s_f32_f16acc_coopmat_data[42104];
+const uint64_t matmul_iq1_s_f32_f16acc_coopmat_len = 42104;
+
+extern unsigned char matmul_iq1_s_f32_fp32_data[32396];
+const uint64_t matmul_iq1_s_f32_fp32_len = 32396;
 
 extern unsigned char matmul_iq2_s_f16_data[38204];
 const uint64_t matmul_iq2_s_f16_len = 38204;
@@ -2547,6 +2811,12 @@ const uint64_t mul_mat_vec_id_f16_f32_len = 16612;
 extern unsigned char mul_mat_vec_id_f32_f32_data[16384];
 const uint64_t mul_mat_vec_id_f32_f32_len = 16384;
 
+extern unsigned char mul_mat_vec_id_iq1_m_f32_data[35552];
+const uint64_t mul_mat_vec_id_iq1_m_f32_len = 35552;
+
+extern unsigned char mul_mat_vec_id_iq1_s_f32_data[34104];
+const uint64_t mul_mat_vec_id_iq1_s_f32_len = 34104;
+
 extern unsigned char mul_mat_vec_id_iq2_s_f32_data[58080];
 const uint64_t mul_mat_vec_id_iq2_s_f32_len = 58080;
 
@@ -2597,6 +2867,18 @@ const uint64_t mul_mat_vec_id_q6_k_f32_len = 24580;
 
 extern unsigned char mul_mat_vec_id_q8_0_f32_data[22156];
 const uint64_t mul_mat_vec_id_q8_0_f32_len = 22156;
+
+extern unsigned char mul_mat_vec_iq1_m_f16_f32_data[35892];
+const uint64_t mul_mat_vec_iq1_m_f16_f32_len = 35892;
+
+extern unsigned char mul_mat_vec_iq1_m_f32_f32_data[35800];
+const uint64_t mul_mat_vec_iq1_m_f32_f32_len = 35800;
+
+extern unsigned char mul_mat_vec_iq1_s_f16_f32_data[34432];
+const uint64_t mul_mat_vec_iq1_s_f16_f32_len = 34432;
+
+extern unsigned char mul_mat_vec_iq1_s_f32_f32_data[34352];
+const uint64_t mul_mat_vec_iq1_s_f32_f32_len = 34352;
 
 extern unsigned char mul_mat_vec_iq2_s_f16_f32_data[58448];
 const uint64_t mul_mat_vec_iq2_s_f16_f32_len = 58448;
@@ -2709,6 +2991,9 @@ const uint64_t mul_mat_vec_q8_0_f32_f32_len = 22300;
 extern unsigned char norm_f32_data[2816];
 const uint64_t norm_f32_len = 2816;
 
+extern unsigned char opt_step_adamw_f32_data[2712];
+const uint64_t opt_step_adamw_f32_len = 2712;
+
 extern unsigned char pad_f32_data[3988];
 const uint64_t pad_f32_len = 3988;
 
@@ -2718,29 +3003,50 @@ const uint64_t pool2d_f32_len = 3504;
 extern unsigned char relu_f32_data[1420];
 const uint64_t relu_f32_len = 1420;
 
+extern unsigned char repeat_back_f32_data[4772];
+const uint64_t repeat_back_f32_len = 4772;
+
 extern unsigned char repeat_f32_data[4384];
 const uint64_t repeat_f32_len = 4384;
 
 extern unsigned char rms_norm_f32_data[2544];
 const uint64_t rms_norm_f32_len = 2544;
 
-extern unsigned char rope_neox_f16_data[3984];
-const uint64_t rope_neox_f16_len = 3984;
+extern unsigned char rope_multi_f16_data[6124];
+const uint64_t rope_multi_f16_len = 6124;
 
-extern unsigned char rope_neox_f16_rte_data[4008];
-const uint64_t rope_neox_f16_rte_len = 4008;
+extern unsigned char rope_multi_f16_rte_data[6148];
+const uint64_t rope_multi_f16_rte_len = 6148;
 
-extern unsigned char rope_neox_f32_data[3884];
-const uint64_t rope_neox_f32_len = 3884;
+extern unsigned char rope_multi_f32_data[6024];
+const uint64_t rope_multi_f32_len = 6024;
 
-extern unsigned char rope_norm_f16_data[3984];
-const uint64_t rope_norm_f16_len = 3984;
+extern unsigned char rope_neox_f16_data[4352];
+const uint64_t rope_neox_f16_len = 4352;
 
-extern unsigned char rope_norm_f16_rte_data[4008];
-const uint64_t rope_norm_f16_rte_len = 4008;
+extern unsigned char rope_neox_f16_rte_data[4376];
+const uint64_t rope_neox_f16_rte_len = 4376;
 
-extern unsigned char rope_norm_f32_data[3884];
-const uint64_t rope_norm_f32_len = 3884;
+extern unsigned char rope_neox_f32_data[4252];
+const uint64_t rope_neox_f32_len = 4252;
+
+extern unsigned char rope_norm_f16_data[4352];
+const uint64_t rope_norm_f16_len = 4352;
+
+extern unsigned char rope_norm_f16_rte_data[4376];
+const uint64_t rope_norm_f16_rte_len = 4376;
+
+extern unsigned char rope_norm_f32_data[4252];
+const uint64_t rope_norm_f32_len = 4252;
+
+extern unsigned char rope_vision_f16_data[4796];
+const uint64_t rope_vision_f16_len = 4796;
+
+extern unsigned char rope_vision_f16_rte_data[4820];
+const uint64_t rope_vision_f16_rte_len = 4820;
+
+extern unsigned char rope_vision_f32_data[4696];
+const uint64_t rope_vision_f32_len = 4696;
 
 extern unsigned char rwkv_wkv6_f32_data[32112];
 const uint64_t rwkv_wkv6_f32_len = 32112;
@@ -2765,6 +3071,9 @@ const uint64_t split_k_reduce_len = 2764;
 
 extern unsigned char sqr_f32_data[4704];
 const uint64_t sqr_f32_len = 4704;
+
+extern unsigned char sub_f32_data[5916];
+const uint64_t sub_f32_len = 5916;
 
 extern unsigned char sum_rows_f32_data[2320];
 const uint64_t sum_rows_f32_len = 2320;
