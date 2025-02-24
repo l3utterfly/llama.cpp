@@ -2,6 +2,7 @@
 
 #include "log.h"
 #include "sampling.h"
+#include "chat.h"
 
 #include <algorithm>
 #include <climits>
@@ -407,6 +408,10 @@ static void common_params_print_completion(common_params_context & ctx_arg) {
     printf("            ;;\n");
     printf("        --grammar-file)\n");
     printf("            COMPREPLY=( $(compgen -f -X '!*.gbnf' -- \"$cur\") $(compgen -d -- \"$cur\") )\n");
+    printf("            return 0\n");
+    printf("            ;;\n");
+    printf("        --chat-template-file)\n");
+    printf("            COMPREPLY=( $(compgen -f -X '!*.jinja' -- \"$cur\") $(compgen -d -- \"$cur\") )\n");
     printf("            return 0\n");
     printf("            ;;\n");
     printf("        *)\n");
@@ -1565,7 +1570,7 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
         "- isolate: only spawn threads on CPUs on the node that execution started on\n"
         "- numactl: use the CPU map provided by numactl\n"
         "if run without this previously, it is recommended to drop the system page cache before using this\n"
-        "see https://github.com/ggerganov/llama.cpp/issues/1437",
+        "see https://github.com/ggml-org/llama.cpp/issues/1437",
         [](common_params & params, const std::string & value) {
             /**/ if (value == "distribute" || value == "") { params.numa = GGML_NUMA_STRATEGY_DISTRIBUTE; }
             else if (value == "isolate") { params.numa = GGML_NUMA_STRATEGY_ISOLATE; }
@@ -2243,7 +2248,7 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
     ).set_env("LLAMA_LOG_VERBOSITY"));
     add_opt(common_arg(
         {"--log-prefix"},
-        "Enable prefx in log messages",
+        "Enable prefix in log messages",
         [](common_params &) {
             common_log_set_prefix(common_log_main(), true);
         }
@@ -2496,6 +2501,54 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
             params.embedding = true;
         }
     ).set_examples({LLAMA_EXAMPLE_EMBEDDING, LLAMA_EXAMPLE_SERVER}));
+
+    add_opt(common_arg(
+        {"--fim-qwen-1.5b-default"},
+        string_format("use default Qwen 2.5 Coder 1.5B (note: can download weights from the internet)"),
+        [](common_params & params) {
+            params.hf_repo = "ggml-org/Qwen2.5-Coder-1.5B-Q8_0-GGUF";
+            params.hf_file = "qwen2.5-coder-1.5b-q8_0.gguf";
+            params.port = 8012;
+            params.n_gpu_layers = 99;
+            params.flash_attn = true;
+            params.n_ubatch = 1024;
+            params.n_batch = 1024;
+            params.n_ctx = 0;
+            params.n_cache_reuse = 256;
+        }
+    ).set_examples({LLAMA_EXAMPLE_SERVER}));
+
+    add_opt(common_arg(
+        {"--fim-qwen-3b-default"},
+        string_format("use default Qwen 2.5 Coder 3B (note: can download weights from the internet)"),
+        [](common_params & params) {
+            params.hf_repo = "ggml-org/Qwen2.5-Coder-3B-Q8_0-GGUF";
+            params.hf_file = "qwen2.5-coder-3b-q8_0.gguf";
+            params.port = 8012;
+            params.n_gpu_layers = 99;
+            params.flash_attn = true;
+            params.n_ubatch = 1024;
+            params.n_batch = 1024;
+            params.n_ctx = 0;
+            params.n_cache_reuse = 256;
+        }
+    ).set_examples({LLAMA_EXAMPLE_SERVER}));
+
+    add_opt(common_arg(
+        {"--fim-qwen-7b-default"},
+        string_format("use default Qwen 2.5 Coder 7B (note: can download weights from the internet)"),
+        [](common_params & params) {
+            params.hf_repo = "ggml-org/Qwen2.5-Coder-7B-Q8_0-GGUF";
+            params.hf_file = "qwen2.5-coder-7b-q8_0.gguf";
+            params.port = 8012;
+            params.n_gpu_layers = 99;
+            params.flash_attn = true;
+            params.n_ubatch = 1024;
+            params.n_batch = 1024;
+            params.n_ctx = 0;
+            params.n_cache_reuse = 256;
+        }
+    ).set_examples({LLAMA_EXAMPLE_SERVER}));
 
     return ctx_arg;
 }
