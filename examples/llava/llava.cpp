@@ -2,7 +2,6 @@
 #include "llava.h"
 
 #include "llama.h"
-#include "llama-impl.h"
 
 #include <algorithm>
 #include <cerrno>
@@ -17,11 +16,17 @@
 #   define LOG_WRN(...)
 #   define LOG_ERR(...)
 #   define LOG_DBG(...)
-#else // defined(LLAVA_LOG_OFF)
+#elif defined(ANDROID)
+#   include "llama-impl.h"
 #   define LOG_INF(...) LLAMA_LOG_INFO(__VA_ARGS__)
 #   define LOG_WRN(...) LLAMA_LOG_WARN(__VA_ARGS__)
 #   define LOG_ERR(...) LLAMA_LOG_ERROR(__VA_ARGS__)
 #   define LOG_DBG(...) LLAMA_LOG_DEBUG(__VA_ARGS__)
+#else // defined(LLAVA_LOG_OFF)
+#   define LOG_INF(...) do { fprintf(stdout, __VA_ARGS__); } while (0)
+#   define LOG_WRN(...) do { fprintf(stderr, __VA_ARGS__); } while (0)
+#   define LOG_ERR(...) do { fprintf(stderr, __VA_ARGS__); } while (0)
+#   define LOG_DBG(...) do { fprintf(stdout, __VA_ARGS__); } while (0)
 #endif // defined(LLAVA_LOG_OFF)
 
 // RGB uint8 image
