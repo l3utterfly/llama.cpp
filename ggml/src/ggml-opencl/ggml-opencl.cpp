@@ -579,14 +579,6 @@ static ggml_backend_opencl_context * ggml_cl2_init(ggml_backend_dev_t dev) {
     }
 #endif
 
-    // Populate backend device name
-    dev_ctx->platform_name = default_device->platform->name;
-    dev_ctx->device_name = default_device->name;
-    backend_ctx->device_name = default_device->name;
-
-    // A local ref of cl_device_id for convenience
-    cl_device_id device = backend_ctx->device;
-
     ggml_cl_version platform_version = get_opencl_platform_version(default_device->platform->id);
 
     // Check device OpenCL version, OpenCL 2.0 or above is required
