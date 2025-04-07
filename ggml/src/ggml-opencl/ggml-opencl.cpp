@@ -27,6 +27,7 @@
 #include <cmath>
 #include <memory>
 #include <charconv>
+#include <dlfcn.h>
 
 #undef MIN
 #undef MAX
@@ -425,11 +426,16 @@ static ggml_backend_opencl_context * ggml_cl2_init(ggml_backend_dev_t dev) {
     unsigned n_devices = 0;
     struct cl_device * default_device = NULL;
 
+    GGML_LOG_INFO("ggml_opencl: getting opencl platform IDs...\n");
+
     cl_platform_id platform_ids[NPLAT];
-    if (clGetPlatformIDs(NPLAT, platform_ids, &n_platforms) != CL_SUCCESS) {
-        GGML_LOG_ERROR("ggml_opencl: plaform IDs not available.\n");
+    auto clGetPlatformIDResult = clGetPlatformIDs(NPLAT, platform_ids, &n_platforms);
+    if (clGetPlatformIDResult != CL_SUCCESS) {
+        GGML_LOG_ERROR("ggml_opencl: platform IDs not available: %d.\n", clGetPlatformIDResult);
         return backend_ctx;
     }
+
+    GGML_LOG_INFO("ggml_opencl: found %d platforms", n_platforms);
 
     for (unsigned i = 0; i < n_platforms; i++) {
         struct cl_platform * p = &platforms[i];
@@ -556,12 +562,30 @@ static ggml_backend_opencl_context * ggml_cl2_init(ggml_backend_dev_t dev) {
     dev_ctx->device = default_device->id;
     backend_ctx->device = default_device->id;
 
+    // A local ref of cl_device_id for convenience
+    cl_device_id device = backend_ctx->device;
+
+    // Check device OpenCL version, OpenCL 2.0 or above is required
+    size_t device_ver_str_size;
+    clGetDeviceInfo(device, CL_DEVICE_VERSION, 0, NULL, &device_ver_str_size);
+    char *device_ver_buffer = (char *)alloca(device_ver_str_size + 1);
+    clGetDeviceInfo(device, CL_DEVICE_VERSION, device_ver_str_size, device_ver_buffer, NULL);
+    device_ver_buffer[device_ver_str_size] = '\0';
+    GGML_LOG_INFO("ggml_opencl: device OpenCL version: %s\n", device_ver_buffer);
+
+    if (strstr(device_ver_buffer, "OpenCL 2") == NULL &&
+        strstr(device_ver_buffer, "OpenCL 3") == NULL) {
+        GGML_LOG_ERROR("ggml_opencl: OpenCL 2.0 or above is required\n");
+        return backend_ctx;
+    }
+
     if (strstr(default_device->name, "Adreno")) {
         backend_ctx->gpu_family = GPU_FAMILY::ADRENO;
         backend_ctx->adreno_gen = get_adreno_gpu_gen(default_device->name);
 
         // Use wave size of 64 for all Adreno GPUs.
         backend_ctx->adreno_wave_size = 64;
+
     } else if (strstr(default_device->name, "Intel")) {
         backend_ctx->gpu_family = GPU_FAMILY::INTEL;
     } else {
@@ -577,14 +601,6 @@ static ggml_backend_opencl_context * ggml_cl2_init(ggml_backend_dev_t dev) {
         return backend_ctx;
     }
 #endif
-
-    // Populate backend device name
-    dev_ctx->platform_name = default_device->platform->name;
-    dev_ctx->device_name = default_device->name;
-    backend_ctx->device_name = default_device->name;
-
-    // A local ref of cl_device_id for convenience
-    cl_device_id device = backend_ctx->device;
 
     ggml_cl_version platform_version = get_opencl_platform_version(default_device->platform->id);
 

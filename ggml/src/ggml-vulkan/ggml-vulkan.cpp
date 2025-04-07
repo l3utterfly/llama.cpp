@@ -2786,7 +2786,7 @@ static vk_device ggml_vk_get_device(size_t idx) {
             device_extensions.push_back("VK_NV_cooperative_matrix2");
         }
 #endif
-
+      
         VkPhysicalDeviceMaintenance4Features maint4_features {};
         maint4_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_4_FEATURES;
         if (maintenance4_support) {
