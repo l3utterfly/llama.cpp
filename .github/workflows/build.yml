@@ -10,7 +10,7 @@ on:
   push:
     branches:
       - master
-    paths: ['.github/workflows/build.yml', '**/CMakeLists.txt', '**/Makefile', '**/*.h', '**/*.hpp', '**/*.c', '**/*.cpp', '**/*.cu', '**/*.cuh', '**/*.swift', '**/*.m', '**/*.metal', '**/*.comp']
+    paths: ['.github/workflows/build.yml', '.github/workflows/build-linux-cross.yml', '**/CMakeLists.txt', '**/Makefile', '**/*.h', '**/*.hpp', '**/*.c', '**/*.cpp', '**/*.cu', '**/*.cuh', '**/*.swift', '**/*.m', '**/*.metal', '**/*.comp']
   pull_request:
     types: [opened, synchronize, reopened]
     paths: ['.github/workflows/build.yml', '**/CMakeLists.txt', '**/Makefile', '**/*.h', '**/*.hpp', '**/*.c', '**/*.cpp', '**/*.cu', '**/*.cuh', '**/*.swift', '**/*.m', '**/*.metal', '**/*.comp']
@@ -606,6 +606,9 @@ jobs:
             -DGGML_SYCL_F16=ON
           cmake --build build --config Release -j $(nproc)
 
+  build-linux-cross:
+    uses: ./.github/workflows/build-linux-cross.yml
+
   macOS-latest-cmake-ios:
     runs-on: macos-latest
 
@@ -803,7 +806,7 @@ jobs:
     env:
       OPENBLAS_VERSION: 0.3.23
       SDE_VERSION: 9.33.0-2024-01-07
-      VULKAN_VERSION: 1.4.304.1
+      VULKAN_VERSION: 1.4.309.0
 
     strategy:
       matrix:
