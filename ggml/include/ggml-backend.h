@@ -202,6 +202,7 @@ extern "C" {
     //
     // Backend registry
     //
+    GGML_API void               ggml_backend_reg_layla(bool useVulkan, bool useOpenCL);
 
     GGML_API void ggml_backend_device_register(ggml_backend_dev_t device);
 
