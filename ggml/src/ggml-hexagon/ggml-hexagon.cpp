@@ -391,7 +391,7 @@ static struct hexagon_appcfg_t g_hexagon_appcfg = {
     #if defined(STANDARD_ANDROID_APP)
         .runtime_libpath        = "/data/data/com.kantvai.kantvplayer/",
     #else
-        .runtime_libpath        = "/data/local/tmp/",
+        .runtime_libpath        = "/data/data/com.layla/files/app-data/qnn-inference/",
     #endif
 #elif defined(__linux__)
         .qnn_runtimelib_path    = "/tmp/",
@@ -1829,16 +1829,23 @@ static void ggmlhexagon_set_runtime_path(size_t device, const std::string & path
     if ((HEXAGON_BACKEND_QNNNPU == device) || (HWACCEL_CDSP == g_hexagon_appcfg.hwaccel_approach)) {
         std::string lib_runtime_path = path + ":/vendor/dsp/cdsp:/vendor/lib64:/vendor/dsp/dsp:/vendor/dsp/images";
         if (0 == setenv("LD_LIBRARY_PATH", lib_runtime_path.c_str(), 1)) {
-            GGMLHEXAGON_LOG_DEBUG("setenv LD_LIBRARY_PATH %s successfully", lib_runtime_path.c_str());
+            GGMLHEXAGON_LOG_INFO("setenv LD_LIBRARY_PATH %s successfully", lib_runtime_path.c_str());
         } else {
             GGMLHEXAGON_LOG_ERROR("setenv LD_LIBRARY_PATH %s failure", lib_runtime_path.c_str());
         }
 
         std::string adsp_runtime_path = path + ";/vendor/dsp/cdsp;/vendor/lib/rfsa/adsp;/system/lib/rfsa/adsp;/vendor/dsp/dsp;/vendor/dsp/images;/dsp";
         if (0 == setenv("ADSP_LIBRARY_PATH", adsp_runtime_path.c_str(), 1)) {
-            GGMLHEXAGON_LOG_DEBUG("setenv ADSP_LIBRARY_PATH %s successfully", adsp_runtime_path.c_str());
+            GGMLHEXAGON_LOG_INFO("setenv ADSP_LIBRARY_PATH %s successfully", adsp_runtime_path.c_str());
         } else {
             GGMLHEXAGON_LOG_ERROR("setenv ADSP_LIBRARY_PATH %s failure", adsp_runtime_path.c_str());
+        }
+
+        std::string dsp_runtime_path = path;
+        if (0 == setenv("DSP_LIBRARY_PATH", dsp_runtime_path.c_str(), 1)) {
+            GGMLHEXAGON_LOG_INFO("setenv DSP_LIBRARY_PATH %s successfully", dsp_runtime_path.c_str());
+        } else {
+            GGMLHEXAGON_LOG_ERROR("setenv DSP_LIBRARY_PATH %s failure", dsp_runtime_path.c_str());
         }
     } else {
         if (0 == setenv("LD_LIBRARY_PATH",
@@ -1846,7 +1853,7 @@ static void ggmlhexagon_set_runtime_path(size_t device, const std::string & path
                          ":/vendor/dsp/cdsp:/vendor/lib64:/vendor/dsp/dsp:/vendor/dsp/images").c_str(),
                         1)) {
             GGMLHEXAGON_LOG_DEBUG("%s backend setenv successfully\n",
-                                 ggml_backend_hexagon_get_devname(device));
+                                  ggml_backend_hexagon_get_devname(device));
         } else {
             GGMLHEXAGON_LOG_ERROR("%s backend setenv failure\n",
                                   ggml_backend_hexagon_get_devname(device));
@@ -3375,10 +3382,10 @@ int qnn_instance::qnn_init(const QnnSaver_Config_t ** saver_config) {
 
 #if defined(__ANDROID__) || defined(__linux__)
     std::filesystem::path full_path(std::string(g_hexagon_appcfg.runtime_libpath) + "libcdsprpc.so");
-    full_path /= std::filesystem::path("libcdsprpc.so").filename();
+    //full_path /= std::filesystem::path("libcdsprpc.so").filename();
     _rpc_lib_handle = dlopen(full_path.string().c_str(), RTLD_NOW | RTLD_LOCAL);
     if (nullptr == _rpc_lib_handle) {
-        GGMLHEXAGON_LOG_WARN("failed to load %s\n", full_path.c_str());
+        GGMLHEXAGON_LOG_WARN("failed to load %s from local file, trying to find in system libraries\n", full_path.c_str());
         _rpc_lib_handle = dlopen("libcdsprpc.so", RTLD_NOW | RTLD_LOCAL);
     }
 #else
@@ -5185,6 +5192,8 @@ static int ggmlhexagon_request_status_notifications(int domain_id, void * contex
 }
 
 static int ggmlhexagon_init_rpcmempool(ggml_backend_hexagon_context * ctx) {
+    throw std::runtime_error("Not implemented. Directly initialising RPC memory pool is not supported right now.");
+
     size_t candidate_size   = 0;
     uint8_t * rpc_buffer    = nullptr;
     size_t probe_slots[]    = {1024, 1536, 2000, 2048};
@@ -5232,6 +5241,8 @@ static int ggmlhexagon_init_rpcmempool(ggml_backend_hexagon_context * ctx) {
 }
 
 static void ggmlhexagon_deinit_rpcmempool(ggml_backend_hexagon_context * ctx) {
+    throw std::runtime_error("Not implemented. Directly initialising RPC memory pool is not supported right now.");
+
     if ((g_hexagon_appcfg.hwaccel_approach == HWACCEL_CDSP) && (1 == g_hexagon_appcfg.enable_rpc_ion_mempool)) {
         if (ctx->rpc_mempool) {
             //deregister rpc memory pool
@@ -6233,7 +6244,11 @@ static ggml_backend_buffer_type_t ggml_backend_hexagon_buffer_type(size_t device
         //cover following special case:
         //      toggle backend and forth between cDSP and ggml in a standard Android APP or in
         //      a same running process
-        g_hexagon_appcfg.hexagon_backend = device_index;
+
+        // TODO: not sure why we need to update the global setting here in the original code
+        // it seems this code is reached when we allocate buffers for all devices (including the qnn-cpu device)
+        // so if it reaches this code, then it won't use the NPU anymore since the backend config will be updated to use the cpu device
+        // g_hexagon_appcfg.hexagon_backend = device_index;
     }
 
     static struct ggml_backend_buffer_type ggml_backend_hexagon_buffer_types[GGML_HEXAGON_MAX_DEVICES];
@@ -6284,6 +6299,10 @@ static const char * ggml_backend_hexagon_host_buffer_name(ggml_backend_buffer_t 
 }
 
 static void ggml_backend_hexagon_host_buffer_free(ggml_backend_buffer_t buffer) {
+    // always use ggml memory management for now
+    ggml_aligned_free(buffer->context, 0);
+    return;
+
     if (0 == g_hexagon_appcfg.enable_pinned_memory) {
         ggml_aligned_free(buffer->context, 0);
     } else {
@@ -6292,6 +6311,9 @@ static void ggml_backend_hexagon_host_buffer_free(ggml_backend_buffer_t buffer) 
 }
 
 static void * ggml_hexagon_host_malloc(ggml_backend_buffer_type_t buft, size_t size) {
+    // we always use ggml malloc right now
+    return ggml_aligned_malloc(size);
+
     if (0 == g_hexagon_appcfg.enable_pinned_memory) {
         return ggml_aligned_malloc(size);
     } else {
@@ -6663,6 +6685,9 @@ ggml_backend_t ggml_backend_hexagon_init(size_t device, const char * runtime_lib
         //re-setting runtime libpath
         ggmlhexagon_set_runtime_path(device, runtime_libpath);
     }
+
+    // the condition above never be true because our hardcoded runtime_libpath is always the same as the config, so we manually set the library paths here
+    ggmlhexagon_set_runtime_path(g_hexagon_appcfg.hexagon_backend, g_hexagon_appcfg.runtime_libpath);
 
     if (nullptr != g_hexagon_mgr[device].backend) {
         GGMLHEXAGON_LOG_DEBUG("backend %d(%s) already loaded", device,

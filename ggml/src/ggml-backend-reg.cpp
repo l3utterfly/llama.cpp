@@ -161,6 +161,7 @@ struct ggml_backend_reg_entry {
 
 static bool laylaUseVulkan = false;
 static bool laylaUseOpenCL = false;
+static bool laylaUseHexagon = false;
 
 struct ggml_backend_registry {
     std::vector<ggml_backend_reg_entry> backends;
@@ -199,7 +200,9 @@ struct ggml_backend_registry {
         register_backend(ggml_backend_kompute_reg());
 #endif
 #ifdef GGML_USE_HEXAGON
-        register_backend(ggml_backend_hexagon_reg());
+        if(laylaUseHexagon) {
+            register_backend(ggml_backend_hexagon_reg());
+        }
 #endif
 #ifdef GGML_USE_CPU
         register_backend(ggml_backend_cpu_reg());
@@ -310,9 +313,10 @@ struct ggml_backend_registry {
     }
 };
 
-void ggml_backend_reg_layla(bool useVulkan, bool useOpenCL) {
+void ggml_backend_reg_layla(bool useVulkan, bool useOpenCL, bool useHexagon) {
     laylaUseVulkan = useVulkan;
     laylaUseOpenCL = useOpenCL;
+    laylaUseHexagon = useHexagon;
 }
 
 static ggml_backend_registry & get_reg() {

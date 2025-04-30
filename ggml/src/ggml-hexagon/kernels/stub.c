@@ -291,10 +291,12 @@ __QAIC_SLIM_EXPORT const Interface __QAIC_SLIM(ggmlop_slim) = {8,&(methodArrays[
 extern "C" {
 #endif
 __QAIC_STUB_EXPORT int __QAIC_STUB(ggmlop_dsp_open)(const char* uri, remote_handle64* h) __QAIC_STUB_ATTRIBUTE {
-   return __QAIC_REMOTE(remote_handle64_open)(uri, h);
+    return -1;  // don't support direct dsp calls yet
+   //return __QAIC_REMOTE(remote_handle64_open)(uri, h);
 }
 __QAIC_STUB_EXPORT int __QAIC_STUB(ggmlop_dsp_close)(remote_handle64 h) __QAIC_STUB_ATTRIBUTE {
-   return __QAIC_REMOTE(remote_handle64_close)(h);
+    return -1;  // don't support direct dsp calls yet
+    //return __QAIC_REMOTE(remote_handle64_close)(h);
 }
 static __inline int _stub_method(remote_handle64 _handle, uint32_t _mid, uint32_t _in0[1], uint32_t _in1[1], uint32_t _in2[1], uint32_t _in3[1]) {
    remote_arg _pra[1] = {0};
@@ -306,7 +308,8 @@ static __inline int _stub_method(remote_handle64 _handle, uint32_t _mid, uint32_
    _COPY(_primIn, 4, _in1, 0, 4);
    _COPY(_primIn, 8, _in2, 0, 4);
    _COPY(_primIn, 12,_in3, 0, 4);
-   _TRY_FARF(_nErr, __QAIC_REMOTE(remote_handle64_invoke)(_handle, REMOTE_SCALARS_MAKEX(0, _mid, 1, 0, 0, 0), _pra));
+   // TODO: we don't support direct dsp calls yet
+   //_TRY_FARF(_nErr, __QAIC_REMOTE(remote_handle64_invoke)(_handle, REMOTE_SCALARS_MAKEX(0, _mid, 1, 0, 0, 0), _pra));
    _CATCH_FARF(_nErr) {
       _QAIC_FARF(RUNTIME_ERROR, "ERROR 0x%x: handle=0x%"PRIx64", scalar=0x%x, method ID=%d: %s failed\n", _nErr , _handle, REMOTE_SCALARS_MAKEX(0, _mid, 1, 0, 0, 0), _mid, __func__);
    }
@@ -432,7 +435,8 @@ static __inline int _stub_method_1(remote_handle64 _handle, uint32_t _mid, uintp
    _TRY(_nErr, _stub_pack(_al, (_praIn + 0), _ppraIn, (_praROut + 0), _ppraROut, _praHIn, _ppraHIn, _praHROut, _ppraHROut, ((char*)_primIn + 224), ((char*)_primROut + 0), (uint32_t*)&(((uint32_t*)_rout2)[0]), (uint32_t*)&(((uint32_t*)_rout2)[1]), (uint32_t*)&(((uint32_t*)_rout2)[5]), (uint32_t*)&(((uint32_t*)_rout2)[9]), (uint32_t*)&(((uint32_t*)_rout2)[10]), (uint32_t*)&(((uint32_t*)_rout2)[26]), SLIM_IFPTR32((char**)&(((uint32_t*)_rout2)[27]), (char**)&(((uint64_t*)_rout2)[14])), SLIM_IFPTR32((uint32_t*)&(((uint32_t*)_rout2)[28]), (uint32_t*)&(((uint32_t*)_rout2)[30]))));
    _QAIC_ASSERT(_nErr, (_numInH[0] + 0) <= 15);
    _QAIC_ASSERT(_nErr, (_numROutH[0] + 0) <= 15);
-   _TRY_FARF(_nErr, __QAIC_REMOTE(remote_handle64_invoke)(_handle, REMOTE_SCALARS_MAKEX(0, _mid, (_numIn[0] + 1), (_numROut[0] + 1), (_numInH[0] + 0), (_numROutH[0] + 0)), _pra));
+   // TODO: we don't support direct dsp calls yet
+   //_TRY_FARF(_nErr, __QAIC_REMOTE(remote_handle64_invoke)(_handle, REMOTE_SCALARS_MAKEX(0, _mid, (_numIn[0] + 1), (_numROut[0] + 1), (_numInH[0] + 0), (_numROutH[0] + 0)), _pra));
    _TRY(_nErr, _stub_unpack((_praROutPost + 0), _ppraROutPost, ((char*)_primROut + 0), (uint32_t*)&(((uint32_t*)_rout2)[0]), (uint32_t*)&(((uint32_t*)_rout2)[1]), (uint32_t*)&(((uint32_t*)_rout2)[5]), (uint32_t*)&(((uint32_t*)_rout2)[9]), (uint32_t*)&(((uint32_t*)_rout2)[10]), (uint32_t*)&(((uint32_t*)_rout2)[26]), SLIM_IFPTR32((char**)&(((uint32_t*)_rout2)[27]), (char**)&(((uint64_t*)_rout2)[14])), SLIM_IFPTR32((uint32_t*)&(((uint32_t*)_rout2)[28]), (uint32_t*)&(((uint32_t*)_rout2)[30]))));
    _QAIC_CATCH(_nErr) {}
    _CATCH_FARF(_nErr) {

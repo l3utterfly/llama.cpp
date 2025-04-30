@@ -33,42 +33,45 @@ endif()
 #v73 --- Snapdragon 8 Gen2
 #v75 --- Snapdragon 8 Gen3
 #v79 --- Snapdragon 8 Elite(aka Gen4)
-if(NOT DEFINED HTP_ARCH_VERSION)
-    message(FATAL_ERROR "HTP_ARCH_VERSION not defined, valid htp arch: v68,v69,v73,v75,v79")
-endif()
+# we do not use HTP_ARCH_VERSION right now because we don't use raw cdsp calls
+#if(NOT DEFINED HTP_ARCH_VERSION)
+#    message(FATAL_ERROR "HTP_ARCH_VERSION not defined, valid htp arch: v68,v69,v73,v75,v79")
+#endif()
 
 #check whether user's specified htp arch is valid
-set(CHECK_HTP_ARCH "WRONG")
-foreach (feat v68 v69 v73 v75 v79)
-    if (${feat} STREQUAL ${HTP_ARCH_VERSION})
-        set(CHECK_HTP_ARCH "GOOD")
-    endif()
-endforeach()
-if (${CHECK_HTP_ARCH} STREQUAL "WRONG")
-    message(FATAL_ERROR "ggml-hexagon backend only support htp arch v68,v69,v73,v75,v79")
-endif()
+#set(CHECK_HTP_ARCH "WRONG")
+#foreach (feat v68 v69 v73 v75 v79)
+#    if (${feat} STREQUAL ${HTP_ARCH_VERSION})
+#        set(CHECK_HTP_ARCH "GOOD")
+#    endif()
+#endforeach()
+#if (${CHECK_HTP_ARCH} STREQUAL "WRONG")
+#    message(FATAL_ERROR "ggml-hexagon backend only support htp arch v68,v69,v73,v75,v79")
+#endif()
 
 #check optimization flags
 set(OPT_FLAG " ")
-if (${HTP_ARCH_VERSION} STREQUAL "v75" OR ${HTP_ARCH_VERSION} STREQUAL "v79")
+#if (${HTP_ARCH_VERSION} STREQUAL "v75" OR ${HTP_ARCH_VERSION} STREQUAL "v79")
     #works fine on Snapdragon 8Gen3&8Elite with 1.5x - 3x performance gains with the default ggml backend
-    set(OPT_FLAG " -O3 -march=armv8.7-a -mcpu=cortex-x1 -mtune=cortex-x1 -flto -D_GNU_SOURCE -fvectorize -ffp-model=fast -fno-finite-math-only")
-endif()
-message("OPT_FLAG:${OPT_FLAG}")
+#    set(OPT_FLAG " -O3 -march=armv8.7-a -mcpu=cortex-x1 -mtune=cortex-x1 -flto -D_GNU_SOURCE -fvectorize -ffp-model=fast -fno-finite-math-only")
+#endif()
+#message("OPT_FLAG:${OPT_FLAG}")
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Android")
     find_library(LOG_LIB log)
 
-    add_library(cdsprpc
-        SHARED
-        IMPORTED)
-    set_target_properties(cdsprpc
-        PROPERTIES
-        IMPORTED_LOCATION
-        ${HEXAGON_SDK_PATH}/ipc/fastrpc/remote/ship/android_aarch64/libcdsprpc.so)
+    # we do not use libcdsprpc.so provided in the Hexagon SDK, we will look for the one installed by the user's phone vendor
+    #add_library(cdsprpc
+    #    SHARED
+    #    IMPORTED)
+    #set_target_properties(cdsprpc
+    #    PROPERTIES
+    #    IMPORTED_LOCATION
+    #    ${HEXAGON_SDK_PATH}/ipc/fastrpc/remote/ship/android_aarch64/libcdsprpc.so)
 
-    set(QNN_LINK_LIBRARIES ${LOG_LIB} cdsprpc)
-    set(QNN_DEFAULT_LIB_SEARCH_PATH "/data/local/tmp/" CACHE STRING "customized library search path for QNN backend")
+    #set(QNN_LINK_LIBRARIES ${LOG_LIB} cdsprpc)
+    set(QNN_LINK_LIBRARIES ${LOG_LIB})
+    #set(QNN_DEFAULT_LIB_SEARCH_PATH "/data/local/tmp/" CACHE STRING "customized library search path for QNN backend")
 
     include_directories(${HEXAGON_SDK_PATH}/incs)
     include_directories(${HEXAGON_SDK_PATH}/incs/stddef)
@@ -129,5 +132,6 @@ function(ggml_hexagon_setup_cfg KNAME)
     )
 endfunction()
 
-ggml_hexagon_build_kernel("cdsp")
-ggml_hexagon_setup_cfg("ggml-hexagon.cfg")
+# we do not build cdsp kernels directly in CMake
+#ggml_hexagon_build_kernel("cdsp")
+#ggml_hexagon_setup_cfg("ggml-hexagon.cfg")
