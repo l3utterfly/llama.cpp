@@ -107,6 +107,7 @@ message(DEBUG "INS_ENB             : ${INS_ENB}")
 option(GGML_CPU_HBM          "ggml: use memkind for CPU HBM" OFF)
 option(GGML_CPU_AARCH64      "ggml: use runtime weight conversion of Q4_0 to Q4_X_X" ON)
 option(GGML_CPU_KLEIDIAI     "ggml: use KleidiAI optimized kernels if applicable" OFF)
+option(GGML_SSE42            "ggml: enable SSE 4.2"          ${INS_ENB})
 option(GGML_AVX              "ggml: enable AVX"              ${INS_ENB})
 option(GGML_AVX_VNNI         "ggml: enable AVX-VNNI"         OFF)
 option(GGML_AVX2             "ggml: enable AVX2"             ${INS_ENB})
@@ -203,6 +204,7 @@ option(GGML_OPENCL_EMBED_KERNELS            "ggml: embed kernels"               
 option(GGML_OPENCL_USE_ADRENO_KERNELS       "ggml: use optimized kernels for Adreno"          ON)
 set   (GGML_OPENCL_TARGET_VERSION "300" CACHE STRING
                                             "gmml: OpenCL API version to target")
+option(GGML_HEXAGON                         "ggml: use HEXAGON"                               OFF)
 
 # toolchain for vulkan-shaders-gen
 set   (GGML_VULKAN_SHADERS_GEN_TOOLCHAIN "" CACHE FILEPATH "ggml: toolchain file for vulkan-shaders-gen")
@@ -268,6 +270,7 @@ set(GGML_PUBLIC_HEADERS
     include/ggml-rpc.h
     include/ggml-sycl.h
     include/ggml-vulkan.h
+    include/ggml-hexagon.h
     include/gguf.h)
 
 set_target_properties(ggml PROPERTIES PUBLIC_HEADER "${GGML_PUBLIC_HEADERS}")
