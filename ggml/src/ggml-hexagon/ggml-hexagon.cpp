@@ -172,6 +172,8 @@ struct ggml_backend_hexagon_context;
 #pragma weak remote_system_request
 #endif
 
+#define MAX_DOMAIN_NAMELEN 12
+
 #define CHECK_QNN_API(error, result)                                            \
     do {                                                                        \
         error = (result);                                                       \
@@ -201,6 +203,14 @@ using pfn_rpc_mem_deinit                        = void (*)(void);
 using pfn_rpc_mem_alloc                         = void *(*)(int, uint32_t, int);
 using pfn_rpc_mem_free                          = void (*)(void *);
 using pfn_rpc_mem_to_fd                         = int (*)(void *);
+using pfn_rpc_remote_handle_control             = int (*)(uint32_t, void*, uint32_t);
+using pfn_rpc_remote_register_buf               = int (*)(void*, int, int);
+using pfn_rpc_remote_session_control            = int (*)(uint32_t, void *, uint32_t);
+using pfn_rpc_remote_handle64_open              = int (*)(const char*, remote_handle64 *);
+using pfn_rpc_remote_handle64_close             = int (*)(remote_handle64);
+using pfn_rpc_remote_handle64_invoke            = int (*)(remote_handle64, uint32_t, remote_arg *);
+using pfn_rpc_remote_handle64_control           = int (*)(remote_handle64, uint32_t, void*, uint32_t);
+
 using _pfn_QnnSaver_initialize                  = decltype(QnnSaver_initialize);
 using _pfn_QnnInterface_getProviders            = decltype(QnnInterface_getProviders);
 using _pfn_QnnSystemInterface_getProviders      = decltype(QnnSystemInterface_getProviders);
@@ -817,6 +827,21 @@ static_assert(std::size(ggmlhexagon_k_op_caps) == (static_cast<size_t>(GGML_OP_C
 
 static int32_t g_qnntensor_idx = 0; //ensure every QNN tensor name is unique
 static int32_t g_qnnopcfg_idx  = 0; //ensure every QNN opconfig name is unique
+
+// libcdsprpc.so function handles
+void * _rpc_lib_handle      = nullptr;
+static pfn_rpc_mem_alloc _pfn_rpc_mem_alloc = nullptr;
+static pfn_rpc_mem_free _pfn_rpc_mem_free = nullptr;
+static pfn_rpc_mem_to_fd _pfn_rpc_mem_to_fd = nullptr;
+static pfn_rpc_mem_init  _pfn_rpc_mem_init = nullptr;
+static pfn_rpc_mem_deinit _pfn_rpc_mem_deinit = nullptr;
+static pfn_rpc_remote_handle_control _pfn_rpc_remote_handle_control = nullptr;
+static pfn_rpc_remote_register_buf _pfn_rpc_remote_register_buf = nullptr;
+static pfn_rpc_remote_session_control _pfn_rpc_remote_session_control = nullptr;
+static pfn_rpc_remote_handle64_open _pfn_rpc_remote_handle64_open = nullptr;
+static pfn_rpc_remote_handle64_close _pfn_rpc_remote_handle64_close = nullptr;
+static pfn_rpc_remote_handle64_invoke _pfn_rpc_remote_handle64_invoke = nullptr;
+static pfn_rpc_remote_handle64_control _pfn_rpc_remote_handle64_control = nullptr;
 
 // =================================================================================================
 //  section-2: ggml-hexagon internal troubleshooting and profiler function/class
@@ -2743,11 +2768,8 @@ private:
     std::unordered_map<void *, Qnn_MemHandle_t> _qnn_rpc_buffer_to_handles;
 
     std::atomic_bool _rpcmem_initialized{false};
-    pfn_rpc_mem_alloc _pfn_rpc_mem_alloc;
-    pfn_rpc_mem_free _pfn_rpc_mem_free;
-    pfn_rpc_mem_to_fd _pfn_rpc_mem_to_fd;
-    pfn_rpc_mem_init  _pfn_rpc_mem_init;
-    pfn_rpc_mem_deinit _pfn_rpc_mem_deinit;
+
+private:
     std::unordered_map<void *, void *> _rpcmem_store_map;
     std::unordered_map<void *, size_t> _rpcmem_usage_map;
     size_t                             _rpcmem_usage    = 0;   // mempool usage in bytes
@@ -2755,7 +2777,6 @@ private:
 
     std::string _graph_name;
     HEXAGONBackend _device_id;
-    void * _rpc_lib_handle      = nullptr;
     bool       _enable_qnn_rpc  = false; //TODO:unknown issue with QNN RPC feature
 
     qnn_instance(const qnn_instance &) = delete;
@@ -3379,38 +3400,6 @@ int qnn_instance::qnn_init(const QnnSaver_Config_t ** saver_config) {
             }
         }
     }
-
-#if defined(__ANDROID__) || defined(__linux__)
-    std::filesystem::path full_path(std::string(g_hexagon_appcfg.runtime_libpath) + "libcdsprpc.so");
-    //full_path /= std::filesystem::path("libcdsprpc.so").filename();
-    _rpc_lib_handle = dlopen(full_path.string().c_str(), RTLD_NOW | RTLD_LOCAL);
-    if (nullptr == _rpc_lib_handle) {
-        GGMLHEXAGON_LOG_WARN("failed to load %s from local file, trying to find in system libraries\n", full_path.c_str());
-        _rpc_lib_handle = dlopen("libcdsprpc.so", RTLD_NOW | RTLD_LOCAL);
-    }
-#else
-    _rpc_lib_handle = dlopen("libcdsprpc.dll", RTLD_NOW | RTLD_LOCAL);
-#endif
-    if (nullptr == _rpc_lib_handle) {
-        GGMLHEXAGON_LOG_WARN("failed to load qualcomm's rpc lib, error:%s\n", dlerror());
-        return 7;
-    } else {
-        GGMLHEXAGON_LOG_DEBUG("load rpcmem lib successfully\n");
-        set_rpcmem_initialized(true);
-    }
-    _pfn_rpc_mem_init   = reinterpret_cast<pfn_rpc_mem_init>(dlsym(_rpc_lib_handle, "rpcmem_init"));
-    _pfn_rpc_mem_deinit = reinterpret_cast<pfn_rpc_mem_deinit>(dlsym(_rpc_lib_handle, "rpcmem_deinit"));
-    _pfn_rpc_mem_alloc  = reinterpret_cast<pfn_rpc_mem_alloc>(dlsym(_rpc_lib_handle,"rpcmem_alloc"));
-    _pfn_rpc_mem_free   = reinterpret_cast<pfn_rpc_mem_free>(dlsym(_rpc_lib_handle, "rpcmem_free"));
-    _pfn_rpc_mem_to_fd  = reinterpret_cast<pfn_rpc_mem_to_fd>(dlsym(_rpc_lib_handle,"rpcmem_to_fd"));
-    if (nullptr == _pfn_rpc_mem_alloc || nullptr == _pfn_rpc_mem_free || nullptr == _pfn_rpc_mem_to_fd) {
-        GGMLHEXAGON_LOG_WARN("unable to access symbols in QNN RPC lib, dlerror(): %s", dlerror());
-        dlclose(_rpc_lib_handle);
-        return 8;
-    }
-
-    if (nullptr != _pfn_rpc_mem_init) // make Qualcomm's SoC based low-end phone happy
-        _pfn_rpc_mem_init();
 
     std::vector<const QnnContext_Config_t *> temp_context_config;
     _qnn_interface.qnn_context_create(_qnn_backend_handle, _qnn_device_handle,
@@ -4765,7 +4754,7 @@ static bool ggmlhexagon_is_valid_domain_id(int domain_id, int compute_only) {
     return false;
 }
 
-static int ggmlhexagon_get_domains_info(const char * domain_type, int * num_domains, fastrpc_domain ** domains_info) {
+/*static int ggmlhexagon_get_domains_info(const char * domain_type, int * num_domains, fastrpc_domain ** domains_info) {
     int hexagon_err = AEE_SUCCESS;
     int ss_info     = 0;
     void * buffer   = nullptr;
@@ -4824,7 +4813,7 @@ bail:
         free(req.sys.domains);
     }
     return hexagon_err;
-}
+}*/
 
 static int ggmlhexagon_get_dsp_support(int * domain) {
     int hexagon_error = AEE_SUCCESS;
@@ -4872,7 +4861,7 @@ static int ggmlhexagon_get_vtcm_info(int domain, uint32_t attr, uint32_t * capab
         goto bail;
     }
 
-    if (remote_handle_control) {
+    if (_pfn_rpc_remote_handle_control) {
         if (domain == HEXAGON_ADSP || domain == HEXAGON_CDSP) {
             /*
             * query the DSP for VTCM information
@@ -4882,7 +4871,7 @@ static int ggmlhexagon_get_vtcm_info(int domain, uint32_t attr, uint32_t * capab
             dsp_capability_vtcm_dsp.domain       = (uint32_t)domain;
             dsp_capability_vtcm_dsp.attribute_ID = attr;
             dsp_capability_vtcm_dsp.capability   = (uint32_t)0;
-            hexagon_error = remote_handle_control(DSPRPC_GET_DSP_INFO, &dsp_capability_vtcm_dsp, sizeof(struct remote_dsp_capability));
+            hexagon_error = _pfn_rpc_remote_handle_control(DSPRPC_GET_DSP_INFO, &dsp_capability_vtcm_dsp, sizeof(struct remote_dsp_capability));
             if ((hexagon_error & 0xFF) == (AEE_EUNSUPPORTEDAPI & 0xFF)) {
                 GGMLHEXAGON_LOG_DEBUG("FastRPC Capability API is not supported on this device");
                 GGMLHEXAGON_LOG_DEBUG("running the use case without checking the capability");
@@ -4910,9 +4899,9 @@ bail:
 
 static bool ggmlhexagon_is_unsignedpd_supported(int domain_id) {
     int hexagon_error = AEE_SUCCESS;
-    if (remote_handle_control) {
+    if (_pfn_rpc_remote_handle_control) {
         struct remote_dsp_capability dsp_capability_domain = {static_cast<uint32_t>(domain_id), UNSIGNED_PD_SUPPORT, 0};
-        hexagon_error = remote_handle_control(DSPRPC_GET_DSP_INFO, &dsp_capability_domain, sizeof(struct remote_dsp_capability));
+        hexagon_error = _pfn_rpc_remote_handle_control(DSPRPC_GET_DSP_INFO, &dsp_capability_domain, sizeof(struct remote_dsp_capability));
         if ((hexagon_error & 0xFF) == (AEE_EUNSUPPORTEDAPI & 0xFF)) {
             GGMLHEXAGON_LOG_WARN("FastRPC Capability API is not supported on this device. Falling back to signed pd");
             return false;
@@ -4941,7 +4930,7 @@ static bool ggmlhexagon_get_unsignedpd_support(void) {
 
 static bool ggmlhexagon_is_async_fastrpc_supported(int domain) {
     int hexagon_error = AEE_SUCCESS;
-    if (remote_handle_control) {
+    if (_pfn_rpc_remote_handle_control) {
         if (domain == HEXAGON_CDSP) {
             /*
             * Query the DSP for ASYNC_FASTRPC_SUPPORT information
@@ -4951,7 +4940,7 @@ static bool ggmlhexagon_is_async_fastrpc_supported(int domain) {
             dsp_capability_async_support.domain       = (uint32_t)domain;
             dsp_capability_async_support.attribute_ID = ASYNC_FASTRPC_SUPPORT;
             dsp_capability_async_support.capability   = (uint32_t)0;
-            hexagon_error = remote_handle_control(DSPRPC_GET_DSP_INFO, &dsp_capability_async_support, sizeof(struct remote_dsp_capability));
+            hexagon_error = _pfn_rpc_remote_handle_control(DSPRPC_GET_DSP_INFO, &dsp_capability_async_support, sizeof(struct remote_dsp_capability));
             if ((hexagon_error & 0xFF) == (AEE_EUNSUPPORTEDAPI & 0xFF)) {
                 GGMLHEXAGON_LOG_WARN("FastRPC Capability API is not supported on this device");
                 hexagon_error = AEE_SUCCESS;
@@ -4981,7 +4970,7 @@ bail:
 static void ggmlhexagon_set_rpc_latency(remote_handle64 handle, int qos, int latency) {
     int hexagon_error = AEE_SUCCESS;
 
-    if (remote_handle_control) {
+    if (_pfn_rpc_remote_handle64_control) {
         struct remote_rpc_control_latency data;
 /*
         qos          |  latency
@@ -4991,7 +4980,7 @@ static void ggmlhexagon_set_rpc_latency(remote_handle64 handle, int qos, int lat
 */
         data.enable   = qos;
         data.latency  = latency;
-        hexagon_error = remote_handle64_control(handle, DSPRPC_CONTROL_LATENCY, (void*)&data, sizeof(data));
+        hexagon_error = _pfn_rpc_remote_handle64_control(handle, DSPRPC_CONTROL_LATENCY, (void*)&data, sizeof(data));
         if (hexagon_error != AEE_SUCCESS) {
             GGMLHEXAGON_LOG_WARN("failed with error 0x%x", hexagon_error);
             goto bail;
@@ -5010,7 +4999,7 @@ bail:
 static bool ggmlhexagon_is_status_notification_supported(int domain) {
     int hexagon_error = AEE_SUCCESS;
 
-    if (remote_handle_control) {
+    if (_pfn_rpc_remote_handle_control) {
         /*
         * Query the DSP for STATUS_NOTIFICATION_SUPPORT information
         * DSP User PD status notification Support
@@ -5019,7 +5008,7 @@ static bool ggmlhexagon_is_status_notification_supported(int domain) {
         dsp_capability_status_notification_support.domain       = (uint32_t)domain;
         dsp_capability_status_notification_support.attribute_ID = STATUS_NOTIFICATION_SUPPORT;
         dsp_capability_status_notification_support.capability   = (uint32_t)0;
-        hexagon_error = remote_handle_control(DSPRPC_GET_DSP_INFO, &dsp_capability_status_notification_support, sizeof(struct remote_dsp_capability));
+        hexagon_error = _pfn_rpc_remote_handle_control(DSPRPC_GET_DSP_INFO, &dsp_capability_status_notification_support, sizeof(struct remote_dsp_capability));
         if ((hexagon_error & 0xFF) == (AEE_EUNSUPPORTEDAPI & 0xFF)) {
             GGMLHEXAGON_LOG_WARN("FastRPC Capability API is not supported on this device");
             hexagon_error = AEE_SUCCESS;
@@ -5051,7 +5040,7 @@ static int ggmlhexagon_get_hmx_support_info(int domain, uint32_t attr, uint32_t 
         goto bail;
     }
 
-    if (remote_handle_control) {
+    if (_pfn_rpc_remote_handle_control) {
         if (domain == HEXAGON_CDSP) {
             /*
             * Query the DSP for HMX SUPPORT information
@@ -5061,7 +5050,7 @@ static int ggmlhexagon_get_hmx_support_info(int domain, uint32_t attr, uint32_t 
             dsp_capability_hmx_dsp.domain       = (uint32_t)domain;
             dsp_capability_hmx_dsp.attribute_ID = attr;
             dsp_capability_hmx_dsp.capability   = (uint32_t)0;
-            hexagon_error = remote_handle_control(DSPRPC_GET_DSP_INFO, &dsp_capability_hmx_dsp, sizeof(struct remote_dsp_capability));
+            hexagon_error = _pfn_rpc_remote_handle_control(DSPRPC_GET_DSP_INFO, &dsp_capability_hmx_dsp, sizeof(struct remote_dsp_capability));
             if ((hexagon_error & 0xFF) == (AEE_EUNSUPPORTEDAPI & 0xFF)) {
                 GGMLHEXAGON_LOG_DEBUG("FastRPC Capability API is not supported on this device");
                 hexagon_error = AEE_SUCCESS;
@@ -5090,7 +5079,7 @@ bail:
 static int ggmlhexagon_get_hvx_arch_ver(int domain, uint32_t * capability) {
     int hexagon_error = AEE_SUCCESS;
     *capability = 0;
-    if(remote_handle_control) {
+    if(_pfn_rpc_remote_handle_control) {
         /*
         * Query the Hexagon processor architecture version information
         */
@@ -5098,7 +5087,7 @@ static int ggmlhexagon_get_hvx_arch_ver(int domain, uint32_t * capability) {
         dsp_capability_arch_ver.domain       = (uint32_t)domain;
         dsp_capability_arch_ver.attribute_ID = ARCH_VER;
         dsp_capability_arch_ver.capability   = (uint32_t)0;
-        hexagon_error = remote_handle_control(DSPRPC_GET_DSP_INFO, &dsp_capability_arch_ver, sizeof(struct remote_dsp_capability));
+        hexagon_error = _pfn_rpc_remote_handle_control(DSPRPC_GET_DSP_INFO, &dsp_capability_arch_ver, sizeof(struct remote_dsp_capability));
         if ((hexagon_error & 0xFF) == (AEE_EUNSUPPORTEDAPI & 0xFF)) {
             GGMLHEXAGON_LOG_DEBUG("FastRPC Capability API is not supported on this device");
             hexagon_error = AEE_SUCCESS;
@@ -5134,7 +5123,7 @@ static int ggmlhexagon_get_hvx_support_info(int domain, uint32_t attr, uint32_t 
         goto bail;
     }
 
-    if (remote_handle_control) {
+    if (_pfn_rpc_remote_handle_control) {
         if (domain == HEXAGON_CDSP) {
             /*
             * Query the DSP for HVX SUPPORT information
@@ -5144,7 +5133,7 @@ static int ggmlhexagon_get_hvx_support_info(int domain, uint32_t attr, uint32_t 
             dsp_capability_hvx_dsp.domain       = (uint32_t)domain;
             dsp_capability_hvx_dsp.attribute_ID = attr;
             dsp_capability_hvx_dsp.capability   = (uint32_t)0;
-            hexagon_error = remote_handle_control(DSPRPC_GET_DSP_INFO, &dsp_capability_hvx_dsp, sizeof(struct remote_dsp_capability));
+            hexagon_error = _pfn_rpc_remote_handle_control(DSPRPC_GET_DSP_INFO, &dsp_capability_hvx_dsp, sizeof(struct remote_dsp_capability));
             if ((hexagon_error & 0xFF)==(AEE_EUNSUPPORTEDAPI & 0xFF)) {
                 GGMLHEXAGON_LOG_DEBUG("FastRPC Capability API is not supported on this device");
                 hexagon_error = AEE_SUCCESS;
@@ -5180,7 +5169,7 @@ static int ggmlhexagon_request_status_notifications(int domain_id, void * contex
 
     status_notification_support = ggmlhexagon_is_status_notification_supported(domain_id);
     if (status_notification_support) {
-        hexagon_error = remote_session_control(FASTRPC_REGISTER_STATUS_NOTIFICATIONS, (void*)&notif, sizeof(notif));
+        hexagon_error = _pfn_rpc_remote_session_control(FASTRPC_REGISTER_STATUS_NOTIFICATIONS, (void*)&notif, sizeof(notif));
         if (hexagon_error != AEE_SUCCESS) {
             GGMLHEXAGON_LOG_DEBUG("error 0x%x: remote_session_control failed to enable status notifications", hexagon_error);
         }
@@ -5192,8 +5181,6 @@ static int ggmlhexagon_request_status_notifications(int domain_id, void * contex
 }
 
 static int ggmlhexagon_init_rpcmempool(ggml_backend_hexagon_context * ctx) {
-    throw std::runtime_error("Not implemented. Directly initialising RPC memory pool is not supported right now.");
-
     size_t candidate_size   = 0;
     uint8_t * rpc_buffer    = nullptr;
     size_t probe_slots[]    = {1024, 1536, 2000, 2048};
@@ -5203,13 +5190,13 @@ static int ggmlhexagon_init_rpcmempool(ggml_backend_hexagon_context * ctx) {
         return 1;
 
     for (size_t idx = 0; idx < probe_counts; idx++) {
-        rpc_buffer = static_cast<uint8_t *>(rpcmem_alloc(RPCMEM_HEAP_ID_SYSTEM, RPCMEM_DEFAULT_FLAGS, (probe_slots[idx] * SIZE_IN_MB)));
+        rpc_buffer = static_cast<uint8_t *>(_pfn_rpc_mem_alloc(RPCMEM_HEAP_ID_SYSTEM, RPCMEM_DEFAULT_FLAGS, (probe_slots[idx] * SIZE_IN_MB)));
         if (nullptr == rpc_buffer) {
             GGMLHEXAGON_LOG_DEBUG("alloc rpcmem %d (MiB) failure during probe rpc memory info, reason: %s\n", probe_slots[idx], strerror(errno));
             break;
         } else {
             candidate_size = probe_slots[idx];
-            rpcmem_free(rpc_buffer);
+            _pfn_rpc_mem_free(rpc_buffer);
             rpc_buffer = nullptr;
         }
     }
@@ -5223,7 +5210,7 @@ static int ggmlhexagon_init_rpcmempool(ggml_backend_hexagon_context * ctx) {
         ctx->rpc_mempool_len = ctx->rpc_mempool_capacity - (8 * SIZE_IN_MB);
 
         //FIXME: it seems there is unknown issue with 2+ GiB memory pool
-        ctx->rpc_mempool = rpcmem_alloc(RPCMEM_HEAP_ID_SYSTEM, RPCMEM_DEFAULT_FLAGS | RPCMEM_TRY_MAP_STATIC, ctx->rpc_mempool_len);
+        ctx->rpc_mempool = _pfn_rpc_mem_alloc(RPCMEM_HEAP_ID_SYSTEM, RPCMEM_DEFAULT_FLAGS | RPCMEM_TRY_MAP_STATIC, ctx->rpc_mempool_len);
         if (nullptr == ctx->rpc_mempool) {
             GGMLHEXAGON_LOG_WARN("alloc rpc memorypool %d failed", ctx->rpc_mempool_len);
             return 2;
@@ -5232,23 +5219,21 @@ static int ggmlhexagon_init_rpcmempool(ggml_backend_hexagon_context * ctx) {
                                   ctx->rpc_mempool, ctx->rpc_mempool_len,
                                   ctx->rpc_mempool_len / SIZE_IN_MB);
         }
-        ctx->rpc_mempool_handle = rpcmem_to_fd(ctx->rpc_mempool);
+        ctx->rpc_mempool_handle = _pfn_rpc_mem_to_fd(ctx->rpc_mempool);
         GGMLHEXAGON_LOG_DEBUG("rpc mempool handle %d", ctx->rpc_mempool_handle);
-        remote_register_buf(ctx->rpc_mempool, ctx->rpc_mempool_len, ctx->rpc_mempool_handle);
+        _pfn_rpc_remote_register_buf(ctx->rpc_mempool, ctx->rpc_mempool_len, ctx->rpc_mempool_handle);
     }
 
     return 0;
 }
 
 static void ggmlhexagon_deinit_rpcmempool(ggml_backend_hexagon_context * ctx) {
-    throw std::runtime_error("Not implemented. Directly initialising RPC memory pool is not supported right now.");
-
     if ((g_hexagon_appcfg.hwaccel_approach == HWACCEL_CDSP) && (1 == g_hexagon_appcfg.enable_rpc_ion_mempool)) {
         if (ctx->rpc_mempool) {
             //deregister rpc memory pool
-            remote_register_buf(ctx->rpc_mempool, ctx->rpc_mempool_len, -1);
+            _pfn_rpc_remote_register_buf(ctx->rpc_mempool, ctx->rpc_mempool_len, -1);
             GGMLHEXAGON_LOG_DEBUG("free rpc mempool %p", ctx->rpc_mempool);
-            rpcmem_free(ctx->rpc_mempool);
+            _pfn_rpc_mem_free(ctx->rpc_mempool);
             ctx->rpc_mempool = nullptr;
             ctx->rpc_mempool_len = 0;
             ctx->rpc_mempool_capacity = 0;
@@ -5317,6 +5302,49 @@ static int ggmlhexagon_init_dsp(ggml_backend_hexagon_context * ctx) {
     static std::mutex mutex;
     std::lock_guard<std::mutex> lock(mutex);
 
+#if defined(__ANDROID__) || defined(__linux__)
+    std::filesystem::path full_path(std::string(g_hexagon_appcfg.runtime_libpath) + "libcdsprpc.so");
+    //full_path /= std::filesystem::path("libcdsprpc.so").filename();
+    _rpc_lib_handle = dlopen(full_path.string().c_str(), RTLD_NOW | RTLD_LOCAL);
+    if (nullptr == _rpc_lib_handle) {
+        GGMLHEXAGON_LOG_WARN("failed to load %s from local file, trying to find in system libraries\n", full_path.c_str());
+        _rpc_lib_handle = dlopen("libcdsprpc.so", RTLD_NOW | RTLD_LOCAL);
+    }
+#else
+    _rpc_lib_handle = dlopen("libcdsprpc.dll", RTLD_NOW | RTLD_LOCAL);
+#endif
+
+    if (nullptr == _rpc_lib_handle) {
+        GGMLHEXAGON_LOG_WARN("failed to load qualcomm's rpc lib, error:%s\n", dlerror());
+        return 7;
+    } else {
+        GGMLHEXAGON_LOG_DEBUG("load rpcmem lib successfully\n");
+    }
+    _pfn_rpc_mem_init   = reinterpret_cast<pfn_rpc_mem_init>(dlsym(_rpc_lib_handle, "rpcmem_init"));
+    _pfn_rpc_mem_deinit = reinterpret_cast<pfn_rpc_mem_deinit>(dlsym(_rpc_lib_handle, "rpcmem_deinit"));
+    _pfn_rpc_mem_alloc  = reinterpret_cast<pfn_rpc_mem_alloc>(dlsym(_rpc_lib_handle,"rpcmem_alloc"));
+    _pfn_rpc_mem_free   = reinterpret_cast<pfn_rpc_mem_free>(dlsym(_rpc_lib_handle, "rpcmem_free"));
+    _pfn_rpc_mem_to_fd  = reinterpret_cast<pfn_rpc_mem_to_fd>(dlsym(_rpc_lib_handle,"rpcmem_to_fd"));
+    _pfn_rpc_remote_handle_control = reinterpret_cast<pfn_rpc_remote_handle_control>(dlsym(_rpc_lib_handle,"remote_handle_control"));
+    _pfn_rpc_remote_register_buf = reinterpret_cast<pfn_rpc_remote_register_buf>(dlsym(_rpc_lib_handle,"remote_register_buf"));
+    _pfn_rpc_remote_session_control = reinterpret_cast<pfn_rpc_remote_session_control>(dlsym(_rpc_lib_handle,"remote_session_control"));
+    _pfn_rpc_remote_handle64_open = reinterpret_cast<pfn_rpc_remote_handle64_open>(dlsym(_rpc_lib_handle,"remote_handle64_open"));
+    _pfn_rpc_remote_handle64_close = reinterpret_cast<pfn_rpc_remote_handle64_close>(dlsym(_rpc_lib_handle,"remote_handle64_close"));
+    _pfn_rpc_remote_handle64_invoke = reinterpret_cast<pfn_rpc_remote_handle64_invoke>(dlsym(_rpc_lib_handle,"remote_handle64_invoke"));
+    _pfn_rpc_remote_handle64_control = reinterpret_cast<pfn_rpc_remote_handle64_control>(dlsym(_rpc_lib_handle,"remote_handle64_control"));
+
+    if (nullptr == _pfn_rpc_mem_alloc ||
+        nullptr == _pfn_rpc_mem_free ||
+        nullptr == _pfn_rpc_mem_to_fd ||
+        nullptr == _pfn_rpc_remote_register_buf) {
+        GGMLHEXAGON_LOG_WARN("unable to access symbols in QNN RPC lib, dlerror(): %s", dlerror());
+        dlclose(_rpc_lib_handle);
+        return 8;
+    }
+
+    if (nullptr != _pfn_rpc_mem_init) // make Qualcomm's SoC based low-end phone happy
+        _pfn_rpc_mem_init();
+
     int hexagon_error               = AEE_SUCCESS;
 
     int domain_id                   = HEXAGON_CDSP;
@@ -5326,7 +5354,7 @@ static int ggmlhexagon_init_dsp(ggml_backend_hexagon_context * ctx) {
     bool is_unsignedpd_enabled      = false;
     int use_logical_id              = 0;
     int core_id                     = -1;
-    fastrpc_domain * domains_info   = NULL;
+    //fastrpc_domain * domains_info   = NULL;
     int num_domains                 = -1;
 
     domain * my_domain              = NULL;
@@ -5344,7 +5372,7 @@ static int ggmlhexagon_init_dsp(ggml_backend_hexagon_context * ctx) {
     }
     ctx->ggmlop_handle = 0;
 
-    if (-1 == domain_id) {
+    /*if (-1 == domain_id) {
         if (nullptr != domain_type) {
             if ((strcmp(domain_type, "NSP") != 0 && strcmp(domain_type, "HPASS") != 0)) {
                 GGMLHEXAGON_LOG_WARN("invalid domain_type %s. possible values are NSP or HPASS", domain_type);
@@ -5381,7 +5409,7 @@ static int ggmlhexagon_init_dsp(ggml_backend_hexagon_context * ctx) {
                 GGMLHEXAGON_LOG_DEBUG("error: 0x%x, defaulting to cDSP domain", hexagon_error);
             }
         }
-    }
+    }*/
 
     if (0 == use_logical_id) {
         if (!ggmlhexagon_is_valid_domain_id(domain_id, 0)) {
@@ -5411,11 +5439,11 @@ static int ggmlhexagon_init_dsp(ggml_backend_hexagon_context * ctx) {
     GGMLHEXAGON_LOG_INFO("using Hexagon domain %d(%s)", domain_id, ggmlhexagon_get_dsp_name(domain_id));
     GGMLHEXAGON_LOG_INFO("unsignedpd_enabled %d", is_unsignedpd_enabled);
     if (is_unsignedpd_enabled) {
-        if (remote_session_control) {
+        if (_pfn_rpc_remote_session_control) {
             struct remote_rpc_control_unsigned_module data;
             data.enable = 1;
             data.domain = domain_id;
-            hexagon_error = remote_session_control(DSPRPC_CONTROL_UNSIGNED_MODULE, (void *)&data, sizeof(data));
+            hexagon_error = _pfn_rpc_remote_session_control(DSPRPC_CONTROL_UNSIGNED_MODULE, (void *)&data, sizeof(data));
             GGMLHEXAGON_LOG_DEBUG("remote_session_control returned %d for configuring unsigned PD success", hexagon_error);
             if (AEE_SUCCESS != hexagon_error) {
                 GGMLHEXAGON_LOG_DEBUG("error 0x%x: remote_session_control failed", hexagon_error);
@@ -6147,7 +6175,7 @@ static void ggml_backend_hexagon_device_get_memory(ggml_backend_dev_t dev, size_
         //TODO: probe GPU info in Qualcomm Adreno GPU
         *total = ggmlhexagon_get_system_total_memory_in_bytes();
         *free = ggmlhexagon_get_system_free_memory_in_bytes();
-    } else if (HEXAGON_BACKEND_QNNNPU == ctx->device) {
+    } else if (HEXAGON_BACKEND_QNNNPU == ctx->device || HEXAGON_BACKEND_CDSP == ctx->device) {
         size_t rpc_ion_memsize = 0;
         size_t rpc_ion_usage   = 0;
         if (HWACCEL_CDSP != g_hexagon_appcfg.hwaccel_approach) {
@@ -6248,7 +6276,7 @@ static ggml_backend_buffer_type_t ggml_backend_hexagon_buffer_type(size_t device
         // TODO: not sure why we need to update the global setting here in the original code
         // it seems this code is reached when we allocate buffers for all devices (including the qnn-cpu device)
         // so if it reaches this code, then it won't use the NPU anymore since the backend config will be updated to use the cpu device
-        // g_hexagon_appcfg.hexagon_backend = device_index;
+        g_hexagon_appcfg.hexagon_backend = device_index;
     }
 
     static struct ggml_backend_buffer_type ggml_backend_hexagon_buffer_types[GGML_HEXAGON_MAX_DEVICES];
@@ -6728,3 +6756,22 @@ ggml_backend_t ggml_backend_hexagon_init(size_t device, const char * runtime_lib
 }
 
 GGML_BACKEND_DL_IMPL(ggml_backend_hexagon_reg)
+
+// =================================================================================================
+//  section-9: stub of remote cdsp functions
+// =================================================================================================
+
+__QAIC_REMOTE_EXPORT __QAIC_RETURN int __QAIC_REMOTE(remote_handle64_open)( __QAIC_IN_CHAR  const char* name, __QAIC_OUT  remote_handle64 *ph) __QAIC_REMOTE_ATTRIBUTE
+{
+    return _pfn_rpc_remote_handle64_open(name, ph);
+}
+
+__QAIC_REMOTE_EXPORT __QAIC_RETURN int __QAIC_REMOTE(remote_handle64_close)(__QAIC_IN remote_handle64 h) __QAIC_REMOTE_ATTRIBUTE
+{
+    return _pfn_rpc_remote_handle64_close(h);
+}
+
+__QAIC_REMOTE_EXPORT __QAIC_RETURN int __QAIC_REMOTE(remote_handle64_invoke)(__QAIC_IN remote_handle64 h, __QAIC_IN uint32_t dwScalars, __QAIC_IN remote_arg *pra) __QAIC_REMOTE_ATTRIBUTE
+{
+    return _pfn_rpc_remote_handle64_invoke(h, dwScalars, pra);
+}

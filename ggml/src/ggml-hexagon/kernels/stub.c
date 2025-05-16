@@ -14,73 +14,73 @@
 
 typedef struct _heap _heap;
 struct _heap {
-   _heap* pPrev;
-   const char* loc;
-   uint64_t buf;
+    _heap* pPrev;
+    const char* loc;
+    uint64_t buf;
 };
 
 typedef struct _allocator {
-   _heap* pheap;
-   uint8_t* stack;
-   uint8_t* stackEnd;
-   int nSize;
+    _heap* pheap;
+    uint8_t* stack;
+    uint8_t* stackEnd;
+    int nSize;
 } _allocator;
 
 _ATTRIBUTE_UNUSED
 static __inline int _heap_alloc(_heap** ppa, const char* loc, int size, void** ppbuf) {
-   _heap* pn = 0;
-   pn = MALLOC((size_t)size + sizeof(_heap) - sizeof(uint64_t));
-   if(pn != 0) {
-      pn->pPrev = *ppa;
-      pn->loc = loc;
-      *ppa = pn;
-      *ppbuf = (void*)&(pn->buf);
-      return 0;
-   } else {
-      return -1;
-   }
+    _heap* pn = 0;
+    pn = MALLOC((size_t)size + sizeof(_heap) - sizeof(uint64_t));
+    if(pn != 0) {
+        pn->pPrev = *ppa;
+        pn->loc = loc;
+        *ppa = pn;
+        *ppbuf = (void*)&(pn->buf);
+        return 0;
+    } else {
+        return -1;
+    }
 }
 #define _ALIGN_SIZE(x, y) (((x) + (y-1)) & ~(y-1))
 
 _ATTRIBUTE_UNUSED
 static __inline int _allocator_alloc(_allocator* me,
-                                    const char* loc,
-                                    int size,
-                                    unsigned int al,
-                                    void** ppbuf) {
-   if(size < 0) {
-      return -1;
-   } else if (size == 0) {
-      *ppbuf = 0;
-      return 0;
-   }
-   if((_ALIGN_SIZE((uintptr_t)me->stackEnd, al) + (size_t)size) < (uintptr_t)me->stack + (size_t)me->nSize) {
-      *ppbuf = (uint8_t*)_ALIGN_SIZE((uintptr_t)me->stackEnd, al);
-      me->stackEnd = (uint8_t*)_ALIGN_SIZE((uintptr_t)me->stackEnd, al) + size;
-      return 0;
-   } else {
-      return _heap_alloc(&me->pheap, loc, size, ppbuf);
-   }
+                                     const char* loc,
+                                     int size,
+                                     unsigned int al,
+                                     void** ppbuf) {
+    if(size < 0) {
+        return -1;
+    } else if (size == 0) {
+        *ppbuf = 0;
+        return 0;
+    }
+    if((_ALIGN_SIZE((uintptr_t)me->stackEnd, al) + (size_t)size) < (uintptr_t)me->stack + (size_t)me->nSize) {
+        *ppbuf = (uint8_t*)_ALIGN_SIZE((uintptr_t)me->stackEnd, al);
+        me->stackEnd = (uint8_t*)_ALIGN_SIZE((uintptr_t)me->stackEnd, al) + size;
+        return 0;
+    } else {
+        return _heap_alloc(&me->pheap, loc, size, ppbuf);
+    }
 }
 
 _ATTRIBUTE_UNUSED
 static __inline void _allocator_deinit(_allocator* me) {
-   _heap* pa = me->pheap;
-   while(pa != 0) {
-      _heap* pn = pa;
-      const char* loc = pn->loc;
-      (void)loc;
-      pa = pn->pPrev;
-      FREE(pn);
-   }
+    _heap* pa = me->pheap;
+    while(pa != 0) {
+        _heap* pn = pa;
+        const char* loc = pn->loc;
+        (void)loc;
+        pa = pn->pPrev;
+        FREE(pn);
+    }
 }
 
 _ATTRIBUTE_UNUSED
 static __inline void _allocator_init(_allocator* me, uint8_t* stack, int stackSize) {
-   me->stack =  stack;
-   me->stackEnd =  stack + stackSize;
-   me->nSize = stackSize;
-   me->pheap = 0;
+    me->stack =  stack;
+    me->stackEnd =  stack + stackSize;
+    me->nSize = stackSize;
+    me->pheap = 0;
 }
 
 
@@ -165,15 +165,15 @@ typedef struct UnionType UnionType;
 typedef struct StructType StructType;
 typedef struct SequenceType SequenceType;
 struct Type {
-   INHERIT_TYPE;
+    INHERIT_TYPE;
 };
 
 struct SequenceType {
-   const Type *         seqType;
-   uint32_t               nMaxLen;
-   uint32_t               inSize;
-   uint32_t               routSizePrimIn;
-   uint32_t               routSizePrimROut;
+    const Type *         seqType;
+    uint32_t               nMaxLen;
+    uint32_t               inSize;
+    uint32_t               routSizePrimIn;
+    uint32_t               routSizePrimROut;
 };
 
 //byte offset from the start of the case values for
@@ -185,49 +185,49 @@ struct SequenceType {
 //can be used directly to find the correct case
 typedef union CaseValuePtr CaseValuePtr;
 union CaseValuePtr {
-   const uint8_t*   value8s;
-   const uint16_t*  value16s;
-   const uint32_t*  value32s;
-   const uint64_t*  value64s;
+    const uint8_t*   value8s;
+    const uint16_t*  value16s;
+    const uint32_t*  value32s;
+    const uint64_t*  value64s;
 };
 
 //these are only used in complex cases
 //so I pulled them out of the type definition as references to make
 //the type smaller
 struct UnionType {
-   const Type           *descriptor;
-   uint32_t               nCases;
-   const CaseValuePtr   caseValues;
-   const Type * const   *cases;
-   int32_t               inSize;
-   int32_t               routSizePrimIn;
-   int32_t               routSizePrimROut;
-   uint8_t                inAlignment;
-   uint8_t                routAlignmentPrimIn;
-   uint8_t                routAlignmentPrimROut;
-   uint8_t                inCaseAlignment;
-   uint8_t                routCaseAlignmentPrimIn;
-   uint8_t                routCaseAlignmentPrimROut;
-   uint8_t                nativeCaseAlignment;
-   uint8_t              bDefaultCase;
+    const Type           *descriptor;
+    uint32_t               nCases;
+    const CaseValuePtr   caseValues;
+    const Type * const   *cases;
+    int32_t               inSize;
+    int32_t               routSizePrimIn;
+    int32_t               routSizePrimROut;
+    uint8_t                inAlignment;
+    uint8_t                routAlignmentPrimIn;
+    uint8_t                routAlignmentPrimROut;
+    uint8_t                inCaseAlignment;
+    uint8_t                routCaseAlignmentPrimIn;
+    uint8_t                routCaseAlignmentPrimROut;
+    uint8_t                nativeCaseAlignment;
+    uint8_t              bDefaultCase;
 };
 
 struct StructType {
-   uint32_t               nMembers;
-   const Type * const   *members;
-   int32_t               inSize;
-   int32_t               routSizePrimIn;
-   int32_t               routSizePrimROut;
-   uint8_t                inAlignment;
-   uint8_t                routAlignmentPrimIn;
-   uint8_t                routAlignmentPrimROut;
+    uint32_t               nMembers;
+    const Type * const   *members;
+    int32_t               inSize;
+    int32_t               routSizePrimIn;
+    int32_t               routSizePrimROut;
+    uint8_t                inAlignment;
+    uint8_t                routAlignmentPrimIn;
+    uint8_t                routAlignmentPrimROut;
 };
 
 typedef struct Parameter Parameter;
 struct Parameter {
-   INHERIT_TYPE;
-   uint8_t    mode;
-   uint8_t  bNotNil;
+    INHERIT_TYPE;
+    uint8_t    mode;
+    uint8_t  bNotNil;
 };
 
 #define SLIM_IFPTR32(is32,is64) (sizeof(uintptr_t) == 4 ? (is32) : (is64))
@@ -235,26 +235,26 @@ struct Parameter {
 
 typedef struct Method Method;
 struct Method {
-   uint32_t                    uScalars;            //no method index
-   int32_t                     primInSize;
-   int32_t                     primROutSize;
-   int                         maxArgs;
-   int                         numParams;
-   const Parameter * const     *params;
-   uint8_t                       primInAlignment;
-   uint8_t                       primROutAlignment;
+    uint32_t                    uScalars;            //no method index
+    int32_t                     primInSize;
+    int32_t                     primROutSize;
+    int                         maxArgs;
+    int                         numParams;
+    const Parameter * const     *params;
+    uint8_t                       primInAlignment;
+    uint8_t                       primROutAlignment;
 };
 
 typedef struct Interface Interface;
 
 struct Interface {
-   int                            nMethods;
-   const Method  * const          *methodArray;
-   int                            nIIds;
-   const uint32_t                   *iids;
-   const uint16_t*                  methodStringArray;
-   const uint16_t*                  methodStrings;
-   const char*                    strings;
+    int                            nMethods;
+    const Method  * const          *methodArray;
+    int                            nIIds;
+    const uint32_t                   *iids;
+    const uint16_t*                  methodStringArray;
+    const uint16_t*                  methodStrings;
+    const char*                    strings;
 };
 
 
@@ -291,177 +291,173 @@ __QAIC_SLIM_EXPORT const Interface __QAIC_SLIM(ggmlop_slim) = {8,&(methodArrays[
 extern "C" {
 #endif
 __QAIC_STUB_EXPORT int __QAIC_STUB(ggmlop_dsp_open)(const char* uri, remote_handle64* h) __QAIC_STUB_ATTRIBUTE {
-    return -1;  // don't support direct dsp calls yet
-   //return __QAIC_REMOTE(remote_handle64_open)(uri, h);
+    return __QAIC_REMOTE(remote_handle64_open)(uri, h);
 }
 __QAIC_STUB_EXPORT int __QAIC_STUB(ggmlop_dsp_close)(remote_handle64 h) __QAIC_STUB_ATTRIBUTE {
-    return -1;  // don't support direct dsp calls yet
-    //return __QAIC_REMOTE(remote_handle64_close)(h);
+    return __QAIC_REMOTE(remote_handle64_close)(h);
 }
 static __inline int _stub_method(remote_handle64 _handle, uint32_t _mid, uint32_t _in0[1], uint32_t _in1[1], uint32_t _in2[1], uint32_t _in3[1]) {
-   remote_arg _pra[1] = {0};
-   uint32_t _primIn[4]= {0};
-   int _nErr = 0;
-   _pra[0].buf.pv = (void*)_primIn;
-   _pra[0].buf.nLen = sizeof(_primIn);
-   _COPY(_primIn, 0, _in0, 0, 4);
-   _COPY(_primIn, 4, _in1, 0, 4);
-   _COPY(_primIn, 8, _in2, 0, 4);
-   _COPY(_primIn, 12,_in3, 0, 4);
-   // TODO: we don't support direct dsp calls yet
-   //_TRY_FARF(_nErr, __QAIC_REMOTE(remote_handle64_invoke)(_handle, REMOTE_SCALARS_MAKEX(0, _mid, 1, 0, 0, 0), _pra));
-   _CATCH_FARF(_nErr) {
-      _QAIC_FARF(RUNTIME_ERROR, "ERROR 0x%x: handle=0x%"PRIx64", scalar=0x%x, method ID=%d: %s failed\n", _nErr , _handle, REMOTE_SCALARS_MAKEX(0, _mid, 1, 0, 0, 0), _mid, __func__);
-   }
-   return _nErr;
+    remote_arg _pra[1] = {0};
+    uint32_t _primIn[4]= {0};
+    int _nErr = 0;
+    _pra[0].buf.pv = (void*)_primIn;
+    _pra[0].buf.nLen = sizeof(_primIn);
+    _COPY(_primIn, 0, _in0, 0, 4);
+    _COPY(_primIn, 4, _in1, 0, 4);
+    _COPY(_primIn, 8, _in2, 0, 4);
+    _COPY(_primIn, 12,_in3, 0, 4);
+    _TRY_FARF(_nErr, __QAIC_REMOTE(remote_handle64_invoke)(_handle, REMOTE_SCALARS_MAKEX(0, _mid, 1, 0, 0, 0), _pra));
+    _CATCH_FARF(_nErr) {
+    _QAIC_FARF(RUNTIME_ERROR, "ERROR 0x%x: handle=0x%"PRIx64", scalar=0x%x, method ID=%d: %s failed\n", _nErr , _handle, REMOTE_SCALARS_MAKEX(0, _mid, 1, 0, 0, 0), _mid, __func__);
+}
+    return _nErr;
 }
 __QAIC_STUB_EXPORT AEEResult __QAIC_STUB(ggmlop_dsp_setclocks)(remote_handle64 _handle, int32 power_level, int32 latency, int32 dcvs_enable, int32 threads) __QAIC_STUB_ATTRIBUTE {
-   uint32_t _mid = 2;
-   return _stub_method(_handle, _mid, (uint32_t*)&power_level, (uint32_t*)&latency, (uint32_t*)&dcvs_enable, (uint32_t*)&threads);
+    uint32_t _mid = 2;
+    return _stub_method(_handle, _mid, (uint32_t*)&power_level, (uint32_t*)&latency, (uint32_t*)&dcvs_enable, (uint32_t*)&threads);
 }
 static __inline int _stub_unpack(_ATTRIBUTE_UNUSED remote_arg* _praROutPost, _ATTRIBUTE_UNUSED remote_arg* _ppraROutPost[1], _ATTRIBUTE_UNUSED void* _primROut, _ATTRIBUTE_UNUSED uint32_t _rout0[1], _ATTRIBUTE_UNUSED uint32_t _rout1[4], _ATTRIBUTE_UNUSED uint32_t _rout2[4], _ATTRIBUTE_UNUSED uint32_t _rout3[1], _ATTRIBUTE_UNUSED uint32_t _rout4[16], _ATTRIBUTE_UNUSED uint32_t _rout5[1], _ATTRIBUTE_UNUSED char* _rout6[1], _ATTRIBUTE_UNUSED uint32_t _rout6Len[1]) {
-   int _nErr = 0;
-   remote_arg* _praROutPostStart = _praROutPost;
-   remote_arg** _ppraROutPostStart = _ppraROutPost;
-   _ppraROutPost = &_praROutPost;
-   _COPY(_rout0, 0, _primROut, 0, 4);
-   _COPY(_rout1, 0, _primROut, 4, 16);
-   _COPY(_rout2, 0, _primROut, 20, 16);
-   _COPY(_rout3, 0, _primROut, 36, 4);
-   _COPY(_rout4, 0, _primROut, 40, 64);
-   _COPY(_rout5, 0, _primROut, 104, 4);
-   _ppraROutPostStart[0] += (_praROutPost - _praROutPostStart) +1;
-   return _nErr;
+    int _nErr = 0;
+    remote_arg* _praROutPostStart = _praROutPost;
+    remote_arg** _ppraROutPostStart = _ppraROutPost;
+    _ppraROutPost = &_praROutPost;
+    _COPY(_rout0, 0, _primROut, 0, 4);
+    _COPY(_rout1, 0, _primROut, 4, 16);
+    _COPY(_rout2, 0, _primROut, 20, 16);
+    _COPY(_rout3, 0, _primROut, 36, 4);
+    _COPY(_rout4, 0, _primROut, 40, 64);
+    _COPY(_rout5, 0, _primROut, 104, 4);
+    _ppraROutPostStart[0] += (_praROutPost - _praROutPostStart) +1;
+    return _nErr;
 }
 static __inline int _stub_pack(_ATTRIBUTE_UNUSED _allocator* _al, _ATTRIBUTE_UNUSED remote_arg* _praIn, _ATTRIBUTE_UNUSED remote_arg* _ppraIn[1], _ATTRIBUTE_UNUSED remote_arg* _praROut, _ATTRIBUTE_UNUSED remote_arg* _ppraROut[1], _ATTRIBUTE_UNUSED remote_arg* _praHIn, _ATTRIBUTE_UNUSED remote_arg* _ppraHIn[1], _ATTRIBUTE_UNUSED remote_arg* _praHROut, _ATTRIBUTE_UNUSED remote_arg* _ppraHROut[1], _ATTRIBUTE_UNUSED void* _primIn, _ATTRIBUTE_UNUSED void* _primROut, _ATTRIBUTE_UNUSED uint32_t _rout0[1], _ATTRIBUTE_UNUSED uint32_t _rout1[4], _ATTRIBUTE_UNUSED uint32_t _rout2[4], _ATTRIBUTE_UNUSED uint32_t _rout3[1], _ATTRIBUTE_UNUSED uint32_t _rout4[16], _ATTRIBUTE_UNUSED uint32_t _rout5[1], _ATTRIBUTE_UNUSED char* _rout6[1], _ATTRIBUTE_UNUSED uint32_t _rout6Len[1]) {
-   int _nErr = 0;
-   remote_arg* _praInStart = _praIn;
-   remote_arg** _ppraInStart = _ppraIn;
-   remote_arg* _praROutStart = _praROut;
-   remote_arg** _ppraROutStart = _ppraROut;
-   _ppraIn = &_praIn;
-   _ppraROut = &_praROut;
-   _COPY(_primIn, 0, _rout6Len, 0, 4);
-   _praROut[0].buf.pv = _rout6[0];
-   _praROut[0].buf.nLen = (4 * _rout6Len[0]);
-   _ppraInStart[0] += (_praIn - _praInStart) + 0;
-   _ppraROutStart[0] += (_praROut - _praROutStart) +1;
-   return _nErr;
+    int _nErr = 0;
+    remote_arg* _praInStart = _praIn;
+    remote_arg** _ppraInStart = _ppraIn;
+    remote_arg* _praROutStart = _praROut;
+    remote_arg** _ppraROutStart = _ppraROut;
+    _ppraIn = &_praIn;
+    _ppraROut = &_praROut;
+    _COPY(_primIn, 0, _rout6Len, 0, 4);
+    _praROut[0].buf.pv = _rout6[0];
+    _praROut[0].buf.nLen = (4 * _rout6Len[0]);
+    _ppraInStart[0] += (_praIn - _praInStart) + 0;
+    _ppraROutStart[0] += (_praROut - _praROutStart) +1;
+    return _nErr;
 }
 static __inline int _stub_pack_1(_ATTRIBUTE_UNUSED _allocator* _al, _ATTRIBUTE_UNUSED remote_arg* _praIn, _ATTRIBUTE_UNUSED remote_arg* _ppraIn[1], _ATTRIBUTE_UNUSED remote_arg* _praROut, _ATTRIBUTE_UNUSED remote_arg* _ppraROut[1], _ATTRIBUTE_UNUSED remote_arg* _praHIn, _ATTRIBUTE_UNUSED remote_arg* _ppraHIn[1], _ATTRIBUTE_UNUSED remote_arg* _praHROut, _ATTRIBUTE_UNUSED remote_arg* _ppraHROut[1], _ATTRIBUTE_UNUSED void* _primIn, _ATTRIBUTE_UNUSED void* _primROut, _ATTRIBUTE_UNUSED uint32_t _in0[1], _ATTRIBUTE_UNUSED uint32_t _in1[4], _ATTRIBUTE_UNUSED uint32_t _in2[4], _ATTRIBUTE_UNUSED uint32_t _in3[1], _ATTRIBUTE_UNUSED uint32_t _in4[16], _ATTRIBUTE_UNUSED uint32_t _in5[1], _ATTRIBUTE_UNUSED char* _in6[1], _ATTRIBUTE_UNUSED uint32_t _in6Len[1]) {
-   int _nErr = 0;
-   remote_arg* _praInStart = _praIn;
-   remote_arg** _ppraInStart = _ppraIn;
-   remote_arg* _praROutStart = _praROut;
-   remote_arg** _ppraROutStart = _ppraROut;
-   _ppraIn = &_praIn;
-   _ppraROut = &_praROut;
-   _COPY(_primIn, 0, _in0, 0, 4);
-   _COPY(_primIn, 4, _in1, 0, 16);
-   _COPY(_primIn, 20, _in2, 0, 16);
-   _COPY(_primIn, 36, _in3, 0, 4);
-   _COPY(_primIn, 40, _in4, 0, 64);
-   _COPY(_primIn, 104, _in5, 0, 4);
-   _COPY(_primIn, 108, _in6Len, 0, 4);
-   _praIn[0].buf.pv = (void*) _in6[0];
-   _praIn[0].buf.nLen = (4 * _in6Len[0]);
-   _ppraInStart[0] += (_praIn - _praInStart) + 1;
-   _ppraROutStart[0] += (_praROut - _praROutStart) +0;
-   return _nErr;
+    int _nErr = 0;
+    remote_arg* _praInStart = _praIn;
+    remote_arg** _ppraInStart = _ppraIn;
+    remote_arg* _praROutStart = _praROut;
+    remote_arg** _ppraROutStart = _ppraROut;
+    _ppraIn = &_praIn;
+    _ppraROut = &_praROut;
+    _COPY(_primIn, 0, _in0, 0, 4);
+    _COPY(_primIn, 4, _in1, 0, 16);
+    _COPY(_primIn, 20, _in2, 0, 16);
+    _COPY(_primIn, 36, _in3, 0, 4);
+    _COPY(_primIn, 40, _in4, 0, 64);
+    _COPY(_primIn, 104, _in5, 0, 4);
+    _COPY(_primIn, 108, _in6Len, 0, 4);
+    _praIn[0].buf.pv = (void*) _in6[0];
+    _praIn[0].buf.nLen = (4 * _in6Len[0]);
+    _ppraInStart[0] += (_praIn - _praInStart) + 1;
+    _ppraROutStart[0] += (_praROut - _praROutStart) +0;
+    return _nErr;
 }
 static __inline void _count(int _numIn[1], int _numROut[1], int _numInH[1], int _numROutH[1], _ATTRIBUTE_UNUSED uint32_t _rout0[1], _ATTRIBUTE_UNUSED uint32_t _rout1[4], _ATTRIBUTE_UNUSED uint32_t _rout2[4], _ATTRIBUTE_UNUSED uint32_t _rout3[1], _ATTRIBUTE_UNUSED uint32_t _rout4[16], _ATTRIBUTE_UNUSED uint32_t _rout5[1], _ATTRIBUTE_UNUSED char* _rout6[1], _ATTRIBUTE_UNUSED uint32_t _rout6Len[1]) {
-   _numIn[0] += 0;
-   _numROut[0] += 1;
-   _numInH[0] += 0;
-   _numROutH[0] += 0;
+    _numIn[0] += 0;
+    _numROut[0] += 1;
+    _numInH[0] += 0;
+    _numROutH[0] += 0;
 }
 static __inline void _count_1(int _numIn[1], int _numROut[1], int _numInH[1], int _numROutH[1], _ATTRIBUTE_UNUSED uint32_t _in0[1], _ATTRIBUTE_UNUSED uint32_t _in1[4], _ATTRIBUTE_UNUSED uint32_t _in2[4], _ATTRIBUTE_UNUSED uint32_t _in3[1], _ATTRIBUTE_UNUSED uint32_t _in4[16], _ATTRIBUTE_UNUSED uint32_t _in5[1], _ATTRIBUTE_UNUSED char* _in6[1], _ATTRIBUTE_UNUSED uint32_t _in6Len[1]) {
-   _numIn[0] += 1;
-   _numROut[0] += 0;
-   _numInH[0] += 0;
-   _numROutH[0] += 0;
+    _numIn[0] += 1;
+    _numROut[0] += 0;
+    _numInH[0] += 0;
+    _numROutH[0] += 0;
 }
 static __inline int _stub_method_1(remote_handle64 _handle, uint32_t _mid, uintptr_t _in0[SLIM_IFPTR32(29, 16)], uintptr_t _in1[SLIM_IFPTR32(29, 16)], uintptr_t _rout2[SLIM_IFPTR32(29, 16)]) {
-   remote_arg* _pra = 0;
-   int _numIn[1] = {0};
-   int _numROut[1] = {0};
-   int _numInH[1] = {0};
-   int _numROutH[1] = {0};
-   _allocator _al[1] = {{0}};
-   uint32_t _primIn[57]= {0};
-   uint32_t _primROut[27]= {0};
-   remote_arg* _praIn = 0;
-   remote_arg* _praROut = 0;
-   remote_arg* _praROutPost = 0;
-   remote_arg** _ppraROutPost = &_praROutPost;
-   remote_arg** _ppraIn = &_praIn;
-   remote_arg** _ppraROut = &_praROut;
-   remote_arg* _praHIn = 0;
-   remote_arg** _ppraHIn = &_praHIn;
-   remote_arg* _praHROut = 0;
-   remote_arg** _ppraHROut = &_praHROut;
-   int _nErr = 0;
-   _numIn[0] = 0;
-   _numROut[0] = 0;
-   _numInH[0] = 0;
-   _numROutH[0] = 0;
-   _count_1(_numIn, _numROut, _numInH, _numROutH, (uint32_t*)&(((uint32_t*)_in0)[0]), (uint32_t*)&(((uint32_t*)_in0)[1]), (uint32_t*)&(((uint32_t*)_in0)[5]), (uint32_t*)&(((uint32_t*)_in0)[9]), (uint32_t*)&(((uint32_t*)_in0)[10]), (uint32_t*)&(((uint32_t*)_in0)[26]), SLIM_IFPTR32((char**)&(((uint32_t*)_in0)[27]), (char**)&(((uint64_t*)_in0)[14])), SLIM_IFPTR32((uint32_t*)&(((uint32_t*)_in0)[28]), (uint32_t*)&(((uint32_t*)_in0)[30])));
-   _count_1(_numIn, _numROut, _numInH, _numROutH, (uint32_t*)&(((uint32_t*)_in1)[0]), (uint32_t*)&(((uint32_t*)_in1)[1]), (uint32_t*)&(((uint32_t*)_in1)[5]), (uint32_t*)&(((uint32_t*)_in1)[9]), (uint32_t*)&(((uint32_t*)_in1)[10]), (uint32_t*)&(((uint32_t*)_in1)[26]), SLIM_IFPTR32((char**)&(((uint32_t*)_in1)[27]), (char**)&(((uint64_t*)_in1)[14])), SLIM_IFPTR32((uint32_t*)&(((uint32_t*)_in1)[28]), (uint32_t*)&(((uint32_t*)_in1)[30])));
-   _count(_numIn, _numROut, _numInH, _numROutH, (uint32_t*)&(((uint32_t*)_rout2)[0]), (uint32_t*)&(((uint32_t*)_rout2)[1]), (uint32_t*)&(((uint32_t*)_rout2)[5]), (uint32_t*)&(((uint32_t*)_rout2)[9]), (uint32_t*)&(((uint32_t*)_rout2)[10]), (uint32_t*)&(((uint32_t*)_rout2)[26]), SLIM_IFPTR32((char**)&(((uint32_t*)_rout2)[27]), (char**)&(((uint64_t*)_rout2)[14])), SLIM_IFPTR32((uint32_t*)&(((uint32_t*)_rout2)[28]), (uint32_t*)&(((uint32_t*)_rout2)[30])));
-   if(_numIn[0]>=255){
-          return AEE_EUNSUPPORTED;
-   }
-   if(_numROut[0]>=255){
-          return AEE_EUNSUPPORTED;
-   }
-   _allocator_init(_al, 0, 0);
-   _QAIC_ALLOCATE(_nErr, _al, ((((((((_numIn[0] + _numROut[0]) + _numInH[0]) + _numROutH[0]) + 1) + 1) + 0) + 0) * sizeof(_pra[0])), 4, _pra);
-   _QAIC_ASSERT(_nErr, _pra);
-   _pra[0].buf.pv = (void*)_primIn;
-   _pra[0].buf.nLen = sizeof(_primIn);
-   _pra[(_numIn[0] + 1)].buf.pv = (void*)_primROut;
-   _pra[(_numIn[0] + 1)].buf.nLen = sizeof(_primROut);
-   _praIn = (_pra + 1);
-   _praROut = (_praIn + _numIn[0] + 1);
-   _praROutPost = _praROut;
-   if(_praHIn == 0)
-   {
-      _praHIn = ((_praROut + _numROut[0]) + 1);
-   }
-   if(_praHROut == 0)
-      (_praHROut = _praHIn + _numInH[0] + 0);
-   _TRY(_nErr, _stub_pack_1(_al, (_praIn + 0), _ppraIn, (_praROut + 0), _ppraROut, _praHIn, _ppraHIn, _praHROut, _ppraHROut, ((char*)_primIn + 0), 0, (uint32_t*)&(((uint32_t*)_in0)[0]), (uint32_t*)&(((uint32_t*)_in0)[1]), (uint32_t*)&(((uint32_t*)_in0)[5]), (uint32_t*)&(((uint32_t*)_in0)[9]), (uint32_t*)&(((uint32_t*)_in0)[10]), (uint32_t*)&(((uint32_t*)_in0)[26]), SLIM_IFPTR32((char**)&(((uint32_t*)_in0)[27]), (char**)&(((uint64_t*)_in0)[14])), SLIM_IFPTR32((uint32_t*)&(((uint32_t*)_in0)[28]), (uint32_t*)&(((uint32_t*)_in0)[30]))));
-   _TRY(_nErr, _stub_pack_1(_al, (_praIn + 0), _ppraIn, (_praROut + 0), _ppraROut, _praHIn, _ppraHIn, _praHROut, _ppraHROut, ((char*)_primIn + 112), 0, (uint32_t*)&(((uint32_t*)_in1)[0]), (uint32_t*)&(((uint32_t*)_in1)[1]), (uint32_t*)&(((uint32_t*)_in1)[5]), (uint32_t*)&(((uint32_t*)_in1)[9]), (uint32_t*)&(((uint32_t*)_in1)[10]), (uint32_t*)&(((uint32_t*)_in1)[26]), SLIM_IFPTR32((char**)&(((uint32_t*)_in1)[27]), (char**)&(((uint64_t*)_in1)[14])), SLIM_IFPTR32((uint32_t*)&(((uint32_t*)_in1)[28]), (uint32_t*)&(((uint32_t*)_in1)[30]))));
-   _TRY(_nErr, _stub_pack(_al, (_praIn + 0), _ppraIn, (_praROut + 0), _ppraROut, _praHIn, _ppraHIn, _praHROut, _ppraHROut, ((char*)_primIn + 224), ((char*)_primROut + 0), (uint32_t*)&(((uint32_t*)_rout2)[0]), (uint32_t*)&(((uint32_t*)_rout2)[1]), (uint32_t*)&(((uint32_t*)_rout2)[5]), (uint32_t*)&(((uint32_t*)_rout2)[9]), (uint32_t*)&(((uint32_t*)_rout2)[10]), (uint32_t*)&(((uint32_t*)_rout2)[26]), SLIM_IFPTR32((char**)&(((uint32_t*)_rout2)[27]), (char**)&(((uint64_t*)_rout2)[14])), SLIM_IFPTR32((uint32_t*)&(((uint32_t*)_rout2)[28]), (uint32_t*)&(((uint32_t*)_rout2)[30]))));
-   _QAIC_ASSERT(_nErr, (_numInH[0] + 0) <= 15);
-   _QAIC_ASSERT(_nErr, (_numROutH[0] + 0) <= 15);
-   // TODO: we don't support direct dsp calls yet
-   //_TRY_FARF(_nErr, __QAIC_REMOTE(remote_handle64_invoke)(_handle, REMOTE_SCALARS_MAKEX(0, _mid, (_numIn[0] + 1), (_numROut[0] + 1), (_numInH[0] + 0), (_numROutH[0] + 0)), _pra));
-   _TRY(_nErr, _stub_unpack((_praROutPost + 0), _ppraROutPost, ((char*)_primROut + 0), (uint32_t*)&(((uint32_t*)_rout2)[0]), (uint32_t*)&(((uint32_t*)_rout2)[1]), (uint32_t*)&(((uint32_t*)_rout2)[5]), (uint32_t*)&(((uint32_t*)_rout2)[9]), (uint32_t*)&(((uint32_t*)_rout2)[10]), (uint32_t*)&(((uint32_t*)_rout2)[26]), SLIM_IFPTR32((char**)&(((uint32_t*)_rout2)[27]), (char**)&(((uint64_t*)_rout2)[14])), SLIM_IFPTR32((uint32_t*)&(((uint32_t*)_rout2)[28]), (uint32_t*)&(((uint32_t*)_rout2)[30]))));
-   _QAIC_CATCH(_nErr) {}
-   _CATCH_FARF(_nErr) {
-      _QAIC_FARF(RUNTIME_ERROR, "ERROR 0x%x: handle=0x%"PRIx64", scalar=0x%x, method ID=%d: %s failed\n", _nErr , _handle, REMOTE_SCALARS_MAKEX(0, _mid, (_numIn[0] + 1), (_numROut[0] + 1), (_numInH[0] + 0), (_numROutH[0] + 0)), _mid, __func__);
-   }
-   _allocator_deinit(_al);
-   return _nErr;
+    remote_arg* _pra = 0;
+    int _numIn[1] = {0};
+    int _numROut[1] = {0};
+    int _numInH[1] = {0};
+    int _numROutH[1] = {0};
+    _allocator _al[1] = {{0}};
+    uint32_t _primIn[57]= {0};
+    uint32_t _primROut[27]= {0};
+    remote_arg* _praIn = 0;
+    remote_arg* _praROut = 0;
+    remote_arg* _praROutPost = 0;
+    remote_arg** _ppraROutPost = &_praROutPost;
+    remote_arg** _ppraIn = &_praIn;
+    remote_arg** _ppraROut = &_praROut;
+    remote_arg* _praHIn = 0;
+    remote_arg** _ppraHIn = &_praHIn;
+    remote_arg* _praHROut = 0;
+    remote_arg** _ppraHROut = &_praHROut;
+    int _nErr = 0;
+    _numIn[0] = 0;
+    _numROut[0] = 0;
+    _numInH[0] = 0;
+    _numROutH[0] = 0;
+    _count_1(_numIn, _numROut, _numInH, _numROutH, (uint32_t*)&(((uint32_t*)_in0)[0]), (uint32_t*)&(((uint32_t*)_in0)[1]), (uint32_t*)&(((uint32_t*)_in0)[5]), (uint32_t*)&(((uint32_t*)_in0)[9]), (uint32_t*)&(((uint32_t*)_in0)[10]), (uint32_t*)&(((uint32_t*)_in0)[26]), SLIM_IFPTR32((char**)&(((uint32_t*)_in0)[27]), (char**)&(((uint64_t*)_in0)[14])), SLIM_IFPTR32((uint32_t*)&(((uint32_t*)_in0)[28]), (uint32_t*)&(((uint32_t*)_in0)[30])));
+    _count_1(_numIn, _numROut, _numInH, _numROutH, (uint32_t*)&(((uint32_t*)_in1)[0]), (uint32_t*)&(((uint32_t*)_in1)[1]), (uint32_t*)&(((uint32_t*)_in1)[5]), (uint32_t*)&(((uint32_t*)_in1)[9]), (uint32_t*)&(((uint32_t*)_in1)[10]), (uint32_t*)&(((uint32_t*)_in1)[26]), SLIM_IFPTR32((char**)&(((uint32_t*)_in1)[27]), (char**)&(((uint64_t*)_in1)[14])), SLIM_IFPTR32((uint32_t*)&(((uint32_t*)_in1)[28]), (uint32_t*)&(((uint32_t*)_in1)[30])));
+    _count(_numIn, _numROut, _numInH, _numROutH, (uint32_t*)&(((uint32_t*)_rout2)[0]), (uint32_t*)&(((uint32_t*)_rout2)[1]), (uint32_t*)&(((uint32_t*)_rout2)[5]), (uint32_t*)&(((uint32_t*)_rout2)[9]), (uint32_t*)&(((uint32_t*)_rout2)[10]), (uint32_t*)&(((uint32_t*)_rout2)[26]), SLIM_IFPTR32((char**)&(((uint32_t*)_rout2)[27]), (char**)&(((uint64_t*)_rout2)[14])), SLIM_IFPTR32((uint32_t*)&(((uint32_t*)_rout2)[28]), (uint32_t*)&(((uint32_t*)_rout2)[30])));
+    if(_numIn[0]>=255){
+        return AEE_EUNSUPPORTED;
+    }
+    if(_numROut[0]>=255){
+        return AEE_EUNSUPPORTED;
+    }
+    _allocator_init(_al, 0, 0);
+    _QAIC_ALLOCATE(_nErr, _al, ((((((((_numIn[0] + _numROut[0]) + _numInH[0]) + _numROutH[0]) + 1) + 1) + 0) + 0) * sizeof(_pra[0])), 4, _pra);
+    _QAIC_ASSERT(_nErr, _pra);
+    _pra[0].buf.pv = (void*)_primIn;
+    _pra[0].buf.nLen = sizeof(_primIn);
+    _pra[(_numIn[0] + 1)].buf.pv = (void*)_primROut;
+    _pra[(_numIn[0] + 1)].buf.nLen = sizeof(_primROut);
+    _praIn = (_pra + 1);
+    _praROut = (_praIn + _numIn[0] + 1);
+    _praROutPost = _praROut;
+    if(_praHIn == 0)
+    {
+        _praHIn = ((_praROut + _numROut[0]) + 1);
+    }
+    if(_praHROut == 0)
+        (_praHROut = _praHIn + _numInH[0] + 0);
+    _TRY(_nErr, _stub_pack_1(_al, (_praIn + 0), _ppraIn, (_praROut + 0), _ppraROut, _praHIn, _ppraHIn, _praHROut, _ppraHROut, ((char*)_primIn + 0), 0, (uint32_t*)&(((uint32_t*)_in0)[0]), (uint32_t*)&(((uint32_t*)_in0)[1]), (uint32_t*)&(((uint32_t*)_in0)[5]), (uint32_t*)&(((uint32_t*)_in0)[9]), (uint32_t*)&(((uint32_t*)_in0)[10]), (uint32_t*)&(((uint32_t*)_in0)[26]), SLIM_IFPTR32((char**)&(((uint32_t*)_in0)[27]), (char**)&(((uint64_t*)_in0)[14])), SLIM_IFPTR32((uint32_t*)&(((uint32_t*)_in0)[28]), (uint32_t*)&(((uint32_t*)_in0)[30]))));
+    _TRY(_nErr, _stub_pack_1(_al, (_praIn + 0), _ppraIn, (_praROut + 0), _ppraROut, _praHIn, _ppraHIn, _praHROut, _ppraHROut, ((char*)_primIn + 112), 0, (uint32_t*)&(((uint32_t*)_in1)[0]), (uint32_t*)&(((uint32_t*)_in1)[1]), (uint32_t*)&(((uint32_t*)_in1)[5]), (uint32_t*)&(((uint32_t*)_in1)[9]), (uint32_t*)&(((uint32_t*)_in1)[10]), (uint32_t*)&(((uint32_t*)_in1)[26]), SLIM_IFPTR32((char**)&(((uint32_t*)_in1)[27]), (char**)&(((uint64_t*)_in1)[14])), SLIM_IFPTR32((uint32_t*)&(((uint32_t*)_in1)[28]), (uint32_t*)&(((uint32_t*)_in1)[30]))));
+    _TRY(_nErr, _stub_pack(_al, (_praIn + 0), _ppraIn, (_praROut + 0), _ppraROut, _praHIn, _ppraHIn, _praHROut, _ppraHROut, ((char*)_primIn + 224), ((char*)_primROut + 0), (uint32_t*)&(((uint32_t*)_rout2)[0]), (uint32_t*)&(((uint32_t*)_rout2)[1]), (uint32_t*)&(((uint32_t*)_rout2)[5]), (uint32_t*)&(((uint32_t*)_rout2)[9]), (uint32_t*)&(((uint32_t*)_rout2)[10]), (uint32_t*)&(((uint32_t*)_rout2)[26]), SLIM_IFPTR32((char**)&(((uint32_t*)_rout2)[27]), (char**)&(((uint64_t*)_rout2)[14])), SLIM_IFPTR32((uint32_t*)&(((uint32_t*)_rout2)[28]), (uint32_t*)&(((uint32_t*)_rout2)[30]))));
+    _QAIC_ASSERT(_nErr, (_numInH[0] + 0) <= 15);
+    _QAIC_ASSERT(_nErr, (_numROutH[0] + 0) <= 15);
+    _TRY_FARF(_nErr, __QAIC_REMOTE(remote_handle64_invoke)(_handle, REMOTE_SCALARS_MAKEX(0, _mid, (_numIn[0] + 1), (_numROut[0] + 1), (_numInH[0] + 0), (_numROutH[0] + 0)), _pra));
+    _TRY(_nErr, _stub_unpack((_praROutPost + 0), _ppraROutPost, ((char*)_primROut + 0), (uint32_t*)&(((uint32_t*)_rout2)[0]), (uint32_t*)&(((uint32_t*)_rout2)[1]), (uint32_t*)&(((uint32_t*)_rout2)[5]), (uint32_t*)&(((uint32_t*)_rout2)[9]), (uint32_t*)&(((uint32_t*)_rout2)[10]), (uint32_t*)&(((uint32_t*)_rout2)[26]), SLIM_IFPTR32((char**)&(((uint32_t*)_rout2)[27]), (char**)&(((uint64_t*)_rout2)[14])), SLIM_IFPTR32((uint32_t*)&(((uint32_t*)_rout2)[28]), (uint32_t*)&(((uint32_t*)_rout2)[30]))));
+    _QAIC_CATCH(_nErr) {}
+    _CATCH_FARF(_nErr) {
+    _QAIC_FARF(RUNTIME_ERROR, "ERROR 0x%x: handle=0x%"PRIx64", scalar=0x%x, method ID=%d: %s failed\n", _nErr , _handle, REMOTE_SCALARS_MAKEX(0, _mid, (_numIn[0] + 1), (_numROut[0] + 1), (_numInH[0] + 0), (_numROutH[0] + 0)), _mid, __func__);
+}
+    _allocator_deinit(_al);
+    return _nErr;
 }
 __QAIC_STUB_EXPORT int __QAIC_STUB(ggmlop_dsp_add)(remote_handle64 _handle, const dsptensor* src0, const dsptensor* src1, dsptensor* dst) __QAIC_STUB_ATTRIBUTE {
-   uint32_t _mid = 3;
-   return _stub_method_1(_handle, _mid, (uintptr_t*)src0, (uintptr_t*)src1, (uintptr_t*)dst);
+    uint32_t _mid = 3;
+    return _stub_method_1(_handle, _mid, (uintptr_t*)src0, (uintptr_t*)src1, (uintptr_t*)dst);
 }
 __QAIC_STUB_EXPORT int __QAIC_STUB(ggmlop_dsp_mulmat)(remote_handle64 _handle, const dsptensor* src0, const dsptensor* src1, dsptensor* dst) __QAIC_STUB_ATTRIBUTE {
-   uint32_t _mid = 4;
-   return _stub_method_1(_handle, _mid, (uintptr_t*)src0, (uintptr_t*)src1, (uintptr_t*)dst);
+    uint32_t _mid = 4;
+    return _stub_method_1(_handle, _mid, (uintptr_t*)src0, (uintptr_t*)src1, (uintptr_t*)dst);
 }
 __QAIC_STUB_EXPORT int __QAIC_STUB(ggmlop_dsp_softmax)(remote_handle64 _handle, const dsptensor* src0, const dsptensor* src1, dsptensor* dst) __QAIC_STUB_ATTRIBUTE {
-   uint32_t _mid = 5;
-   return _stub_method_1(_handle, _mid, (uintptr_t*)src0, (uintptr_t*)src1, (uintptr_t*)dst);
+    uint32_t _mid = 5;
+    return _stub_method_1(_handle, _mid, (uintptr_t*)src0, (uintptr_t*)src1, (uintptr_t*)dst);
 }
 __QAIC_STUB_EXPORT int __QAIC_STUB(ggmlop_dsp_rmsnorm)(remote_handle64 _handle, const dsptensor* src0, const dsptensor* src1, dsptensor* dst) __QAIC_STUB_ATTRIBUTE {
-   uint32_t _mid = 6;
-   return _stub_method_1(_handle, _mid, (uintptr_t*)src0, (uintptr_t*)src1, (uintptr_t*)dst);
+    uint32_t _mid = 6;
+    return _stub_method_1(_handle, _mid, (uintptr_t*)src0, (uintptr_t*)src1, (uintptr_t*)dst);
 }
 __QAIC_STUB_EXPORT int __QAIC_STUB(ggmlop_dsp_pool2d)(remote_handle64 _handle, const dsptensor* src0, const dsptensor* src1, dsptensor* dst) __QAIC_STUB_ATTRIBUTE {
-   uint32_t _mid = 7;
-   return _stub_method_1(_handle, _mid, (uintptr_t*)src0, (uintptr_t*)src1, (uintptr_t*)dst);
+    uint32_t _mid = 7;
+    return _stub_method_1(_handle, _mid, (uintptr_t*)src0, (uintptr_t*)src1, (uintptr_t*)dst);
 }
