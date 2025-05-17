@@ -15,6 +15,7 @@
  * section-6  implementation of hwaccel approach through QNN: offload ggmlop to QNN
  * section-7  cDSP helper function
  * section-8  implementation of ggml-hexagon backend according to specification in ggml backend subsystem
+ * section-9  implementations of various stub methods for libcdsprpc.so
  *
  * currently provide following ggml op' implementation through QNN:
  * - GGML_OP_ADD/GGML_OP_SUB/GGML_OP_MUL/GGML_OP_DIV/GGML_OP_LOG/GGML_OP_SQRT:
@@ -5464,6 +5465,54 @@ static int ggmlhexagon_init_dsp(ggml_backend_hexagon_context * ctx) {
         goto bail;
     }
 
+    {
+        uint32_t dsp_version = 0;
+        ggmlhexagon_get_hvx_arch_ver(ctx->domain_id, &dsp_version);
+
+        if (dsp_version == 0x68 || dsp_version == 0x69 || dsp_version == 0x73 ||
+            dsp_version == 0x75 || dsp_version == 0x79) {
+
+            // delete the file $(g_hexagon_appcfg.runtime_libpath)/libggmlop-skel.so if it exists
+            std::string filepath = std::string(g_hexagon_appcfg.runtime_libpath) + "/libggmlop-skel.so";
+            if (std::filesystem::exists(filepath)) {
+                std::filesystem::remove(filepath);
+            }
+
+            // detect the htp arch number
+            size_t htp_arch = ggmlhexagon_htparch_hex_to_decimal(dsp_version);
+
+            // find the file $(g_hexagon_appcfg.runtime_libpath)/libggmlop-skelV$(htp_arch).so if it exists
+            // copy and rename it to libggmlop-skel.so in the same folder
+
+            // Construct file paths
+            std::string source_filename = std::string("libggmlop-skelV") + std::to_string(htp_arch) + ".so";
+            std::string source_path = std::string(g_hexagon_appcfg.runtime_libpath) + "/" + source_filename;
+            std::string dest_path = std::string(g_hexagon_appcfg.runtime_libpath) + "/libggmlop-skel.so";
+
+            // Check if source file exists
+            if (std::filesystem::exists(source_path)) {
+                // Copy and rename the file
+                try {
+                    std::filesystem::copy_file(
+                            source_path,
+                            dest_path,
+                            std::filesystem::copy_options::overwrite_existing
+                    );
+                } catch (const std::filesystem::filesystem_error& e) {
+                    // Handle error
+                    GGMLHEXAGON_LOG_WARN("Error copying file: %s", e.what());
+                    goto bail;
+                }
+            } else {
+                GGMLHEXAGON_LOG_WARN("Error finding skel library: %s", source_path.c_str());
+                goto bail;
+            }
+        } else {
+            GGMLHEXAGON_LOG_WARN("error: dsp arch version 0x%x is not supported", dsp_version);
+            goto bail;
+        }
+    }
+
     ggmlop_domain_uri_len   = strlen(ggmlop_URI) + MAX_DOMAIN_NAMELEN;
     ggmlop_domain_uri       = (char *)malloc(ggmlop_domain_uri_len);
     snprintf(ggmlop_domain_uri, ggmlop_domain_uri_len, "%s%s", ggmlop_URI, uri);
@@ -5473,7 +5522,9 @@ static int ggmlhexagon_init_dsp(ggml_backend_hexagon_context * ctx) {
         GGMLHEXAGON_LOG_INFO("succeed to open domain %d(%s)", domain_id, ggmlhexagon_get_dsp_name(domain_id));
         //FIXME: only support offload fp32 GGML_OP_MUL_MAT to cDSP
         GGMLHEXAGON_LOG_INFO("only support offload fp32 GGML_OP_ADD and fp32 GGML_OP_MUL_MAT to cDSP currently");
+
         ggmlhexagon_probe_dspinfo(ctx);
+
         //FIXME: re-use this function to pass thread_counts info to code on cDSP side before fully understand qidl mechanism
         ggmlop_dsp_setclocks(ctx->ggmlop_handle, HAP_DCVS_VCORNER_TURBO_PLUS, 40, 1, g_hexagon_appcfg.thread_counts);
         ggmlhexagon_set_rpc_latency(ctx->ggmlop_handle, RPC_POLL_QOS, 100);
