@@ -4755,7 +4755,7 @@ static bool ggmlhexagon_is_valid_domain_id(int domain_id, int compute_only) {
     return false;
 }
 
-/*static int ggmlhexagon_get_domains_info(const char * domain_type, int * num_domains, fastrpc_domain ** domains_info) {
+static int ggmlhexagon_get_domains_info(const char * domain_type, int * num_domains, fastrpc_domain ** domains_info) {
     int hexagon_err = AEE_SUCCESS;
     int ss_info     = 0;
     void * buffer   = nullptr;
@@ -4814,7 +4814,7 @@ bail:
         free(req.sys.domains);
     }
     return hexagon_err;
-}*/
+}
 
 static int ggmlhexagon_get_dsp_support(int * domain) {
     int hexagon_error = AEE_SUCCESS;
@@ -5355,7 +5355,7 @@ static int ggmlhexagon_init_dsp(ggml_backend_hexagon_context * ctx) {
     bool is_unsignedpd_enabled      = false;
     int use_logical_id              = 0;
     int core_id                     = -1;
-    //fastrpc_domain * domains_info   = NULL;
+    fastrpc_domain * domains_info   = NULL;
     int num_domains                 = -1;
 
     domain * my_domain              = NULL;
@@ -5373,7 +5373,7 @@ static int ggmlhexagon_init_dsp(ggml_backend_hexagon_context * ctx) {
     }
     ctx->ggmlop_handle = 0;
 
-    /*if (-1 == domain_id) {
+    if (-1 == domain_id) {
         if (nullptr != domain_type) {
             if ((strcmp(domain_type, "NSP") != 0 && strcmp(domain_type, "HPASS") != 0)) {
                 GGMLHEXAGON_LOG_WARN("invalid domain_type %s. possible values are NSP or HPASS", domain_type);
@@ -5410,7 +5410,7 @@ static int ggmlhexagon_init_dsp(ggml_backend_hexagon_context * ctx) {
                 GGMLHEXAGON_LOG_DEBUG("error: 0x%x, defaulting to cDSP domain", hexagon_error);
             }
         }
-    }*/
+    }
 
     if (0 == use_logical_id) {
         if (!ggmlhexagon_is_valid_domain_id(domain_id, 0)) {
