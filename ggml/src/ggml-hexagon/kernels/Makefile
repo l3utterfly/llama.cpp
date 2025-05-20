@@ -4,8 +4,8 @@
 #HEXAGON_SDK_PATH=/opt/qcom/Hexagon_SDK/6.2.0.1
 
 HEXAGON_COMPUTE=compute${HTP_ARCH_VERSION}
-HEXAGON_CC=${HEXAGON_SDK_PATH}/tools/HEXAGON_Tools/8.7.06/Tools/bin/hexagon-clang
-HEXAGON_CXX=${HEXAGON_SDK_PATH}/tools/HEXAGON_Tools/8.7.06/Tools/bin/hexagon-clang
+HEXAGON_CC=${HEXAGON_SDK_PATH}/tools/HEXAGON_Tools/8.8.06/Tools/bin/hexagon-clang
+HEXAGON_CXX=${HEXAGON_SDK_PATH}/tools/HEXAGON_Tools/8.8.06/Tools/bin/hexagon-clang
 
 TARGET=libggmlop-skel.so
 
