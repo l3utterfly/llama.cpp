@@ -15,6 +15,7 @@
  * section-6  implementation of hwaccel approach through QNN: offload ggmlop to QNN
  * section-7  cDSP helper function
  * section-8  implementation of ggml-hexagon backend according to specification in ggml backend subsystem
+ * section-9  implementations of various stub methods for libcdsprpc.so
  *
  * currently provide following ggml op' implementation through QNN:
  * - GGML_OP_ADD/GGML_OP_SUB/GGML_OP_MUL/GGML_OP_DIV/GGML_OP_LOG/GGML_OP_SQRT:
@@ -155,6 +156,8 @@ struct ggml_backend_hexagon_context;
 #pragma weak remote_system_request
 #endif
 
+#define MAX_DOMAIN_NAMELEN 12
+
 #define CHECK_QNN_API(error, result)                                            \
     do {                                                                        \
         error = (result);                                                       \
@@ -184,6 +187,14 @@ using pfn_rpc_mem_deinit                        = void (*)(void);
 using pfn_rpc_mem_alloc                         = void *(*)(int, uint32_t, int);
 using pfn_rpc_mem_free                          = void (*)(void *);
 using pfn_rpc_mem_to_fd                         = int (*)(void *);
+using pfn_rpc_remote_handle_control             = int (*)(uint32_t, void*, uint32_t);
+using pfn_rpc_remote_register_buf               = int (*)(void*, int, int);
+using pfn_rpc_remote_session_control            = int (*)(uint32_t, void *, uint32_t);
+using pfn_rpc_remote_handle64_open              = int (*)(const char*, remote_handle64 *);
+using pfn_rpc_remote_handle64_close             = int (*)(remote_handle64);
+using pfn_rpc_remote_handle64_invoke            = int (*)(remote_handle64, uint32_t, remote_arg *);
+using pfn_rpc_remote_handle64_control           = int (*)(remote_handle64, uint32_t, void*, uint32_t);
+
 using _pfn_QnnSaver_initialize                  = decltype(QnnSaver_initialize);
 using _pfn_QnnInterface_getProviders            = decltype(QnnInterface_getProviders);
 using _pfn_QnnSystemInterface_getProviders      = decltype(QnnSystemInterface_getProviders);
@@ -366,21 +377,11 @@ static struct hexagon_appcfg_t g_hexagon_appcfg = {
         .hexagon_backend        = HEXAGON_BACKEND_CDSP,
         .enable_rpc_ion_mempool = 0,
         .enable_all_q_mulmat    = 0,
-        .profiler_duration      = 5,    //seconds
+        .profiler_duration      = 5,
         .profiler_counts        = 100,
         .thread_counts          = 4,
         .cfgfilename            = "ggml-hexagon.cfg",
-#if defined(__ANDROID__)
-    #if defined(STANDARD_ANDROID_APP)
-        .runtime_libpath        = "/data/data/com.kantvai.kantvplayer/",
-    #else
-        .runtime_libpath        = "/data/local/tmp/",
-    #endif
-#elif defined(__linux__)
-        .qnn_runtimelib_path    = "/tmp/",
-#elif defined(_WIN32)
-        .qnn_runtimelib_path    = "C:\\",
-#endif
+        .runtime_libpath        = "/data/data/com.layla/files/app-data/qnn-inference/",
         .ggml_hexagon_version   = {"1.08"},
         .ggml_dsp_version       = {"0.63"},
 };
@@ -802,6 +803,21 @@ static_assert(std::size(ggmlhexagon_k_op_caps) == (static_cast<size_t>(GGML_OP_C
 
 static int32_t g_qnntensor_idx = 0; //ensure every QNN tensor name is unique
 static int32_t g_qnnopcfg_idx  = 0; //ensure every QNN opconfig name is unique
+
+// libcdsprpc.so function handles
+void * _rpc_lib_handle      = nullptr;
+static pfn_rpc_mem_alloc _pfn_rpc_mem_alloc = nullptr;
+static pfn_rpc_mem_free _pfn_rpc_mem_free = nullptr;
+static pfn_rpc_mem_to_fd _pfn_rpc_mem_to_fd = nullptr;
+static pfn_rpc_mem_init  _pfn_rpc_mem_init = nullptr;
+static pfn_rpc_mem_deinit _pfn_rpc_mem_deinit = nullptr;
+static pfn_rpc_remote_handle_control _pfn_rpc_remote_handle_control = nullptr;
+static pfn_rpc_remote_register_buf _pfn_rpc_remote_register_buf = nullptr;
+static pfn_rpc_remote_session_control _pfn_rpc_remote_session_control = nullptr;
+static pfn_rpc_remote_handle64_open _pfn_rpc_remote_handle64_open = nullptr;
+static pfn_rpc_remote_handle64_close _pfn_rpc_remote_handle64_close = nullptr;
+static pfn_rpc_remote_handle64_invoke _pfn_rpc_remote_handle64_invoke = nullptr;
+static pfn_rpc_remote_handle64_control _pfn_rpc_remote_handle64_control = nullptr;
 
 // =================================================================================================
 //  section-2: ggml-hexagon internal troubleshooting and profiler function/class
@@ -1825,9 +1841,16 @@ static void ggmlhexagon_set_runtime_path(size_t device, const std::string & path
 
         std::string adsp_runtime_path = path + ";/vendor/dsp/cdsp;/vendor/lib/rfsa/adsp;/system/lib/rfsa/adsp;/vendor/dsp/dsp;/vendor/dsp/images;/dsp";
         if (0 == setenv("ADSP_LIBRARY_PATH", adsp_runtime_path.c_str(), 1)) {
-            GGMLHEXAGON_LOG_DEBUG("setenv ADSP_LIBRARY_PATH %s successfully", adsp_runtime_path.c_str());
+            GGMLHEXAGON_LOG_INFO("setenv ADSP_LIBRARY_PATH %s successfully", adsp_runtime_path.c_str());
         } else {
             GGMLHEXAGON_LOG_ERROR("setenv ADSP_LIBRARY_PATH %s failure", adsp_runtime_path.c_str());
+        }
+
+        std::string dsp_runtime_path = path;
+        if (0 == setenv("DSP_LIBRARY_PATH", dsp_runtime_path.c_str(), 1)) {
+            GGMLHEXAGON_LOG_INFO("setenv DSP_LIBRARY_PATH %s successfully", dsp_runtime_path.c_str());
+        } else {
+            GGMLHEXAGON_LOG_ERROR("setenv DSP_LIBRARY_PATH %s failure", dsp_runtime_path.c_str());
         }
     } else {
         if (0 == setenv("LD_LIBRARY_PATH",
@@ -1939,20 +1962,6 @@ static bool ggmlhexagon_check_valid_appcfg() {
         if (HEXAGON_BACKEND_CDSP == g_hexagon_appcfg.hexagon_backend) {
             GGMLHEXAGON_LOG_INFO("hexagon_backend HEXAGON_BACKEND_CDSP must match with hwaccel_approach HWACCEL_CDSP");
             is_valid_appcfg = false;
-        }
-    }
-
-    if (HWACCEL_CDSP == g_hexagon_appcfg.hwaccel_approach) {
-        if ((HEXAGON_BACKEND_CDSP != g_hexagon_appcfg.hexagon_backend) && (HEXAGON_BACKEND_GGML != g_hexagon_appcfg.hexagon_backend)) {
-            GGMLHEXAGON_LOG_INFO("hwaccel_approach HWACCEL_CDSP must match with hexagon_backend HEXAGON_BACKEND_CDSP");
-            is_valid_appcfg = false;
-        }
-
-        if (1 == g_hexagon_appcfg.enable_all_q_mulmat) {
-            if (0 == g_hexagon_appcfg.enable_q_mulmat) {
-                GGMLHEXAGON_LOG_INFO("ensure set enable_q_mulmat to 1 firstly when set enable_all_q_mulmat to 1");
-                is_valid_appcfg = false;
-            }
         }
     }
 
@@ -2733,11 +2742,7 @@ private:
     std::unordered_map<void *, Qnn_MemHandle_t> _qnn_rpc_buffer_to_handles;
 
     std::atomic_bool _rpcmem_initialized{false};
-    pfn_rpc_mem_alloc _pfn_rpc_mem_alloc;
-    pfn_rpc_mem_free _pfn_rpc_mem_free;
-    pfn_rpc_mem_to_fd _pfn_rpc_mem_to_fd;
-    pfn_rpc_mem_init  _pfn_rpc_mem_init;
-    pfn_rpc_mem_deinit _pfn_rpc_mem_deinit;
+    
     std::unordered_map<void *, void *> _rpcmem_store_map;
     std::unordered_map<void *, size_t> _rpcmem_usage_map;
     size_t                             _rpcmem_usage    = 0;   // mempool usage in bytes
@@ -2745,7 +2750,6 @@ private:
 
     std::string _graph_name;
     HEXAGONBackend _device_id;
-    void * _rpc_lib_handle      = nullptr;
     bool       _enable_qnn_rpc  = false; //TODO:unknown issue with QNN RPC feature
 
     qnn_instance(const qnn_instance &) = delete;
@@ -3357,6 +3361,7 @@ int qnn_instance::qnn_init(const QnnSaver_Config_t ** saver_config) {
             }
         }
     }
+/* This has been moved to hexagon_init_dsp function
 
 #if defined(__ANDROID__) || defined(__linux__)
     std::filesystem::path full_path(std::string(g_hexagon_appcfg.runtime_libpath) + "libcdsprpc.so");
@@ -3389,6 +3394,7 @@ int qnn_instance::qnn_init(const QnnSaver_Config_t ** saver_config) {
 
     if (nullptr != _pfn_rpc_mem_init) // make Qualcomm's SoC based low-end phone happy
         _pfn_rpc_mem_init();
+*/
 
     std::vector<const QnnContext_Config_t *> temp_context_config;
     _qnn_interface.qnn_context_create(_qnn_backend_handle, _qnn_device_handle,
@@ -5302,6 +5308,49 @@ static int ggmlhexagon_init_dsp(ggml_backend_hexagon_context * ctx) {
     static std::mutex mutex;
     std::lock_guard<std::mutex> lock(mutex);
 
+#if defined(__ANDROID__) || defined(__linux__)
+    std::filesystem::path full_path(std::string(g_hexagon_appcfg.runtime_libpath) + "libcdsprpc.so");
+    //full_path /= std::filesystem::path("libcdsprpc.so").filename();
+    _rpc_lib_handle = dlopen(full_path.string().c_str(), RTLD_NOW | RTLD_LOCAL);
+    if (nullptr == _rpc_lib_handle) {
+        GGMLHEXAGON_LOG_WARN("failed to load %s from local file, trying to find in system libraries\n", full_path.c_str());
+        _rpc_lib_handle = dlopen("libcdsprpc.so", RTLD_NOW | RTLD_LOCAL);
+    }
+#else
+    _rpc_lib_handle = dlopen("libcdsprpc.dll", RTLD_NOW | RTLD_LOCAL);
+#endif
+
+    if (nullptr == _rpc_lib_handle) {
+        GGMLHEXAGON_LOG_WARN("failed to load qualcomm's rpc lib, error:%s\n", dlerror());
+        return 7;
+    } else {
+        GGMLHEXAGON_LOG_DEBUG("load rpcmem lib successfully\n");
+    }
+    _pfn_rpc_mem_init   = reinterpret_cast<pfn_rpc_mem_init>(dlsym(_rpc_lib_handle, "rpcmem_init"));
+    _pfn_rpc_mem_deinit = reinterpret_cast<pfn_rpc_mem_deinit>(dlsym(_rpc_lib_handle, "rpcmem_deinit"));
+    _pfn_rpc_mem_alloc  = reinterpret_cast<pfn_rpc_mem_alloc>(dlsym(_rpc_lib_handle,"rpcmem_alloc"));
+    _pfn_rpc_mem_free   = reinterpret_cast<pfn_rpc_mem_free>(dlsym(_rpc_lib_handle, "rpcmem_free"));
+    _pfn_rpc_mem_to_fd  = reinterpret_cast<pfn_rpc_mem_to_fd>(dlsym(_rpc_lib_handle,"rpcmem_to_fd"));
+    _pfn_rpc_remote_handle_control = reinterpret_cast<pfn_rpc_remote_handle_control>(dlsym(_rpc_lib_handle,"remote_handle_control"));
+    _pfn_rpc_remote_register_buf = reinterpret_cast<pfn_rpc_remote_register_buf>(dlsym(_rpc_lib_handle,"remote_register_buf"));
+    _pfn_rpc_remote_session_control = reinterpret_cast<pfn_rpc_remote_session_control>(dlsym(_rpc_lib_handle,"remote_session_control"));
+    _pfn_rpc_remote_handle64_open = reinterpret_cast<pfn_rpc_remote_handle64_open>(dlsym(_rpc_lib_handle,"remote_handle64_open"));
+    _pfn_rpc_remote_handle64_close = reinterpret_cast<pfn_rpc_remote_handle64_close>(dlsym(_rpc_lib_handle,"remote_handle64_close"));
+    _pfn_rpc_remote_handle64_invoke = reinterpret_cast<pfn_rpc_remote_handle64_invoke>(dlsym(_rpc_lib_handle,"remote_handle64_invoke"));
+    _pfn_rpc_remote_handle64_control = reinterpret_cast<pfn_rpc_remote_handle64_control>(dlsym(_rpc_lib_handle,"remote_handle64_control"));
+
+    if (nullptr == _pfn_rpc_mem_alloc ||
+        nullptr == _pfn_rpc_mem_free ||
+        nullptr == _pfn_rpc_mem_to_fd ||
+        nullptr == _pfn_rpc_remote_register_buf) {
+        GGMLHEXAGON_LOG_WARN("unable to access symbols in QNN RPC lib, dlerror(): %s", dlerror());
+        dlclose(_rpc_lib_handle);
+        return 8;
+    }
+
+    if (nullptr != _pfn_rpc_mem_init) // make Qualcomm's SoC based low-end phone happy
+        _pfn_rpc_mem_init();
+
     int hexagon_error               = AEE_SUCCESS;
 
     int domain_id                   = HEXAGON_CDSP;
@@ -5419,6 +5468,55 @@ static int ggmlhexagon_init_dsp(ggml_backend_hexagon_context * ctx) {
         }
         GGMLHEXAGON_LOG_WARN("error 0x%x: failed to compute on domain %d", hexagon_error, domain_id);
         goto bail;
+    }
+
+    // we copy the appropaite ggmlop-skel into our runtime libpath
+    {
+        uint32_t dsp_version = 0;
+        ggmlhexagon_get_hvx_arch_ver(ctx->domain_id, &dsp_version);
+
+        if (dsp_version == 0x68 || dsp_version == 0x69 || dsp_version == 0x73 ||
+            dsp_version == 0x75 || dsp_version == 0x79) {
+
+            // delete the file $(g_hexagon_appcfg.runtime_libpath)/libggmlop-skel.so if it exists
+            std::string filepath = std::string(g_hexagon_appcfg.runtime_libpath) + "/libggmlop-skel.so";
+            if (std::filesystem::exists(filepath)) {
+                std::filesystem::remove(filepath);
+            }
+
+            // detect the htp arch number
+            size_t htp_arch = ggmlhexagon_htparch_hex_to_decimal(dsp_version);
+
+            // find the file $(g_hexagon_appcfg.runtime_libpath)/libggmlop-skelV$(htp_arch).so if it exists
+            // copy and rename it to libggmlop-skel.so in the same folder
+
+            // Construct file paths
+            std::string source_filename = std::string("libggmlop-skelV") + std::to_string(htp_arch) + ".so";
+            std::string source_path = std::string(g_hexagon_appcfg.runtime_libpath) + "/" + source_filename;
+            std::string dest_path = std::string(g_hexagon_appcfg.runtime_libpath) + "/libggmlop-skel.so";
+
+            // Check if source file exists
+            if (std::filesystem::exists(source_path)) {
+                // Copy and rename the file
+                try {
+                    std::filesystem::copy_file(
+                            source_path,
+                            dest_path,
+                            std::filesystem::copy_options::overwrite_existing
+                    );
+                } catch (const std::filesystem::filesystem_error& e) {
+                    // Handle error
+                    GGMLHEXAGON_LOG_WARN("Error copying file: %s", e.what());
+                    goto bail;
+                }
+            } else {
+                GGMLHEXAGON_LOG_WARN("Error finding skel library: %s", source_path.c_str());
+                goto bail;
+            }
+        } else {
+            GGMLHEXAGON_LOG_WARN("error: dsp arch version 0x%x is not supported", dsp_version);
+            goto bail;
+        }
     }
 
     ggmlop_domain_uri_len   = strlen(ggmlop_URI) + MAX_DOMAIN_NAMELEN;
@@ -6666,6 +6764,9 @@ ggml_backend_t ggml_backend_hexagon_init(size_t device, const char * runtime_lib
         ggmlhexagon_set_runtime_path(device, runtime_libpath);
     }
 
+    // the condition above never be true because our hardcoded runtime_libpath is always the same as the config, so we manually set the library paths here
+    ggmlhexagon_set_runtime_path(g_hexagon_appcfg.hexagon_backend, g_hexagon_appcfg.runtime_libpath);
+
     if (nullptr != g_hexagon_mgr[device].backend) {
         GGMLHEXAGON_LOG_DEBUG("backend %d(%s) already loaded", device,
                          ggml_backend_hexagon_get_devname(device));
@@ -6705,3 +6806,22 @@ ggml_backend_t ggml_backend_hexagon_init(size_t device, const char * runtime_lib
 }
 
 GGML_BACKEND_DL_IMPL(ggml_backend_hexagon_reg)
+
+// =================================================================================================
+//  section-9: stub of remote cdsp functions
+// =================================================================================================
+
+__QAIC_REMOTE_EXPORT __QAIC_RETURN int __QAIC_REMOTE(remote_handle64_open)( __QAIC_IN_CHAR  const char* name, __QAIC_OUT  remote_handle64 *ph) __QAIC_REMOTE_ATTRIBUTE
+{
+    return _pfn_rpc_remote_handle64_open(name, ph);
+}
+
+__QAIC_REMOTE_EXPORT __QAIC_RETURN int __QAIC_REMOTE(remote_handle64_close)(__QAIC_IN remote_handle64 h) __QAIC_REMOTE_ATTRIBUTE
+{
+    return _pfn_rpc_remote_handle64_close(h);
+}
+
+__QAIC_REMOTE_EXPORT __QAIC_RETURN int __QAIC_REMOTE(remote_handle64_invoke)(__QAIC_IN remote_handle64 h, __QAIC_IN uint32_t dwScalars, __QAIC_IN remote_arg *pra) __QAIC_REMOTE_ATTRIBUTE
+{
+    return _pfn_rpc_remote_handle64_invoke(h, dwScalars, pra);
+}

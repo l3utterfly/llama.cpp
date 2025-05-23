@@ -1074,6 +1074,9 @@ struct llama_model_params common_model_params_to_llama(common_params & params) {
     auto mparams = llama_model_default_params();
 
     if (!params.devices.empty()) {
+        // add nullptr to the end just in case
+        params.devices.push_back(nullptr);
+
         mparams.devices = params.devices.data();
     }
 

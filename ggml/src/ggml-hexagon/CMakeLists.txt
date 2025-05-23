@@ -59,16 +59,18 @@ message("OPT_FLAG:${OPT_FLAG}")
 if(CMAKE_SYSTEM_NAME STREQUAL "Android")
     find_library(LOG_LIB log)
 
-    add_library(cdsprpc
-        SHARED
-        IMPORTED)
-    set_target_properties(cdsprpc
-        PROPERTIES
-        IMPORTED_LOCATION
-        ${HEXAGON_SDK_PATH}/ipc/fastrpc/remote/ship/android_aarch64/libcdsprpc.so)
+    # we do not use libcdsprpc.so provided in the Hexagon SDK, we will look for the one installed by the user's phone vendor
+    #add_library(cdsprpc
+    #    SHARED
+    #    IMPORTED)
+    #set_target_properties(cdsprpc
+    #    PROPERTIES
+    #    IMPORTED_LOCATION
+    #    ${HEXAGON_SDK_PATH}/ipc/fastrpc/remote/ship/android_aarch64/libcdsprpc.so)
 
-    set(QNN_LINK_LIBRARIES ${LOG_LIB} cdsprpc)
-    set(QNN_DEFAULT_LIB_SEARCH_PATH "/data/local/tmp/" CACHE STRING "customized library search path for QNN backend")
+    #set(QNN_LINK_LIBRARIES ${LOG_LIB} cdsprpc)
+    set(QNN_LINK_LIBRARIES ${LOG_LIB})
+    #set(QNN_DEFAULT_LIB_SEARCH_PATH "/data/local/tmp/" CACHE STRING "customized library search path for QNN backend")
 
     include_directories(${HEXAGON_SDK_PATH}/incs)
     include_directories(${HEXAGON_SDK_PATH}/incs/stddef)
@@ -129,5 +131,6 @@ function(ggml_hexagon_setup_cfg KNAME)
     )
 endfunction()
 
-ggml_hexagon_build_kernel("cdsp")
-ggml_hexagon_setup_cfg("ggml-hexagon.cfg")
+# we do not build cdsp kernels directly in CMake
+#ggml_hexagon_build_kernel("cdsp")
+#ggml_hexagon_setup_cfg("ggml-hexagon.cfg")

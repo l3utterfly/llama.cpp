@@ -159,6 +159,10 @@ struct ggml_backend_reg_entry {
     dl_handle_ptr handle;
 };
 
+static bool laylaUseVulkan = false;
+static bool laylaUseOpenCL = false;
+static bool laylaUseHexagon = false;
+
 struct ggml_backend_registry {
     std::vector<ggml_backend_reg_entry> backends;
     std::vector<ggml_backend_dev_t> devices;
@@ -174,10 +178,14 @@ struct ggml_backend_registry {
         register_backend(ggml_backend_sycl_reg());
 #endif
 #ifdef GGML_USE_VULKAN
-        register_backend(ggml_backend_vk_reg());
+        if(laylaUseVulkan) {
+            register_backend(ggml_backend_vk_reg());
+        }
 #endif
 #ifdef GGML_USE_OPENCL
-        register_backend(ggml_backend_opencl_reg());
+        if(laylaUseOpenCL) {
+            register_backend(ggml_backend_opencl_reg());
+        }
 #endif
 #ifdef GGML_USE_CANN
         register_backend(ggml_backend_cann_reg());
@@ -192,7 +200,9 @@ struct ggml_backend_registry {
         register_backend(ggml_backend_kompute_reg());
 #endif
 #ifdef GGML_USE_HEXAGON
-        register_backend(ggml_backend_hexagon_reg());
+        if(laylaUseHexagon) {
+            register_backend(ggml_backend_hexagon_reg());
+        }
 #endif
 #ifdef GGML_USE_CPU
         register_backend(ggml_backend_cpu_reg());
@@ -302,6 +312,12 @@ struct ggml_backend_registry {
         backends.erase(it);
     }
 };
+
+void ggml_backend_reg_layla(bool useVulkan, bool useOpenCL, bool useHexagon) {
+    laylaUseVulkan = useVulkan;
+    laylaUseOpenCL = useOpenCL;
+    laylaUseHexagon = useHexagon;
+}
 
 static ggml_backend_registry & get_reg() {
     static ggml_backend_registry reg;
