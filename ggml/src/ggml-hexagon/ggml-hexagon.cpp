@@ -2742,7 +2742,7 @@ private:
     std::unordered_map<void *, Qnn_MemHandle_t> _qnn_rpc_buffer_to_handles;
 
     std::atomic_bool _rpcmem_initialized{false};
-    
+
     std::unordered_map<void *, void *> _rpcmem_store_map;
     std::unordered_map<void *, size_t> _rpcmem_usage_map;
     size_t                             _rpcmem_usage    = 0;   // mempool usage in bytes
@@ -6824,4 +6824,39 @@ __QAIC_REMOTE_EXPORT __QAIC_RETURN int __QAIC_REMOTE(remote_handle64_close)(__QA
 __QAIC_REMOTE_EXPORT __QAIC_RETURN int __QAIC_REMOTE(remote_handle64_invoke)(__QAIC_IN remote_handle64 h, __QAIC_IN uint32_t dwScalars, __QAIC_IN remote_arg *pra) __QAIC_REMOTE_ATTRIBUTE
 {
     return _pfn_rpc_remote_handle64_invoke(h, dwScalars, pra);
+}
+
+__QAIC_REMOTE_EXPORT __QAIC_RETURN void __QAIC_REMOTE(remote_register_buf)(__QAIC_IN_LEN(size) void* buf, __QAIC_IN int size, __QAIC_IN int fd) __QAIC_REMOTE_ATTRIBUTE
+{
+    _pfn_rpc_remote_register_buf(buf, size, fd);
+}
+
+__QAIC_REMOTE_EXPORT __QAIC_RETURN int __QAIC_REMOTE(remote_handle_control)(__QAIC_IN uint32_t req,  __QAIC_IN_LEN(datalen)  void* data,  __QAIC_IN uint32_t datalen) __QAIC_REMOTE_ATTRIBUTE
+{
+    return _pfn_rpc_remote_handle_control(req, data, datalen);
+}
+
+__QAIC_REMOTE_EXPORT __QAIC_RETURN int __QAIC_REMOTE(remote_handle64_control)(__QAIC_IN remote_handle64 h, __QAIC_IN uint32_t req, __QAIC_IN_LEN(datalen)  void* data, __QAIC_IN uint32_t datalen) __QAIC_REMOTE_ATTRIBUTE
+{
+    return _pfn_rpc_remote_handle64_control(h, req, data, datalen);
+}
+
+__QAIC_REMOTE_EXPORT __QAIC_RETURN int __QAIC_REMOTE(remote_session_control)(__QAIC_IN uint32_t req, __QAIC_IN_LEN(datalen) void *data, __QAIC_IN uint32_t datalen) __QAIC_REMOTE_ATTRIBUTE
+{
+    return _pfn_rpc_remote_session_control(req, data, datalen);
+}
+
+void* rpcmem_alloc(int heapid, uint32 flags, int size)
+{
+    return _pfn_rpc_mem_alloc(heapid, flags, size);
+}
+
+void rpcmem_free(void* po)
+{
+    return _pfn_rpc_mem_free(po);
+}
+
+int rpcmem_to_fd(void* po)
+{
+    return _pfn_rpc_mem_to_fd(po);
 }
