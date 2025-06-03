@@ -206,6 +206,14 @@ add_library(ggml-base
             ggml-quants.h
             gguf.cpp)
 
+# Search for the 'log' library on Android
+if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Android")
+    find_library(log-lib log)
+    set(GGML_EXTRA_LIBS     ${GGML_EXTRA_LIBS}     ${log-lib})
+
+    target_link_libraries(ggml-base PUBLIC ${GGML_EXTRA_LIBS})
+endif()
+
 target_include_directories(ggml-base PRIVATE .)
 if (GGML_BACKEND_DL)
     target_compile_definitions(ggml-base PUBLIC GGML_BACKEND_DL)
@@ -321,6 +329,7 @@ ggml_add_backend(RPC)
 ggml_add_backend(SYCL)
 ggml_add_backend(Vulkan)
 ggml_add_backend(OpenCL)
+ggml_add_backend(HEXAGON)
 
 foreach (target ggml-base ggml)
     target_include_directories(${target} PUBLIC    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include> $<INSTALL_INTERFACE:include>)

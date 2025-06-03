@@ -205,6 +205,24 @@ void ggml_print_backtrace(void) {
 }
 #endif
 
+#if defined(__ANDROID__)
+#include <android/log.h>
+
+void ggml_abort(const char * file, int line, const char * fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+
+    char message[1024];  // Adjust size as needed
+    vsnprintf(message, sizeof(message), fmt, args);
+
+    __android_log_print(ANDROID_LOG_ERROR, "GGML", "%s:%d: %s", file, line, message);
+
+    va_end(args);
+
+    ggml_print_backtrace();  // You may need to modify this function as well
+    abort();
+}
+#else
 void ggml_abort(const char * file, int line, const char * fmt, ...) {
     fflush(stdout);
 
@@ -220,6 +238,7 @@ void ggml_abort(const char * file, int line, const char * fmt, ...) {
     ggml_print_backtrace();
     abort();
 }
+#endif
 
 // ggml_print_backtrace is registered with std::set_terminate by ggml.cpp
 
@@ -260,12 +279,44 @@ void ggml_log_internal(enum ggml_log_level level, const char * format, ...) {
     va_end(args);
 }
 
+#ifdef __ANDROID__
+#include <android/log.h>
+
+void ggml_log_callback_default(enum ggml_log_level level, const char * text, void * user_data) {
+    (void) user_data;
+
+    android_LogPriority priority;
+    const char* tag = "GGML";
+
+    // Map GGML log levels to Android log priorities
+    switch (level) {
+        case GGML_LOG_LEVEL_ERROR:
+            priority = ANDROID_LOG_ERROR;
+            break;
+        case GGML_LOG_LEVEL_WARN:
+            priority = ANDROID_LOG_WARN;
+            break;
+        case GGML_LOG_LEVEL_INFO:
+            priority = ANDROID_LOG_INFO;
+            break;
+        default:
+            priority = ANDROID_LOG_DEBUG;
+            break;
+    }
+
+    __android_log_write(priority, tag, text);
+}
+
+#else
+
 void ggml_log_callback_default(enum ggml_log_level level, const char * text, void * user_data) {
     (void) level;
     (void) user_data;
     fputs(text, stderr);
     fflush(stderr);
 }
+
+#endif
 
 //
 // end of logging block
@@ -557,10 +608,101 @@ FILE * ggml_fopen(const char * fname, const char * mode) {
     }
 
     return file;
-#else
-    return fopen(fname, mode);
-#endif
+#else // Non-Windows (Android, Linux, etc.)
+    // Create a mutable copy of fname for parsing
+    char * fname_copy = strdup(fname);
+    if (fname_copy == NULL) {
+        // Handle memory allocation failure
+        return NULL;
+    }
 
+    // Check for ';' separator, which implies "fd;offset" format
+    char * separator = strchr(fname_copy, ';');
+
+    if (separator != NULL) {
+        // Format is "fd;offset"
+        *separator = '\0'; // Null-terminate the FD part
+        char * fd_str = fname_copy;
+        char * offset_str = separator + 1;
+
+        char * endptr_fd;
+        long fd_num = strtol(fd_str, &endptr_fd, 10);
+
+        char * endptr_offset;
+        long offset_num = 0; // Default to 0 if offset part is missing or invalid
+        if (*offset_str != '\0') {
+            offset_num = strtol(offset_str, &endptr_offset, 10);
+        }
+
+        // Basic validation for numbers
+        if ((*endptr_fd != '\0' && *endptr_fd != '\n' && *endptr_fd != '\r') ||
+            (*offset_str != '\0' && *endptr_offset != '\0' && *endptr_offset != '\n' && *endptr_offset != '\r'))
+        {
+            // Parsing error: not pure numbers, or trailing garbage
+            GGML_LOG_ERROR("ggml_fopen: Malformed FD string: %s\n", fname); // Use your GGML_LOG
+            free(fname_copy);
+            return NULL;
+        }
+
+        int duplicated_fd = dup(fd_num);
+        if (duplicated_fd < 0) {
+            GGML_LOG_ERROR("ggml_fopen: dup(%ld) failed: %s\n", fd_num, strerror(errno));
+            free(fname_copy);
+            return NULL;
+        }
+
+        if (lseek(duplicated_fd, offset_num, SEEK_SET) == (off_t)-1) {
+            GGML_LOG_ERROR("ggml_fopen: lseek(%d, %ld) failed: %s\n", duplicated_fd, offset_num, strerror(errno));
+            close(duplicated_fd); // Close duplicated FD on lseek error
+            free(fname_copy);
+            return NULL;
+        }
+
+        FILE *file = fdopen(duplicated_fd, mode);
+        if (file == NULL) {
+            GGML_LOG_ERROR("ggml_fopen: fdopen(%d) failed: %s\n", duplicated_fd, strerror(errno));
+            close(duplicated_fd); // Close duplicated FD on fdopen error
+        }
+        free(fname_copy); // Free the duplicated string
+        return file;
+
+    } else if (strchr(fname, '/') == NULL) {
+        // Original logic: "fd" as a string (no '/')
+        // This handles where it's only an integer (no seek)
+        char *endptr;
+        long num = strtol(fname, &endptr, 10);
+
+        // Validate that the entire string was a number
+        if (*endptr != '\0' && *endptr != '\n' && *endptr != '\r') {
+            GGML_LOG_ERROR("ggml_fopen: Malformed FD string (no slash): %s\n", fname);
+            free(fname_copy);
+            return NULL;
+        }
+
+        int duplicated_fd = dup(num);
+        if (duplicated_fd < 0) {
+            GGML_LOG_ERROR("ggml_fopen: dup(%ld) failed: %s\n", num, strerror(errno));
+            free(fname_copy);
+            return NULL;
+        }
+
+        FILE *file = fdopen(duplicated_fd, mode);
+        if (file == NULL) {
+            GGML_LOG_ERROR("ggml_fopen: fdopen(%d) failed: %s\n", duplicated_fd, strerror(errno));
+            close(duplicated_fd); // Close duplicated FD on fdopen error
+        }
+        free(fname_copy); // Free the duplicated string
+        return file;
+    } else {
+        // It's a regular file path (contains '/')
+        FILE *file = fopen(fname, mode);
+        if (file == NULL) {
+            GGML_LOG_ERROR("ggml_fopen: fopen(%s) failed: %s\n", fname, strerror(errno));
+        }
+        free(fname_copy); // Free the duplicated string
+        return file;
+    }
+#endif
 }
 static void ggml_vec_dot_f32(int n, float * GGML_RESTRICT s, size_t bs, const float * GGML_RESTRICT x, size_t bx, const float * GGML_RESTRICT y, size_t by, int nrc);
 static void ggml_vec_dot_f16(int n, float * GGML_RESTRICT s, size_t bs, ggml_fp16_t * GGML_RESTRICT x, size_t bx, ggml_fp16_t * GGML_RESTRICT y, size_t by, int nrc);

@@ -45,9 +45,16 @@ if (Vulkan_FOUND)
     message(STATUS "Vulkan found")
 
     ggml_add_backend_library(ggml-vulkan
-                             ggml-vulkan.cpp
-                             ../../include/ggml-vulkan.h
-                            )
+            ggml-vulkan.cpp
+            ../../include/ggml-vulkan.h
+    )
+
+    target_include_directories(ggml-vulkan PRIVATE
+            $ENV{VULKAN_SDK}/Include
+    )
+    target_compile_definitions(ggml-vulkan PRIVATE
+            VK_USE_PLATFORM_ANDROID_KHR
+    )
 
     set(VULKAN_SHADER_GEN_CMAKE_ARGS
         -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}
@@ -170,10 +177,10 @@ if (Vulkan_FOUND)
     set(_ggml_vk_shader_deps ${_ggml_vk_shader_deps} vulkan-shaders-gen-build vulkan-shaders-gen-install)
 
     add_custom_command(
-        OUTPUT ${_ggml_vk_header}
-                ${_ggml_vk_source}
+            OUTPUT ${_ggml_vk_header}
+            ${_ggml_vk_source}
 
-        COMMAND ${_ggml_vk_genshaders_cmd}
+            COMMAND ${_ggml_vk_genshaders_cmd}
             --glslc      ${Vulkan_GLSLC_EXECUTABLE}
             --input-dir  ${_ggml_vk_input_dir}
             --output-dir ${_ggml_vk_output_dir}
@@ -181,11 +188,14 @@ if (Vulkan_FOUND)
             --target-cpp ${_ggml_vk_source}
             --no-clean
 
-        DEPENDS ${_ggml_vk_shader_deps}
-        COMMENT "Generate vulkan shaders"
+            DEPENDS ${_ggml_vk_shader_deps}
+            COMMENT "Generate vulkan shaders"
     )
 
-    target_sources(ggml-vulkan PRIVATE ${_ggml_vk_source} ${_ggml_vk_header})
+    # target_sources(ggml-vulkan PRIVATE ${_ggml_vk_source} ${_ggml_vk_header})
+
+    # we pre-generate the vulkan shaders since we are cross compiling for Android
+    target_sources(ggml-vulkan PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/ggml-vulkan-shaders.cpp ${CMAKE_CURRENT_SOURCE_DIR}/ggml-vulkan-shaders.hpp)
 
 else()
     message(WARNING "Vulkan not found")

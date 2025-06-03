@@ -9506,7 +9506,9 @@ static ggml_status ggml_backend_vk_graph_compute(ggml_backend_t backend, ggml_cg
     bool first_node_in_batch = true; // true if next node will be first node in a batch
     int submit_node_idx = 0; // index to first node in a batch
 
-    vk_context compute_ctx;
+    // Android does not link with Vulkan 1.1 libraries, so we do not have access to the "resetQueryPool", so we disable perf logger completely
+    vk_context compute_ctx;     // note we keep the compute_ctx declaration here; if we make sure "vk_perf_logger_enabled" is always false, this will have no effect
+#ifndef ANDROID
     if (vk_perf_logger_enabled) {
         // allocate/resize the query pool
         if (ctx->device->num_queries < cgraph->n_nodes + 1) {
@@ -9528,6 +9530,7 @@ static ggml_status ggml_backend_vk_graph_compute(ggml_backend_t backend, ggml_cg
         ggml_vk_ctx_begin(ctx->device, compute_ctx);
         compute_ctx->s->buffer.writeTimestamp(vk::PipelineStageFlagBits::eAllCommands, ctx->device->query_pool, 0);
     }
+#endif
 
     // Submit after enough work has accumulated, to overlap CPU cmdbuffer generation with GPU execution.
     // Estimate the amount of matmul work by looking at the weight matrix size, and submit every 100MB

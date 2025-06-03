@@ -65,6 +65,10 @@
 #include "ggml-kompute.h"
 #endif
 
+#ifdef GGML_USE_HEXAGON
+#include "ggml-hexagon.h"
+#endif
+
 // disable C++17 deprecation warning for std::codecvt_utf8
 #if defined(__clang__)
 #    pragma clang diagnostic push
@@ -155,6 +159,10 @@ struct ggml_backend_reg_entry {
     dl_handle_ptr handle;
 };
 
+static bool laylaUseVulkan = false;
+static bool laylaUseOpenCL = false;
+static bool laylaUseHexagon = false;
+
 struct ggml_backend_registry {
     std::vector<ggml_backend_reg_entry> backends;
     std::vector<ggml_backend_dev_t> devices;
@@ -170,10 +178,14 @@ struct ggml_backend_registry {
         register_backend(ggml_backend_sycl_reg());
 #endif
 #ifdef GGML_USE_VULKAN
-        register_backend(ggml_backend_vk_reg());
+        if(laylaUseVulkan) {
+            register_backend(ggml_backend_vk_reg());
+        }
 #endif
 #ifdef GGML_USE_OPENCL
-        register_backend(ggml_backend_opencl_reg());
+        if(laylaUseOpenCL) {
+            register_backend(ggml_backend_opencl_reg());
+        }
 #endif
 #ifdef GGML_USE_CANN
         register_backend(ggml_backend_cann_reg());
@@ -186,6 +198,11 @@ struct ggml_backend_registry {
 #endif
 #ifdef GGML_USE_KOMPUTE
         register_backend(ggml_backend_kompute_reg());
+#endif
+#ifdef GGML_USE_HEXAGON
+        if(laylaUseHexagon) {
+            register_backend(ggml_backend_hexagon_reg());
+        }
 #endif
 #ifdef GGML_USE_CPU
         register_backend(ggml_backend_cpu_reg());
@@ -296,8 +313,15 @@ struct ggml_backend_registry {
     }
 };
 
+void ggml_backend_reg_layla(bool useVulkan, bool useOpenCL, bool useHexagon) {
+    laylaUseVulkan = useVulkan;
+    laylaUseOpenCL = useOpenCL;
+    laylaUseHexagon = useHexagon;
+}
+
 static ggml_backend_registry & get_reg() {
     static ggml_backend_registry reg;
+
     return reg;
 }
 
@@ -577,6 +601,7 @@ void ggml_backend_load_all_from_path(const char * dir_path) {
     ggml_backend_load_best("vulkan", silent, dir_path);
     ggml_backend_load_best("opencl", silent, dir_path);
     ggml_backend_load_best("musa", silent, dir_path);
+    ggml_backend_load_best("hexagon", silent, dir_path);
     ggml_backend_load_best("cpu", silent, dir_path);
     // check the environment variable GGML_BACKEND_PATH to load an out-of-tree backend
     const char * backend_path = std::getenv("GGML_BACKEND_PATH");

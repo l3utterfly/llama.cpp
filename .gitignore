@@ -77,7 +77,6 @@ autogen-*.md
 !.github/workflows/*.yml
 
 # Models
-
 models/*
 models-mnt
 !models/.editorconfig
@@ -146,3 +145,4 @@ poetry.toml
 # Local scripts
 /run-vim.sh
 /run-chat.sh
+HEXAGON_Tools/

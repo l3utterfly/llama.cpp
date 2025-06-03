@@ -148,8 +148,33 @@ function(ggml_add_cpu_backend_variant_impl tag_name)
                 set(FEAT_INPUT_FILE "/dev/null")
             endif()
 
+            # CMAKE_C_COMPILER is already set by the NDK toolchain to the correct generic clang.exe
+            set(NDK_C_COMPILER_PATH "${CMAKE_C_COMPILER}")
+            message(NOTICE "NDK C Compiler Path: ${NDK_C_COMPILER_PATH}")
+
+            # Construct the full command list for execute_process
+            set(COMPILER_COMMAND_LIST "${NDK_C_COMPILER_PATH}")
+
+            # Add the crucial --target argument for cross-compilation
+            # For arm64-v8a, the target triple is aarch64-linux-android
+            list(APPEND COMPILER_COMMAND_LIST "--target=aarch64-linux-android")
+
+            # Add the crucial --sysroot argument to find Android headers/libraries
+            # CMAKE_SYSROOT is set by the Android NDK toolchain file
+            if (DEFINED CMAKE_SYSROOT)
+                list(APPEND COMPILER_COMMAND_LIST "--sysroot=${CMAKE_SYSROOT}")
+            else()
+                message(WARNING "CMAKE_SYSROOT is not defined. Compiler might not find standard headers/libraries for feature detection.")
+            endif()
+
+            # Append the architecture flags (e.g., -march=armv8.6-a)
+            list(APPEND COMPILER_COMMAND_LIST ${ARCH_FLAGS})
+
+            # Append the flags to dump predefined macros
+            list(APPEND COMPILER_COMMAND_LIST -dM -E -)
+
             execute_process(
-                COMMAND ${CMAKE_C_COMPILER} ${ARCH_FLAGS} -dM -E -
+                COMMAND ${COMPILER_COMMAND_LIST}
                 INPUT_FILE ${FEAT_INPUT_FILE}
                 OUTPUT_VARIABLE ARM_FEATURE
                 RESULT_VARIABLE ARM_FEATURE_RESULT
@@ -157,10 +182,12 @@ function(ggml_add_cpu_backend_variant_impl tag_name)
             if (ARM_FEATURE_RESULT)
                 message(WARNING "Failed to get ARM features")
             else()
+                message("ARM feature result: ${ARM_FEATURE_RESULT}")
+
                 foreach(feature DOTPROD SVE MATMUL_INT8 FMA FP16_VECTOR_ARITHMETIC SME)
                     string(FIND "${ARM_FEATURE}" "__ARM_FEATURE_${feature} 1" feature_pos)
                     if (NOT ${feature_pos} EQUAL -1)
-                        message(STATUS "ARM feature ${feature} enabled")
+                        message("ARM feature ${feature} enabled")
                     endif()
                 endforeach()
             endif()
