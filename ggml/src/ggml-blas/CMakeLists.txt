@@ -96,5 +96,4 @@ else()
         message(ERROR "BLAS not found, please refer to "
                 "https://cmake.org/cmake/help/latest/module/FindBLAS.html#blas-lapack-vendors"
                 " to set correct GGML_BLAS_VENDOR")
-    endif()
 endif()
