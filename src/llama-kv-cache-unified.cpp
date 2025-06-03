@@ -17,18 +17,18 @@
 
 llama_kv_cache_unified::llama_kv_cache_unified(
         const llama_model &  model,
-          layer_filter_cb && filter,
-                ggml_type    type_k,
-                ggml_type    type_v,
-                     bool    v_trans,
-                     bool    offload,
-                 uint32_t    kv_size,
-                 uint32_t    n_seq_max,
-                 uint32_t    n_pad,
-                 uint32_t    n_swa,
-           llama_swa_type    swa_type) :
-    model(model), hparams(model.hparams), v_trans(v_trans),
-    n_seq_max(n_seq_max), n_pad(n_pad), n_swa(n_swa), swa_type(swa_type) {
+        layer_filter_cb && filter,
+        ggml_type    type_k,
+        ggml_type    type_v,
+        bool    v_trans,
+        bool    offload,
+        uint32_t    kv_size,
+        uint32_t    n_seq_max,
+        uint32_t    n_pad,
+        uint32_t    n_swa,
+        llama_swa_type    swa_type) :
+        model(model), hparams(model.hparams), v_trans(v_trans),
+        n_seq_max(n_seq_max), n_pad(n_pad), n_swa(n_swa), swa_type(swa_type) {
 
     GGML_ASSERT(kv_size % n_pad == 0);
 
@@ -38,9 +38,9 @@ llama_kv_cache_unified::llama_kv_cache_unified(
         auto it = ctx_map.find(buft);
         if (it == ctx_map.end()) {
             ggml_init_params params = {
-                /*.mem_size   =*/ size_t(2u*hparams.n_layer*ggml_tensor_overhead()),
-                /*.mem_buffer =*/ NULL,
-                /*.no_alloc   =*/ true,
+                    /*.mem_size   =*/ size_t(2u*hparams.n_layer*ggml_tensor_overhead()),
+                    /*.mem_buffer =*/ NULL,
+                    /*.no_alloc   =*/ true,
             };
 
             ggml_context * ctx = ggml_init(params);
@@ -122,9 +122,9 @@ llama_kv_cache_unified::llama_kv_cache_unified(
         const size_t memory_size_v = size_v_bytes();
 
         LLAMA_LOG_INFO("%s: size = %7.2f MiB (%6u cells, %3d layers, %2u seqs), K (%s): %7.2f MiB, V (%s): %7.2f MiB\n", __func__,
-                (float)(memory_size_k + memory_size_v) / (1024.0f * 1024.0f), kv_size, (int) layers.size(), n_seq_max,
-                ggml_type_name(type_k), (float)memory_size_k / (1024.0f * 1024.0f),
-                ggml_type_name(type_v), (float)memory_size_v / (1024.0f * 1024.0f));
+                       (float)(memory_size_k + memory_size_v) / (1024.0f * 1024.0f), kv_size, (int) layers.size(), n_seq_max,
+                       ggml_type_name(type_k), (float)memory_size_k / (1024.0f * 1024.0f),
+                       ggml_type_name(type_v), (float)memory_size_v / (1024.0f * 1024.0f));
     }
 }
 
@@ -149,12 +149,27 @@ bool llama_kv_cache_unified::seq_rm(llama_seq_id seq_id, llama_pos p0, llama_pos
         p1 = std::numeric_limits<llama_pos>::max();
     }
 
-    for (uint32_t i = 0; i < cells.size(); ++i) {
-        if (!cells.pos_in(i, p0, p1)) {
-            continue;
-        }
+    if (seq_id >= 0) {
+        for (uint32_t i = 0; i < cells.size(); ++i) {
+            if (!cells.pos_in(i, p0, p1)) {
+                continue;
+            }
 
-        if (cells.seq_has(i, seq_id) && cells.seq_rm(i, seq_id)) {
+            if (cells.seq_has(i, seq_id) && cells.seq_rm(i, seq_id)) {
+                if (new_head == cells.size()) {
+                    new_head = i;
+                }
+            }
+        }
+    } else {
+        // match any sequence
+        for (uint32_t i = 0; i < cells.size(); ++i) {
+            if (!cells.pos_in(i, p0, p1)) {
+                continue;
+            }
+
+            cells.rm(i);
+
             if (new_head == cells.size()) {
                 new_head = i;
             }
@@ -287,10 +302,10 @@ llama_pos llama_kv_cache_unified::seq_pos_max(llama_seq_id seq_id) const {
 }
 
 llama_memory_state_ptr llama_kv_cache_unified::init_batch(
-            const llama_batch & batch,
-            uint32_t n_ubatch,
-            bool embd_pooled,
-            bool logits_all) {
+        const llama_batch & batch,
+        uint32_t n_ubatch,
+        bool embd_pooled,
+        bool logits_all) {
     GGML_UNUSED(embd_pooled);
 
     auto sbatch = llama_sbatch(batch, hparams.n_embd, true, logits_all);
@@ -306,7 +321,7 @@ llama_memory_state_ptr llama_kv_cache_unified::init_batch(
     }
 
     return std::make_unique<llama_kv_cache_unified_state>(LLAMA_MEMORY_STATUS_SUCCESS,
-            this, std::move(sbatch), std::move(heads), std::move(ubatches));
+                                                          this, std::move(sbatch), std::move(heads), std::move(ubatches));
 }
 
 llama_memory_state_ptr llama_kv_cache_unified::init_full() {
@@ -607,10 +622,10 @@ ggml_tensor * llama_kv_cache_unified::get_k(ggml_context * ctx, int32_t il, uint
     auto * k = layers[ikv].k;
 
     return ggml_view_3d(ctx, k,
-            hparams.n_embd_head_k, hparams.n_head_kv(il), n_kv,
-            ggml_row_size(k->type, hparams.n_embd_head_k),
-            ggml_row_size(k->type, hparams.n_embd_k_gqa(il)),
-            0);
+                        hparams.n_embd_head_k, hparams.n_head_kv(il), n_kv,
+                        ggml_row_size(k->type, hparams.n_embd_head_k),
+                        ggml_row_size(k->type, hparams.n_embd_k_gqa(il)),
+                        0);
 }
 
 ggml_tensor * llama_kv_cache_unified::get_v(ggml_context * ctx, int32_t il, uint32_t n_kv) const {
@@ -621,18 +636,18 @@ ggml_tensor * llama_kv_cache_unified::get_v(ggml_context * ctx, int32_t il, uint
     if (!v_trans) {
         // note: v->nb[1] <= v->nb[2]
         return ggml_view_3d(ctx, v,
-                hparams.n_embd_head_v, hparams.n_head_kv(il), n_kv,
-                ggml_row_size(v->type, hparams.n_embd_head_v),    // v->nb[1]
-                ggml_row_size(v->type, hparams.n_embd_v_gqa(il)), // v->nb[2]
-                0);
+                            hparams.n_embd_head_v, hparams.n_head_kv(il), n_kv,
+                            ggml_row_size(v->type, hparams.n_embd_head_v),    // v->nb[1]
+                            ggml_row_size(v->type, hparams.n_embd_v_gqa(il)), // v->nb[2]
+                            0);
     }
 
     // note: v->nb[1] > v->nb[2]
     return ggml_view_3d(ctx, v,
-            n_kv, hparams.n_head_kv(il), hparams.n_embd_head_v,
-            ggml_row_size(v->type, v->ne[1]*hparams.n_embd_head_v), // v->nb[1]
-            ggml_row_size(v->type, v->ne[1]),                       // v->nb[2]
-            0);
+                        n_kv, hparams.n_head_kv(il), hparams.n_embd_head_v,
+                        ggml_row_size(v->type, v->ne[1]*hparams.n_embd_head_v), // v->nb[1]
+                        ggml_row_size(v->type, v->ne[1]),                       // v->nb[2]
+                        0);
 }
 
 ggml_tensor * llama_kv_cache_unified::cpy_k(ggml_context * ctx, ggml_tensor * k_cur, int32_t il, uint32_t head_cur) const {
@@ -643,8 +658,8 @@ ggml_tensor * llama_kv_cache_unified::cpy_k(ggml_context * ctx, ggml_tensor * k_
     const int64_t n_tokens = k_cur->ne[2];
 
     ggml_tensor * k_view = ggml_view_1d(ctx, k,
-            n_tokens*hparams.n_embd_k_gqa(il),
-            ggml_row_size(k->type, hparams.n_embd_k_gqa(il))*head_cur);
+                                        n_tokens*hparams.n_embd_k_gqa(il),
+                                        ggml_row_size(k->type, hparams.n_embd_k_gqa(il))*head_cur);
 
     return ggml_cpy(ctx, k_cur, k_view);
 }
@@ -662,13 +677,13 @@ ggml_tensor * llama_kv_cache_unified::cpy_v(ggml_context * ctx, ggml_tensor * v_
 
     if (!v_trans) {
         v_view = ggml_view_1d(ctx, v,
-                n_tokens*hparams.n_embd_v_gqa(il),
-                ggml_row_size(v->type, hparams.n_embd_v_gqa(il))*head_cur);
+                              n_tokens*hparams.n_embd_v_gqa(il),
+                              ggml_row_size(v->type, hparams.n_embd_v_gqa(il))*head_cur);
     } else {
         // note: the V cache is transposed when not using flash attention
         v_view = ggml_view_2d(ctx, v, n_tokens, hparams.n_embd_v_gqa(il),
-                (v->ne[1])*ggml_element_size(v),
-                (head_cur)*ggml_element_size(v));
+                              (v->ne[1])*ggml_element_size(v),
+                              (head_cur)*ggml_element_size(v));
 
         v_cur = ggml_transpose(ctx, v_cur);
     }
@@ -813,12 +828,12 @@ size_t llama_kv_cache_unified::size_v_bytes() const {
 
 ggml_tensor * llama_kv_cache_unified::build_rope_shift(
         const llama_cparams & cparams,
-               ggml_context * ctx,
-                ggml_tensor * cur,
-                ggml_tensor * shift,
-                ggml_tensor * factors,
-                      float   freq_base,
-                      float   freq_scale) const {
+        ggml_context * ctx,
+        ggml_tensor * cur,
+        ggml_tensor * shift,
+        ggml_tensor * factors,
+        float   freq_base,
+        float   freq_scale) const {
     const auto & n_ctx_orig = cparams.n_ctx_orig_yarn;
 
     const auto & yarn_ext_factor = cparams.yarn_ext_factor;
@@ -827,18 +842,18 @@ ggml_tensor * llama_kv_cache_unified::build_rope_shift(
 
     const auto & n_rot     = hparams.n_rot;
     const auto & rope_type = hparams.rope_type == LLAMA_ROPE_TYPE_MROPE
-                                // @ngxson : this is a workaround
-                                // for M-RoPE, we want to rotate the whole vector when doing KV shift
-                                // a normal RoPE should work, we just need to use the correct ordering
-                                // ref: https://github.com/ggml-org/llama.cpp/pull/13870
-                                ? LLAMA_ROPE_TYPE_NEOX
-                                : hparams.rope_type;
+                             // @ngxson : this is a workaround
+                             // for M-RoPE, we want to rotate the whole vector when doing KV shift
+                             // a normal RoPE should work, we just need to use the correct ordering
+                             // ref: https://github.com/ggml-org/llama.cpp/pull/13870
+                             ? LLAMA_ROPE_TYPE_NEOX
+                             : hparams.rope_type;
 
     // See llm_build_deepseek2() for why attn_factor has to be scaled for YaRN RoPE to work correctly.
     // See https://github.com/ggerganov/llama.cpp/discussions/7416 for detailed explanation.
     const float yarn_attn_factor = model.arch == LLM_ARCH_DEEPSEEK2
-                                    ? 1.0f / (1.0f + 0.1f * logf(1.0f / freq_scale))
-                                    : cparams.yarn_attn_factor;
+                                   ? 1.0f / (1.0f + 0.1f * logf(1.0f / freq_scale))
+                                   : cparams.yarn_attn_factor;
 
     ggml_tensor * tmp;
 
@@ -847,15 +862,15 @@ ggml_tensor * llama_kv_cache_unified::build_rope_shift(
         tmp = ggml_cast(ctx, cur, GGML_TYPE_F32);
 
         tmp = ggml_rope_ext(ctx, tmp,
-                shift, factors, n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
-                yarn_ext_factor, yarn_attn_factor, yarn_beta_fast, yarn_beta_slow);
+                            shift, factors, n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
+                            yarn_ext_factor, yarn_attn_factor, yarn_beta_fast, yarn_beta_slow);
 
         tmp = ggml_cpy(ctx, tmp, cur);
     } else {
         // we rotate only the first n_rot dimensions
         tmp = ggml_rope_ext_inplace(ctx, cur,
-                shift, factors, n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
-                yarn_ext_factor, yarn_attn_factor, yarn_beta_fast, yarn_beta_slow);
+                                    shift, factors, n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
+                                    yarn_ext_factor, yarn_attn_factor, yarn_beta_fast, yarn_beta_slow);
     }
 
     return tmp;
@@ -883,12 +898,12 @@ void llm_graph_input_k_shift::set_input(const llama_ubatch * ubatch) {
 
 llm_graph_result_ptr llama_kv_cache_unified::build_graph_shift(
         const llama_cparams & cparams,
-               ggml_context * ctx,
-                ggml_cgraph * gf) const {
+        ggml_context * ctx,
+        ggml_cgraph * gf) const {
     auto res = std::make_unique<llm_graph_result>();
 
     const auto & n_embd_head_k = hparams.n_embd_head_k;
-  //const auto & n_embd_head_v = hparams.n_embd_head_v;
+    //const auto & n_embd_head_v = hparams.n_embd_head_v;
 
     //GGML_ASSERT(kv_self->size == n_ctx);
 
@@ -909,11 +924,11 @@ llm_graph_result_ptr llama_kv_cache_unified::build_graph_shift(
         ggml_tensor * rope_factors = model.get_rope_factors(cparams, il);
 
         ggml_tensor * k =
-            ggml_view_3d(ctx, layer.k,
-                n_embd_head_k, n_head_kv, cells.size(),
-                ggml_row_size(layer.k->type, n_embd_head_k),
-                ggml_row_size(layer.k->type, n_embd_k_gqa),
-                0);
+                ggml_view_3d(ctx, layer.k,
+                             n_embd_head_k, n_head_kv, cells.size(),
+                             ggml_row_size(layer.k->type, n_embd_head_k),
+                             ggml_row_size(layer.k->type, n_embd_k_gqa),
+                             0);
 
         ggml_tensor * cur = build_rope_shift(cparams, ctx, k, inp->k_shift, rope_factors, freq_base_l, freq_scale_l);
 
@@ -927,8 +942,8 @@ llm_graph_result_ptr llama_kv_cache_unified::build_graph_shift(
 
 llm_graph_result_ptr llama_kv_cache_unified::build_graph_defrag(
         const llama_cparams & cparams,
-               ggml_context * ctx,
-                ggml_cgraph * gf) const {
+        ggml_context * ctx,
+        ggml_cgraph * gf) const {
     auto res = std::make_unique<llm_graph_result>();
 
     const auto & ids = defrag_info.ids;
@@ -1024,14 +1039,14 @@ llm_graph_result_ptr llama_kv_cache_unified::build_graph_defrag(
             const int64_t n_embd_v_gqa = hparams.n_embd_v_gqa(il);
 
             ggml_tensor * view_k_src = ggml_view_2d(ctx, layer.k,
-                    n_embd_k_gqa, nm,
-                    ggml_row_size(layer.k->type, n_embd_k_gqa),
-                    ggml_row_size(layer.k->type, n_embd_k_gqa*i));
+                                                    n_embd_k_gqa, nm,
+                                                    ggml_row_size(layer.k->type, n_embd_k_gqa),
+                                                    ggml_row_size(layer.k->type, n_embd_k_gqa*i));
 
             ggml_tensor * view_k_dst = ggml_view_2d(ctx, layer.k,
-                    n_embd_k_gqa, nm,
-                    ggml_row_size(layer.k->type, n_embd_k_gqa),
-                    ggml_row_size(layer.k->type, n_embd_k_gqa*id));
+                                                    n_embd_k_gqa, nm,
+                                                    ggml_row_size(layer.k->type, n_embd_k_gqa),
+                                                    ggml_row_size(layer.k->type, n_embd_k_gqa*id));
 
             ggml_tensor * view_v_src;
             ggml_tensor * view_v_dst;
@@ -1039,24 +1054,24 @@ llm_graph_result_ptr llama_kv_cache_unified::build_graph_defrag(
             if (cparams.flash_attn) {
                 // NOTE: the V cache is not transposed when using flash attention
                 view_v_src = ggml_view_2d(ctx, layer.v,
-                        n_embd_v_gqa, nm,
-                        ggml_row_size(layer.v->type, n_embd_v_gqa),
-                        ggml_row_size(layer.v->type, n_embd_v_gqa*i));
+                                          n_embd_v_gqa, nm,
+                                          ggml_row_size(layer.v->type, n_embd_v_gqa),
+                                          ggml_row_size(layer.v->type, n_embd_v_gqa*i));
 
                 view_v_dst = ggml_view_2d(ctx, layer.v,
-                        n_embd_v_gqa, nm,
-                        ggml_row_size(layer.v->type, n_embd_v_gqa),
-                        ggml_row_size(layer.v->type, n_embd_v_gqa*id));
+                                          n_embd_v_gqa, nm,
+                                          ggml_row_size(layer.v->type, n_embd_v_gqa),
+                                          ggml_row_size(layer.v->type, n_embd_v_gqa*id));
             } else {
                 view_v_src = ggml_view_2d(ctx, layer.v,
-                        nm, n_embd_v_gqa,
-                        ggml_row_size(layer.v->type, cells.size()),
-                        ggml_row_size(layer.v->type, i));
+                                          nm, n_embd_v_gqa,
+                                          ggml_row_size(layer.v->type, cells.size()),
+                                          ggml_row_size(layer.v->type, i));
 
                 view_v_dst = ggml_view_2d(ctx, layer.v,
-                        nm, n_embd_v_gqa,
-                        ggml_row_size(layer.v->type, cells.size()),
-                        ggml_row_size(layer.v->type, id));
+                                          nm, n_embd_v_gqa,
+                                          ggml_row_size(layer.v->type, cells.size()),
+                                          ggml_row_size(layer.v->type, id));
             }
 
             ggml_build_forward_expand(gf, ggml_cpy(ctx, view_k_src, view_k_dst));
@@ -1206,22 +1221,22 @@ bool llama_kv_cache_unified::is_masked_swa(llama_pos p0, llama_pos p1) const {
 
     switch (swa_type) {
         case LLAMA_SWA_TYPE_NONE:
-            {
-            } break;
+        {
+        } break;
         case LLAMA_SWA_TYPE_STANDARD:
-            {
-                if (p1 - p0 >= (int32_t) n_swa) {
-                    return true;
-                }
-            } break;
+        {
+            if (p1 - p0 >= (int32_t) n_swa) {
+                return true;
+            }
+        } break;
         case LLAMA_SWA_TYPE_CHUNKED:
-            {
-                const llama_pos pos_chunk_start = (p1 / n_swa) * n_swa;
+        {
+            const llama_pos pos_chunk_start = (p1 / n_swa) * n_swa;
 
-                if (p0 < pos_chunk_start) {
-                    return true;
-                }
-            } break;
+            if (p0 < pos_chunk_start) {
+                return true;
+            }
+        } break;
     }
 
     return false;
@@ -1621,24 +1636,24 @@ bool llama_kv_cache_unified::state_read_data(llama_io_read_i & io, uint32_t cell
 llama_kv_cache_unified_state::llama_kv_cache_unified_state(llama_memory_status status) : status(status) {}
 
 llama_kv_cache_unified_state::llama_kv_cache_unified_state(
-            llama_memory_status status,
-            llama_kv_cache_unified * kv) : status(status), kv(kv) {
-        n_kv = kv->get_size();
-        head = 0;
-    }
+        llama_memory_status status,
+        llama_kv_cache_unified * kv) : status(status), kv(kv) {
+    n_kv = kv->get_size();
+    head = 0;
+}
 
 llama_kv_cache_unified_state::llama_kv_cache_unified_state(
-            llama_memory_status status,
-            llama_kv_cache_unified * kv,
-            llama_sbatch sbatch,
-            std::vector<uint32_t> heads,
-            std::vector<llama_ubatch> ubatches)
-            : status(status),
-              kv(kv),
-              sbatch(std::move(sbatch)),
-              heads(std::move(heads)),
-              ubatches(std::move(ubatches)) {
-    }
+        llama_memory_status status,
+        llama_kv_cache_unified * kv,
+        llama_sbatch sbatch,
+        std::vector<uint32_t> heads,
+        std::vector<llama_ubatch> ubatches)
+        : status(status),
+          kv(kv),
+          sbatch(std::move(sbatch)),
+          heads(std::move(heads)),
+          ubatches(std::move(ubatches)) {
+}
 
 llama_kv_cache_unified_state::~llama_kv_cache_unified_state() = default;
 
