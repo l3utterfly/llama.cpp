@@ -319,9 +319,9 @@ void ggml_backend_reg_layla(bool useVulkan, bool useOpenCL, bool useHexagon) {
     laylaUseHexagon = useHexagon;
 }
 
-// static declaration must be outside of the function to support some older CPUs
-static ggml_backend_registry reg;
 static ggml_backend_registry & get_reg() {
+    static ggml_backend_registry reg;
+
     return reg;
 }
 

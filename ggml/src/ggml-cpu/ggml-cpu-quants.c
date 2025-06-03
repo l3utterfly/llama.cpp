@@ -8519,11 +8519,11 @@ void ggml_vec_dot_q5_K_q8_K(int n, float * GGML_RESTRICT s, size_t bs, const voi
 
 void ggml_vec_dot_q6_K_q8_K(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc) {
     assert(n % QK_K == 0);
-#ifdef __ARM_FEATURE_MATMUL_INT8
+/*#ifdef __ARM_FEATURE_MATMUL_INT8
     assert((nrc == 2) || (nrc == 1));
 #else
     assert(nrc == 1);
-#endif
+#endif*/
     UNUSED(nrc);
     UNUSED(bx);
     UNUSED(by);
@@ -8534,7 +8534,7 @@ void ggml_vec_dot_q6_K_q8_K(int n, float * GGML_RESTRICT s, size_t bs, const voi
 
     const int nb = n / QK_K;
 
-#if defined(__ARM_FEATURE_MATMUL_INT8)
+/*#if defined(__ARM_FEATURE_MATMUL_INT8)
     if (nrc == 2) {
         const block_q6_K * GGML_RESTRICT x0 = x;
         const block_q6_K * GGML_RESTRICT x1 = (const block_q6_K *) ((const uint8_t *)vx + bx);
@@ -8723,7 +8723,7 @@ void ggml_vec_dot_q6_K_q8_K(int n, float * GGML_RESTRICT s, size_t bs, const voi
 
         return;
     }
-#endif
+#endif*/
 
 #ifdef __ARM_FEATURE_SVE
     const int vector_length = ggml_cpu_get_sve_cnt()*8;
