@@ -14,7 +14,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Android")
             #set(OPT_FLAG " -O3 -march=armv8.7-a -mcpu=cortex-x1 -mtune=cortex-x1 -ffp-model=fast -fno-finite-math-only")
 
             # this set of flag is more general (without the cortex cpu optimisation, which is only available on very very modern archs)
-            set(OPT_FLAG " -O3 -flto -D_GNU_SOURCE -fvectorize -ffp-model=fast -fno-finite-math-only")
+            set(OPT_FLAG " -O3 -ffp-model=fast -fno-finite-math-only")
 
             message("OPT_FLAG:${OPT_FLAG}")
             set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -DGGML_USE_HEXAGON ${DEBUG_FLAG} ${OPT_FLAG}")
