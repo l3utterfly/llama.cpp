@@ -609,101 +609,39 @@ FILE * ggml_fopen(const char * fname, const char * mode) {
 
     return file;
 #else // Non-Windows (Android, Linux, etc.)
-    // Create a mutable copy of fname for parsing
-    char * fname_copy = strdup(fname);
-    if (fname_copy == NULL) {
-        // Handle memory allocation failure
-        return NULL;
-    }
-
-    // Check for ';' separator, which implies "fd;offset" format
-    char * separator = strchr(fname_copy, ';');
-
-    if (separator != NULL) {
-        // Format is "fd;offset"
-        *separator = '\0'; // Null-terminate the FD part
-        char * fd_str = fname_copy;
-        char * offset_str = separator + 1;
-
-        char * endptr_fd;
-        long fd_num = strtol(fd_str, &endptr_fd, 10);
-
-        char * endptr_offset;
-        long offset_num = 0; // Default to 0 if offset part is missing or invalid
-        if (*offset_str != '\0') {
-            offset_num = strtol(offset_str, &endptr_offset, 10);
-        }
-
-        // Basic validation for numbers
-        if ((*endptr_fd != '\0' && *endptr_fd != '\n' && *endptr_fd != '\r') ||
-            (*offset_str != '\0' && *endptr_offset != '\0' && *endptr_offset != '\n' && *endptr_offset != '\r'))
-        {
-            // Parsing error: not pure numbers, or trailing garbage
-            GGML_LOG_ERROR("ggml_fopen: Malformed FD string: %s\n", fname); // Use your GGML_LOG
-            free(fname_copy);
-            return NULL;
-        }
-
-        int duplicated_fd = dup(fd_num);
-        if (duplicated_fd < 0) {
-            GGML_LOG_ERROR("ggml_fopen: dup(%ld) failed: %s\n", fd_num, strerror(errno));
-            free(fname_copy);
-            return NULL;
-        }
-
-        if (lseek(duplicated_fd, offset_num, SEEK_SET) == (off_t)-1) {
-            GGML_LOG_ERROR("ggml_fopen: lseek(%d, %ld) failed: %s\n", duplicated_fd, offset_num, strerror(errno));
-            close(duplicated_fd); // Close duplicated FD on lseek error
-            free(fname_copy);
-            return NULL;
-        }
-
-        FILE *file = fdopen(duplicated_fd, mode);
-        if (file == NULL) {
-            GGML_LOG_ERROR("ggml_fopen: fdopen(%d) failed: %s\n", duplicated_fd, strerror(errno));
-            close(duplicated_fd); // Close duplicated FD on fdopen error
-        }
-        free(fname_copy); // Free the duplicated string
-        return file;
-
-    } else if (strchr(fname, '/') == NULL) {
-        // Original logic: "fd" as a string (no '/')
-        // This handles where it's only an integer (no seek)
-        char *endptr;
-        long num = strtol(fname, &endptr, 10);
-
-        // Validate that the entire string was a number
-        if (*endptr != '\0' && *endptr != '\n' && *endptr != '\r') {
-            GGML_LOG_ERROR("ggml_fopen: Malformed FD string (no slash): %s\n", fname);
-            free(fname_copy);
-            return NULL;
-        }
-
-        int duplicated_fd = dup(num);
-        if (duplicated_fd < 0) {
-            GGML_LOG_ERROR("ggml_fopen: dup(%ld) failed: %s\n", num, strerror(errno));
-            free(fname_copy);
-            return NULL;
-        }
-
-        FILE *file = fdopen(duplicated_fd, mode);
-        if (file == NULL) {
-            GGML_LOG_ERROR("ggml_fopen: fdopen(%d) failed: %s\n", duplicated_fd, strerror(errno));
-            close(duplicated_fd); // Close duplicated FD on fdopen error
-        }
-        free(fname_copy); // Free the duplicated string
-        return file;
-    } else {
-        // It's a regular file path (contains '/')
-        FILE *file = fopen(fname, mode);
-        if (file == NULL) {
-            GGML_LOG_ERROR("ggml_fopen: fopen(%s) failed: %s\n", fname, strerror(errno));
-        }
-        free(fname_copy); // Free the duplicated string
-        return file;
-    }
+    return fopen(fname, mode);
 #endif
 }
+
+FILE * ggml_fdopen(int fd, const char * mode, size_t fd_offset) {
+    int duplicated_fd = dup(fd);
+    if (duplicated_fd < 0) {
+        GGML_LOG_ERROR("ggml_fopen: dup(%ld) failed: %s (errno: %d)\n", fd, strerror(errno), errno);
+        return NULL;
+    }
+    GGML_LOG_DEBUG("ggml_fopen: Duplicated FD: %d (from original: %ld)\n", duplicated_fd, fd);
+
+    // seek to the specified offset
+    // Note: lseek() is used here to set the file position before fdopen()
+    int lseek_result = lseek(duplicated_fd, fd_offset, SEEK_SET);
+    if (lseek_result == -1) {
+        GGML_LOG_ERROR("ggml_fopen: lseek(%d, %ld, SEEK_SET) FAILED: %s (errno: %d)\n", duplicated_fd, fd_offset, strerror(errno), errno);
+        close(duplicated_fd);
+        return NULL;
+    }
+    GGML_LOG_DEBUG("ggml_fopen: lseek(%d, %ld, SEEK_SET) SUCCESS. New position reported by lseek: %ld\n", duplicated_fd, fd_offset, (long)lseek_result);
+
+
+    FILE *file = fdopen(duplicated_fd, mode);
+    if (file == NULL) {
+        GGML_LOG_ERROR("ggml_fopen: fdopen(%d, %s) FAILED: %s (errno: %d)\n", duplicated_fd, mode, strerror(errno), errno);
+        close(duplicated_fd);
+    } else {
+        GGML_LOG_DEBUG("ggml_fopen: fdopen(%d, %s) SUCCESS. FILE* created. (ftell: %ld)\n", duplicated_fd, mode, ftell(file));
+    }
+    return file;
+}
+
 static void ggml_vec_dot_f32(int n, float * GGML_RESTRICT s, size_t bs, const float * GGML_RESTRICT x, size_t bx, const float * GGML_RESTRICT y, size_t by, int nrc);
 static void ggml_vec_dot_f16(int n, float * GGML_RESTRICT s, size_t bs, ggml_fp16_t * GGML_RESTRICT x, size_t bx, ggml_fp16_t * GGML_RESTRICT y, size_t by, int nrc);
 static void ggml_vec_dot_bf16(int n, float * GGML_RESTRICT s, size_t bs, ggml_bf16_t * GGML_RESTRICT x, size_t bx, ggml_bf16_t * GGML_RESTRICT y, size_t by, int nrc);
