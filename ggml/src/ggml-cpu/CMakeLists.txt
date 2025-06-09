@@ -136,9 +136,18 @@ function(ggml_add_cpu_backend_variant_impl tag_name)
 
                 list(APPEND ARCH_FLAGS "${ARM_MCPU_FLAG}${ARM_MCPU_FLAG_FIX}")
             else()
-                if (GGML_CPU_ARM_ARCH)
-                    list(APPEND ARCH_FLAGS -march=${GGML_CPU_ARM_ARCH})
+                if(GGML_ARMV86A)
+                    message("Using -march=armv8.6-a")
+                    list(APPEND ARCH_FLAGS -march=armv8.6-a)
+                elseif (GGML_ARMV82A)
+                    message("Using -march=armv8.2-a")
+                    list(APPEND ARCH_FLAGS -march=armv8.2-a)
+                else()
+                    # do nothing
                 endif()
+                #if (GGML_CPU_ARM_ARCH)
+                #    list(APPEND ARCH_FLAGS -march=${GGML_CPU_ARM_ARCH})
+                #endif()
             endif()
 
             # show enabled features
