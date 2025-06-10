@@ -165,11 +165,11 @@ struct llama_file::impl {
         long parsed_offset_num = 0;
 
         if (gguf_parse_fd_offset_string(fname, &parsed_fd_num, &parsed_offset_num)) {
-            fp = ggml_fdopen(parsed_fd_num, "rb", parsed_offset_num);
+            fp = ggml_fdopen(parsed_fd_num, mode, parsed_offset_num);
         } else {
-            fp = ggml_fopen(fname, "rb");
+            fp = ggml_fopen(fname, mode);
         }
-        
+
         if (fp == NULL) {
             throw std::runtime_error(format("failed to open %s: %s", fname, strerror(errno)));
         }
