@@ -16,6 +16,7 @@ constexpr int offset_has_data    = 3000;
 
 enum handcrafted_file_type {
     HANDCRAFTED_HEADER_BAD_MAGIC           =  10,
+    HANDCRAFTED_HEADER_BAD_VERSION_0       =  15,
     HANDCRAFTED_HEADER_BAD_VERSION_1       =  20,
     HANDCRAFTED_HEADER_BAD_VERSION_FUTURE  =  30,
     HANDCRAFTED_HEADER_BAD_N_TENSORS       =  40,
@@ -51,6 +52,7 @@ enum handcrafted_file_type {
 static std::string handcrafted_file_type_name(const enum handcrafted_file_type hft) {
     switch (hft) {
         case HANDCRAFTED_HEADER_BAD_MAGIC:           return "HEADER_BAD_MAGIC";
+        case HANDCRAFTED_HEADER_BAD_VERSION_0:       return "HEADER_BAD_VERSION_0";
         case HANDCRAFTED_HEADER_BAD_VERSION_1:       return "HEADER_BAD_VERSION_1";
         case HANDCRAFTED_HEADER_BAD_VERSION_FUTURE:  return "HEADER_BAD_VERSION_FUTURE";
         case HANDCRAFTED_HEADER_BAD_N_KV:            return "HEADER_BAD_N_KV";
@@ -171,7 +173,10 @@ static FILE * get_handcrafted_file(const unsigned int seed, const enum handcraft
         helper_write(file, GGUF_MAGIC, 4);
     }
 
-    if (hft == HANDCRAFTED_HEADER_BAD_VERSION_1) {
+    if (hft == HANDCRAFTED_HEADER_BAD_VERSION_0) {
+        const uint32_t version = 0;
+        helper_write(file, version);
+    } else if (hft == HANDCRAFTED_HEADER_BAD_VERSION_1) {
         const uint32_t version = 1;
         helper_write(file, version);
     } else if (hft == HANDCRAFTED_HEADER_BAD_VERSION_FUTURE) {
@@ -660,6 +665,7 @@ static std::pair<int, int> test_handcrafted_file(const unsigned int seed) {
 
     const std::vector<handcrafted_file_type> hfts = {
         HANDCRAFTED_HEADER_BAD_MAGIC,
+        HANDCRAFTED_HEADER_BAD_VERSION_0,
         HANDCRAFTED_HEADER_BAD_VERSION_1,
         HANDCRAFTED_HEADER_BAD_VERSION_FUTURE,
         HANDCRAFTED_HEADER_BAD_N_KV,
@@ -711,7 +717,7 @@ static std::pair<int, int> test_handcrafted_file(const unsigned int seed) {
             /*ctx      =*/ hft >= offset_has_data ? &ctx : nullptr,
         };
 
-        struct gguf_context * gguf_ctx = gguf_init_from_file_impl(file, gguf_params);
+        struct gguf_context * gguf_ctx = gguf_init_from_file_impl(file, gguf_params, 0);
 
         if (expect_context_not_null(hft)) {
             printf("%s:   - context_not_null: ", __func__);
@@ -1106,7 +1112,7 @@ static std::pair<int, int> test_roundtrip(ggml_backend_dev_t dev, const unsigned
         /*no_alloc =*/ false,
         /*ctx      =*/ only_meta ? nullptr : &ctx_1,
     };
-    struct gguf_context * gguf_ctx_1 = gguf_init_from_file_impl(file, gguf_params);
+    struct gguf_context * gguf_ctx_1 = gguf_init_from_file_impl(file, gguf_params, 0);
 
     printf("%s: same_version: ", __func__);
     if (gguf_get_version(gguf_ctx_0) == gguf_get_version(gguf_ctx_1)) {

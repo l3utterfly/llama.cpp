@@ -3,7 +3,6 @@
 
 #include "ggml.h"
 #include "llama.h"
-#include "clip.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -109,6 +108,10 @@ MTMD_API bool mtmd_support_vision(mtmd_context * ctx);
 // whether the current model supports audio input
 MTMD_API bool mtmd_support_audio(mtmd_context * ctx);
 
+// get audio bitrate in Hz, for example 16000 for Whisper
+// return -1 if audio is not supported
+MTMD_API int mtmd_get_audio_bitrate(mtmd_context * ctx);
+
 // mtmd_bitmap
 //
 // if bitmap is image:
@@ -119,11 +122,12 @@ MTMD_API bool mtmd_support_audio(mtmd_context * ctx);
 //     the data is in float format (PCM F32)
 MTMD_API mtmd_bitmap *         mtmd_bitmap_init           (uint32_t nx, uint32_t ny, const unsigned char * data);
 MTMD_API mtmd_bitmap *         mtmd_bitmap_init_from_audio(size_t n_samples,         const float         * data);
-MTMD_API uint32_t              mtmd_bitmap_get_nx  (const mtmd_bitmap * bitmap);
-MTMD_API uint32_t              mtmd_bitmap_get_ny  (const mtmd_bitmap * bitmap);
-MTMD_API const unsigned char * mtmd_bitmap_get_data(const mtmd_bitmap * bitmap);
-MTMD_API bool                  mtmd_bitmap_is_audio(const mtmd_bitmap * bitmap);
-MTMD_API void                  mtmd_bitmap_free    (mtmd_bitmap * bitmap);
+MTMD_API uint32_t              mtmd_bitmap_get_nx     (const mtmd_bitmap * bitmap);
+MTMD_API uint32_t              mtmd_bitmap_get_ny     (const mtmd_bitmap * bitmap);
+MTMD_API const unsigned char * mtmd_bitmap_get_data   (const mtmd_bitmap * bitmap);
+MTMD_API size_t                mtmd_bitmap_get_n_bytes(const mtmd_bitmap * bitmap);
+MTMD_API bool                  mtmd_bitmap_is_audio   (const mtmd_bitmap * bitmap);
+MTMD_API void                  mtmd_bitmap_free       (mtmd_bitmap * bitmap);
 // bitmap ID is optional, but useful for KV cache tracking
 // these getters/setters are dedicated functions, so you can for example calculate the hash of the image based on mtmd_bitmap_get_data()
 MTMD_API const char * mtmd_bitmap_get_id(const mtmd_bitmap * bitmap);
@@ -202,76 +206,9 @@ MTMD_API int32_t mtmd_encode_chunk(mtmd_context * ctx,
                                    const mtmd_input_chunk * chunk);
 
 // get output embeddings from the last encode pass
+// the reading size (in bytes) is equal to:
+// llama_model_n_embd(model) * mtmd_input_chunk_get_n_tokens(chunk) * sizeof(float)
 MTMD_API float * mtmd_get_output_embd(mtmd_context * ctx);
-
-/////////////////////////////////////////
-
-//
-// Helper functions (can be implemented based on other functions)
-//
-// Please note that these helpers are not guaranteed to be stable.
-// BREAKING CHANGES are expected.
-//
-
-// helper function to construct a mtmd_bitmap from a file
-// it calls mtmd_helper_bitmap_init_from_buf() internally
-// returns nullptr on failure
-// this function is thread-safe
-MTMD_API mtmd_bitmap * mtmd_helper_bitmap_init_from_file(const char * fname);
-
-// helper function to construct a mtmd_bitmap from a buffer containing a file
-// supported formats:
-//     image: formats supported by stb_image: jpg, png, bmp, gif, etc.
-//     audio: formats supported by miniaudio: wav, mp3, flac
-// note: audio files will be auto-detected based on magic bytes
-// returns nullptr on failure
-// this function is thread-safe
-MTMD_API mtmd_bitmap * mtmd_helper_bitmap_init_from_buf(const unsigned char * buf, size_t len);
-
-// helper to count the total number of tokens from a list of chunks, useful to keep track of KV cache
-MTMD_API size_t mtmd_helper_get_n_tokens(const mtmd_input_chunks * chunks);
-
-// helper to count the total position of tokens from a list of chunks, useful to keep track of n_past
-// normally, n_pos is equal to n_tokens, but for M-RoPE it is different
-MTMD_API llama_pos mtmd_helper_get_n_pos(const mtmd_input_chunks * chunks);
-
-// helper function that automatically:
-// 1. run llama_decode() on text chunks
-// 2. run mtmd_encode() on image chunks, then mtmd_get_output_embd() and then llama_decode()
-// if any of the mtmd_encode() or llama_decode() calls return non-zero, stop and forward the error
-// otherwise, returns 0 on success
-// this function is NOT thread-safe
-MTMD_API int32_t mtmd_helper_eval_chunks(mtmd_context * ctx,
-                                         struct llama_context * lctx,
-                                         const mtmd_input_chunks * chunks,
-                                         llama_pos n_past,
-                                         llama_seq_id seq_id,
-                                         int32_t n_batch,
-                                         bool logits_last,
-                                         llama_pos * new_n_past);
-
-// works like mtmd_helper_eval_chunks(), but only for a single chunk
-// this function is NOT thread-safe
-MTMD_API int32_t mtmd_helper_eval_chunk_single(mtmd_context * ctx,
-                                               struct llama_context * lctx,
-                                               const mtmd_input_chunk * chunk,
-                                               llama_pos n_past,
-                                               llama_seq_id seq_id,
-                                               int32_t n_batch,
-                                               bool logits_last,
-                                               llama_pos * new_n_past);
-
-// helper function to decode an image whose embeddings have already been calculated
-// this helper will handle batching and pre/post decoding setup (for ex. gemma 3 requires non-causal attention)
-// ret 0 on success, -1 on chunk not being a valid image chunk, 1 on decode failure
-MTMD_API int32_t mtmd_helper_decode_image_chunk(mtmd_context * ctx,
-                                                struct llama_context * lctx,
-                                                const mtmd_input_chunk * chunk,
-                                                float * encoded_embd,
-                                                llama_pos n_past,
-                                                llama_seq_id seq_id,
-                                                int32_t n_batch,
-                                                llama_pos * new_n_past);
 
 /////////////////////////////////////////
 
@@ -322,6 +259,7 @@ struct bitmap {
     uint32_t nx() { return mtmd_bitmap_get_nx(ptr.get()); }
     uint32_t ny() { return mtmd_bitmap_get_ny(ptr.get()); }
     const unsigned char * data() { return mtmd_bitmap_get_data(ptr.get()); }
+    size_t n_bytes() { return mtmd_bitmap_get_n_bytes(ptr.get()); }
     std::string id() { return mtmd_bitmap_get_id(ptr.get()); }
     void set_id(const char * id) { mtmd_bitmap_set_id(ptr.get(), id); }
 };

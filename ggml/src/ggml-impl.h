@@ -32,6 +32,8 @@
 extern "C" {
 #endif
 
+void ggml_print_backtrace(void);
+
 #ifndef MIN
 #    define MIN(a, b) ((a) < (b) ? (a) : (b))
 #endif
@@ -386,7 +388,7 @@ GGML_API void ggml_aligned_free(void * ptr, size_t size);
         return r;
     }
 
-#elif defined(__riscv) && defined(GGML_RV_ZFH)
+#elif defined(__riscv) && defined(__riscv_zfhmin)
 
     static inline float ggml_compute_fp16_to_fp32(ggml_fp16_t h) {
         float f;
@@ -596,6 +598,6 @@ static inline ggml_bf16_t ggml_compute_fp32_to_bf16(float s) {
 
 // expose GGUF internals for test code
 GGML_API size_t gguf_type_size(enum gguf_type type);
-GGML_API struct gguf_context * gguf_init_from_file_impl(FILE * file, struct gguf_init_params params);
+GGML_API struct gguf_context * gguf_init_from_file_impl(FILE * file, struct gguf_init_params params, size_t fd_offset = 0);
 GGML_API void gguf_write_to_buf(const struct gguf_context * ctx, std::vector<int8_t> & buf, bool only_meta);
 #endif // __cplusplus

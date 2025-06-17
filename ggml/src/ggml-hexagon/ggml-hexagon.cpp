@@ -1965,6 +1965,20 @@ static bool ggmlhexagon_check_valid_appcfg() {
         }
     }
 
+    if (HWACCEL_CDSP == g_hexagon_appcfg.hwaccel_approach) {
+        if ((HEXAGON_BACKEND_CDSP != g_hexagon_appcfg.hexagon_backend) && (HEXAGON_BACKEND_GGML != g_hexagon_appcfg.hexagon_backend)) {
+            GGMLHEXAGON_LOG_INFO("hwaccel_approach HWACCEL_CDSP must match with hexagon_backend HEXAGON_BACKEND_CDSP");
+            is_valid_appcfg = false;
+        }
+
+        if (1 == g_hexagon_appcfg.enable_all_q_mulmat) {
+            if (0 == g_hexagon_appcfg.enable_q_mulmat) {
+                GGMLHEXAGON_LOG_INFO("ensure set enable_q_mulmat to 1 firstly when set enable_all_q_mulmat to 1");
+                is_valid_appcfg = false;
+            }
+        }
+    }
+
     if (!is_valid_appcfg) {
         GGMLHEXAGON_LOG_INFO("it seems there is wrong configuration in ggml-hexagon.cfg, will using the default ggml backend accordingly");
     }
@@ -2742,7 +2756,6 @@ private:
     std::unordered_map<void *, Qnn_MemHandle_t> _qnn_rpc_buffer_to_handles;
 
     std::atomic_bool _rpcmem_initialized{false};
-
     std::unordered_map<void *, void *> _rpcmem_store_map;
     std::unordered_map<void *, size_t> _rpcmem_usage_map;
     size_t                             _rpcmem_usage    = 0;   // mempool usage in bytes
