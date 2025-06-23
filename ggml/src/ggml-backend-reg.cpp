@@ -159,6 +159,8 @@ struct ggml_backend_reg_entry {
     dl_handle_ptr handle;
 };
 
+static bool _useMetal = false;
+
 struct ggml_backend_registry {
     std::vector<ggml_backend_reg_entry> backends;
     std::vector<ggml_backend_dev_t> devices;
@@ -168,7 +170,8 @@ struct ggml_backend_registry {
         register_backend(ggml_backend_cuda_reg());
 #endif
 #ifdef GGML_USE_METAL
-        register_backend(ggml_backend_metal_reg());
+        if(_useMetal)
+            register_backend(ggml_backend_metal_reg());
 #endif
 #ifdef GGML_USE_SYCL
         register_backend(ggml_backend_sycl_reg());
@@ -334,7 +337,7 @@ int is_i8mm_supported()
 #endif
 }
 
-void ggml_backend_reg_layla(bool useVulkan, bool useOpenCL, bool useHexagon) {
+void ggml_backend_reg_layla(bool useVulkan, bool useOpenCL, bool useHexagon, bool useMetal) {
     if(useVulkan) {
         get_reg().load_backend("libggml-vulkan.so", false);
     }
@@ -346,6 +349,8 @@ void ggml_backend_reg_layla(bool useVulkan, bool useOpenCL, bool useHexagon) {
     if(useHexagon) {
         get_reg().load_backend("libggml-hexagon.so", false);
     }
+
+    _useMetal = useMetal;
 
     // load cpu backend depending on feature detection
     if(is_i8mm_supported()) {
