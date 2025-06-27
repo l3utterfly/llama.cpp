@@ -345,7 +345,7 @@ int is_i8mm_supported()
 void ggml_backend_reg_layla(bool useVulkan, bool useOpenCL, bool useHexagon, bool useMetal) {
     // set the global flag for Metal usage first
     _useMetal = useMetal;
-    
+
     if(useVulkan) {
         get_reg().load_backend("libggml-vulkan.so", false);
     }
@@ -361,9 +361,9 @@ void ggml_backend_reg_layla(bool useVulkan, bool useOpenCL, bool useHexagon, boo
     // load cpu backend depending on feature detection
     if(is_i8mm_supported()) {
         get_reg().load_backend("libggml-blas.so", false);
-        get_reg().load_backend("libggml-cpu-ARMV86A.so", false);
+        get_reg().load_backend("libggml-cpu-android_armv8.6_1.so", false);
     } else {
-        get_reg().load_backend("libggml-cpu-ARMV82A.so", false);
+        get_reg().load_backend("libggml-cpu-android_armv8.0_1.so", false);
     }
 }
 

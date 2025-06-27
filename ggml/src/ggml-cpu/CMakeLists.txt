@@ -155,18 +155,51 @@ function(ggml_add_cpu_backend_variant_impl tag_name)
 
                 list(APPEND ARCH_FLAGS "${ARM_MCPU_FLAG}${ARM_MCPU_FLAG_FIX}")
             else()
-                if(GGML_ARMV86A)
-                    message("Using -march=armv8.6-a")
-                    list(APPEND ARCH_FLAGS -march=armv8.6-a)
+                if (GGML_CPU_ARM_ARCH)
+                    list(APPEND ARCH_FLAGS -march=${GGML_CPU_ARM_ARCH})
+                elseif(GGML_CPU_ALL_VARIANTS)
+                    # Begin with the lowest baseline
+                    set(ARM_MCPU "armv8-a")
+                    set(ARCH_TAGS "")
+                    set(ARCH_DEFINITIONS "")
 
-                    list(APPEND ARCH_DEFINITIONS GGML_USE_DOTPROD)
-                    list(APPEND ARCH_DEFINITIONS GGML_USE_FP16_VECTOR_ARITHMETIC)
-                    list(APPEND ARCH_DEFINITIONS GGML_USE_MATMUL_INT8)
-                elseif (GGML_ARMV82A)
-                    message("Using -march=armv8.2-a")
-                    list(APPEND ARCH_FLAGS -march=armv8.2-a)
-                else()
-                    # do nothing
+                    # When a feature is selected, bump the MCPU to the first
+                    # version that supported it
+                    if (GGML_INTERNAL_DOTPROD)
+                        set(ARM_MCPU "armv8.2-a")
+                        set(ARCH_TAGS "${ARCH_TAGS}+dotprod")
+                        list(APPEND ARCH_DEFINITIONS GGML_USE_DOTPROD)
+                    endif()
+                    if (GGML_INTERNAL_FP16_VECTOR_ARITHMETIC)
+                        set(ARM_MCPU "armv8.2-a")
+                        set(ARCH_TAGS "${ARCH_TAGS}+fp16")
+                        list(APPEND ARCH_DEFINITIONS GGML_USE_FP16_VECTOR_ARITHMETIC)
+                    endif()
+                    if (GGML_INTERNAL_SVE)
+                        set(ARM_MCPU "armv8.2-a")
+                        set(ARCH_TAGS "${ARCH_TAGS}+sve")
+                        list(APPEND ARCH_DEFINITIONS GGML_USE_SVE)
+                    endif()
+                    if (GGML_INTERNAL_MATMUL_INT8)
+                        set(ARM_MCPU "armv8.6-a")
+                        set(ARCH_TAGS "${ARCH_TAGS}+i8mm")
+                        list(APPEND ARCH_DEFINITIONS GGML_USE_MATMUL_INT8)
+                    endif()
+                    if (GGML_INTERNAL_SVE2)
+                        set(ARM_MCPU "armv8.6-a")
+                        set(ARCH_TAGS "${ARCH_TAGS}+sve2")
+                        list(APPEND ARCH_DEFINITIONS GGML_USE_SVE2)
+                    endif()
+                    if (GGML_INTERNAL_NOSVE)
+                        set(ARCH_TAGS "${ARCH_TAGS}+nosve")
+                    endif()
+                    if (GGML_INTERNAL_SME)
+                        set(ARM_MCPU "armv9.2-a")
+                        set(ARCH_TAGS "${ARCH_TAGS}+sme")
+                        list(APPEND ARCH_DEFINITIONS GGML_USE_SME)
+                    endif()
+                    list(APPEND ARCH_FLAGS "-march=${ARM_MCPU}${ARCH_TAGS}")
+                    ggml_add_cpu_backend_features(${GGML_CPU_NAME} arm ${ARCH_DEFINITIONS})
                 endif()
             endif()
 
@@ -177,48 +210,67 @@ function(ggml_add_cpu_backend_variant_impl tag_name)
                 set(FEAT_INPUT_FILE "/dev/null")
             endif()
 
-            # CMAKE_C_COMPILER is already set by the NDK toolchain to the correct generic clang.exe
-            set(NDK_C_COMPILER_PATH "${CMAKE_C_COMPILER}")
-            message(NOTICE "NDK C Compiler Path: ${NDK_C_COMPILER_PATH}")
+            if(CMAKE_SYSTEM_NAME STREQUAL "Android")
+                # CMAKE_C_COMPILER is already set by the NDK toolchain to the correct generic clang.exe
+                set(NDK_C_COMPILER_PATH "${CMAKE_C_COMPILER}")
+                message(NOTICE "NDK C Compiler Path: ${NDK_C_COMPILER_PATH}")
 
-            # Construct the full command list for execute_process
-            set(COMPILER_COMMAND_LIST "${NDK_C_COMPILER_PATH}")
+                # Construct the full command list for execute_process
+                set(COMPILER_COMMAND_LIST "${NDK_C_COMPILER_PATH}")
 
-            # Add the crucial --target argument for cross-compilation
-            # For arm64-v8a, the target triple is aarch64-linux-android
-            list(APPEND COMPILER_COMMAND_LIST "--target=aarch64-linux-android")
+                # Add the crucial --target argument for cross-compilation
+                # For arm64-v8a, the target triple is aarch64-linux-android
+                list(APPEND COMPILER_COMMAND_LIST "--target=aarch64-linux-android")
 
-            # Add the crucial --sysroot argument to find Android headers/libraries
-            # CMAKE_SYSROOT is set by the Android NDK toolchain file
-            if (DEFINED CMAKE_SYSROOT)
-                list(APPEND COMPILER_COMMAND_LIST "--sysroot=${CMAKE_SYSROOT}")
+                # Add the crucial --sysroot argument to find Android headers/libraries
+                # CMAKE_SYSROOT is set by the Android NDK toolchain file
+                if (DEFINED CMAKE_SYSROOT)
+                    list(APPEND COMPILER_COMMAND_LIST "--sysroot=${CMAKE_SYSROOT}")
+                else()
+                    message(WARNING "CMAKE_SYSROOT is not defined. Compiler might not find standard headers/libraries for feature detection.")
+                endif()
+
+                # Append the architecture flags (e.g., -march=armv8.6-a)
+                list(APPEND COMPILER_COMMAND_LIST ${ARCH_FLAGS})
+
+                # Append the flags to dump predefined macros
+                list(APPEND COMPILER_COMMAND_LIST -dM -E -)
+
+                execute_process(
+                        COMMAND ${COMPILER_COMMAND_LIST}
+                        INPUT_FILE ${FEAT_INPUT_FILE}
+                        OUTPUT_VARIABLE ARM_FEATURE
+                        RESULT_VARIABLE ARM_FEATURE_RESULT
+                )
+                if (ARM_FEATURE_RESULT)
+                    message(WARNING "Failed to get ARM features")
+                else()
+                    message("ARM feature result: ${ARM_FEATURE_RESULT}")
+
+                    foreach(feature DOTPROD SVE MATMUL_INT8 FMA FP16_VECTOR_ARITHMETIC SME)
+                        string(FIND "${ARM_FEATURE}" "__ARM_FEATURE_${feature} 1" feature_pos)
+                        if (NOT ${feature_pos} EQUAL -1)
+                            message("ARM feature ${feature} enabled")
+                        endif()
+                    endforeach()
+                endif()
             else()
-                message(WARNING "CMAKE_SYSROOT is not defined. Compiler might not find standard headers/libraries for feature detection.")
-            endif()
-
-            # Append the architecture flags (e.g., -march=armv8.6-a)
-            list(APPEND COMPILER_COMMAND_LIST ${ARCH_FLAGS})
-
-            # Append the flags to dump predefined macros
-            list(APPEND COMPILER_COMMAND_LIST -dM -E -)
-
-            execute_process(
-                COMMAND ${COMPILER_COMMAND_LIST}
-                INPUT_FILE ${FEAT_INPUT_FILE}
-                OUTPUT_VARIABLE ARM_FEATURE
-                RESULT_VARIABLE ARM_FEATURE_RESULT
-            )
-            if (ARM_FEATURE_RESULT)
-                message(WARNING "Failed to get ARM features")
-            else()
-                message("ARM feature result: ${ARM_FEATURE_RESULT}")
-
-                foreach(feature DOTPROD SVE MATMUL_INT8 FMA FP16_VECTOR_ARITHMETIC SME)
-                    string(FIND "${ARM_FEATURE}" "__ARM_FEATURE_${feature} 1" feature_pos)
-                    if (NOT ${feature_pos} EQUAL -1)
-                        message("ARM feature ${feature} enabled")
-                    endif()
-                endforeach()
+                execute_process(
+                        COMMAND ${CMAKE_C_COMPILER} ${ARCH_FLAGS} -dM -E -
+                        INPUT_FILE ${FEAT_INPUT_FILE}
+                        OUTPUT_VARIABLE ARM_FEATURE
+                        RESULT_VARIABLE ARM_FEATURE_RESULT
+                )
+                if (ARM_FEATURE_RESULT)
+                    message(WARNING "Failed to get ARM features")
+                else()
+                    foreach(feature DOTPROD SVE MATMUL_INT8 FMA FP16_VECTOR_ARITHMETIC SME)
+                        string(FIND "${ARM_FEATURE}" "__ARM_FEATURE_${feature} 1" feature_pos)
+                        if (NOT ${feature_pos} EQUAL -1)
+                            message(STATUS "ARM feature ${feature} enabled")
+                        endif()
+                    endforeach()
+                endif()
             endif()
         endif()
     elseif (GGML_SYSTEM_ARCH STREQUAL "x86")
