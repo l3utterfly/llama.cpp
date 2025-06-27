@@ -1,8 +1,8 @@
 #include "ggml-backend.h"
 #include "ggml-backend-impl.h"
 #include "ggml-cpu.h"
-#include "ggml-cpu-aarch64.h"
-#include "ggml-cpu-traits.h"
+#include "repack.h"
+#include "traits.h"
 #include "ggml-impl.h"
 #include "amx/amx.h"
 
@@ -11,7 +11,7 @@
 #include <vector>
 
 #ifdef GGML_USE_CPU_HBM
-#    include "ggml-cpu-hbm.h"
+#    include "hbm.h"
 #endif
 
 #ifdef GGML_USE_CPU_KLEIDIAI
@@ -49,10 +49,10 @@ static std::vector<ggml_backend_buffer_type_t> g_bufts = []() {
         }
 #endif
 
-#ifdef GGML_USE_CPU_AARCH64
-    if (ggml_backend_cpu_aarch64_buffer_type()) {
-        bufts.push_back(ggml_backend_cpu_aarch64_buffer_type());
-    }
+#ifdef GGML_USE_CPU_REPACK
+        if (ggml_backend_cpu_repack_buffer_type()) {
+            bufts.push_back(ggml_backend_cpu_repack_buffer_type());
+        }
 #endif
 
     bufts.push_back(NULL);
@@ -582,6 +582,9 @@ static ggml_backend_feature * ggml_backend_cpu_get_features(ggml_backend_reg_t r
         if (ggml_cpu_has_vxe()) {
             features.push_back({ "VXE", "1" });
         }
+        if (ggml_cpu_has_nnpa()) {
+            features.push_back({ "NNPA", "1" });
+        }
         if (ggml_cpu_has_wasm_simd()) {
             features.push_back({ "WASM_SIMD", "1" });
         }
@@ -600,8 +603,8 @@ static ggml_backend_feature * ggml_backend_cpu_get_features(ggml_backend_reg_t r
     #ifdef GGML_USE_CPU_KLEIDIAI
         features.push_back({ "KLEIDIAI", "1" });
     #endif
-    #ifdef GGML_USE_CPU_AARCH64
-        features.push_back({ "AARCH64_REPACK", "1" });
+    #ifdef GGML_USE_CPU_REPACK
+        features.push_back({ "REPACK", "1" });
     #endif
 
         features.push_back({ nullptr, nullptr });
