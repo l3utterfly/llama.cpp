@@ -31,6 +31,38 @@ else()
     message(WARNING "Git repository not found; to enable automatic generation of build info, make sure Git is installed and the project is a Git repository.")
 endif()
 
+# Find Git executable
+find_package(Git)
+
+# Get git commit hash
+if(GIT_FOUND AND EXISTS "${GIT_DIR}")
+    execute_process(
+            COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            OUTPUT_VARIABLE LLAMA_BUILD_COMMIT
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_QUIET
+    )
+
+    # Get build number from git commit count
+    execute_process(
+            COMMAND ${GIT_EXECUTABLE} rev-list --count HEAD
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            OUTPUT_VARIABLE LLAMA_BUILD_NUMBER
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_QUIET
+    )
+else()
+    set(LLAMA_BUILD_COMMIT "unknown")
+    set(LLAMA_BUILD_NUMBER 0)
+endif()
+
+# Set compiler info
+set(BUILD_COMPILER "${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
+
+# Set build target
+set(BUILD_TARGET "${CMAKE_SYSTEM_NAME} ${CMAKE_SYSTEM_PROCESSOR}")
+
 set(TEMPLATE_FILE "${CMAKE_CURRENT_SOURCE_DIR}/build-info.cpp.in")
 set(OUTPUT_FILE   "${CMAKE_CURRENT_BINARY_DIR}/build-info.cpp")
 configure_file(${TEMPLATE_FILE} ${OUTPUT_FILE})
