@@ -316,7 +316,7 @@ bool gguf_read_emplace_helper(const struct gguf_reader & gr, std::vector<struct 
     return true;
 }
 
-struct gguf_context * gguf_init_from_file_impl(FILE * file, struct gguf_init_params params) {
+struct gguf_context * gguf_init_from_file_impl(FILE * file, struct gguf_init_params params, size_t fd_offset) {
     const struct gguf_reader gr(file);
     struct gguf_context * ctx = new gguf_context;
 
@@ -610,7 +610,8 @@ struct gguf_context * gguf_init_from_file_impl(FILE * file, struct gguf_init_par
     GGML_ASSERT(int64_t(ctx->info.size()) == n_tensors);
 
     // we require the data section to be aligned, so take into account any padding
-    if (fseek(file, GGML_PAD(ftell(file), ctx->alignment), SEEK_SET) != 0) {
+    size_t padding = GGML_PAD(ftell(file) - fd_offset, ctx->alignment);
+    if (fseek(file, padding + fd_offset, SEEK_SET) != 0) {
         GGML_LOG_ERROR("%s: failed to seek to beginning of data section\n", __func__);
         gguf_free(ctx);
         return nullptr;
@@ -723,15 +724,94 @@ struct gguf_context * gguf_init_from_file_impl(FILE * file, struct gguf_init_par
     return ctx;
 }
 
+// Helper function to parse "fd" or "fd;offset" strings
+// Returns true on success, false on parsing error.
+// out_fd and out_offset will be populated on success.
+bool gguf_parse_fd_offset_string(const char* input_str, int* out_fd, long* out_offset) {
+    if (input_str == nullptr || out_fd == nullptr || out_offset == nullptr) {
+        GGML_LOG_ERROR("parse_fd_offset_string: Invalid null input arguments.\n");
+        return false;
+    }
+
+    // Create a mutable copy of input_str for tokenization (strtok modifies string)
+    // Even though we're using strchr/strtol here, it's good practice for safety
+    // if input_str could be a literal or const char*.
+    char* temp_str = strdup(input_str);
+    if (temp_str == nullptr) {
+        GGML_LOG_ERROR("parse_fd_offset_string: Memory allocation failed for temporary string.\n");
+        return false;
+    }
+
+    char* separator = strchr(temp_str, ';');
+    bool success = false;
+
+    if (separator != nullptr) {
+        // Format is "fd;offset"
+        *separator = '\0'; // Null-terminate the FD part
+        char* fd_part = temp_str;
+        char* offset_part = separator + 1;
+
+        char* fd_endptr;
+        long fd_val = strtol(fd_part, &fd_endptr, 10);
+
+        // Validate FD part: entire string consumed by number, or only whitespace/newline follows
+        if (fd_endptr == fd_part || (*fd_endptr != '\0' && *fd_endptr != '\n' && *fd_endptr != '\r')) {
+            GGML_LOG_ERROR("parse_fd_offset_string: Malformed FD part (non-numeric or trailing chars): '%s' in '%s'.\n", fd_part, input_str);
+            goto cleanup;
+        }
+
+        char* offset_endptr;
+        long offset_val = strtol(offset_part, &offset_endptr, 10);
+
+        // Validate offset part
+        if (offset_endptr == offset_part || (*offset_endptr != '\0' && *offset_endptr != '\n' && *offset_endptr != '\r')) {
+            GGML_LOG_ERROR("parse_fd_offset_string: Malformed offset part (non-numeric or trailing chars): '%s' in '%s'.\n", offset_part, input_str);
+            goto cleanup;
+        }
+
+        *out_fd = (int)fd_val;
+        *out_offset = offset_val;
+        success = true;
+    } else {
+        // Format is "fd" only (no semicolon)
+        char* fd_endptr;
+        long fd_val = strtol(temp_str, &fd_endptr, 10);
+
+        // Validate FD part
+        if (fd_endptr == temp_str || (*fd_endptr != '\0' && *fd_endptr != '\n' && *fd_endptr != '\r')) {
+            GGML_LOG_ERROR("parse_fd_offset_string: Malformed bare FD string (non-numeric or trailing chars): '%s' in '%s'.\n", temp_str, input_str);
+            goto cleanup;
+        }
+
+        *out_fd = (int)fd_val;
+        *out_offset = 0; // Default offset to 0 for bare FD
+        success = true;
+    }
+
+    cleanup:
+    free(temp_str);
+    return success;
+}
+
 struct gguf_context * gguf_init_from_file(const char * fname, struct gguf_init_params params) {
-    FILE * file = ggml_fopen(fname, "rb");
+    int parsed_fd_num = -1;
+    long parsed_offset_num = 0;
+
+    FILE * file = nullptr;
+
+    // Use the new helper function to parse
+    if (gguf_parse_fd_offset_string(fname, &parsed_fd_num, &parsed_offset_num)) {
+        file = ggml_fdopen(parsed_fd_num, "rb", parsed_offset_num);
+    } else {
+        file = ggml_fopen(fname, "rb");
+    }
 
     if (!file) {
         GGML_LOG_ERROR("%s: failed to open GGUF file '%s'\n", __func__, fname);
         return nullptr;
     }
 
-    struct gguf_context * result = gguf_init_from_file_impl(file, params);
+    struct gguf_context * result = gguf_init_from_file_impl(file, params, parsed_offset_num);
     fclose(file);
     return result;
 }
