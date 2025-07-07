@@ -196,7 +196,7 @@ struct ggml_backend_registry {
 #ifdef GGML_USE_HEXAGON
         register_backend(ggml_backend_hexagon_reg());
 #endif
-      
+
 #ifdef GGML_USE_CPU
         register_backend(ggml_backend_cpu_reg());
 #endif

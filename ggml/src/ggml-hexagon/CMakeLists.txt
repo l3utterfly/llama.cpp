@@ -39,13 +39,19 @@ endif()
 
 #check whether user's specified htp arch is valid
 set(CHECK_HTP_ARCH "WRONG")
-foreach (feat v68 v69 v73 v75 v79)
+#ref: https://github.com/quic/ai-hub-apps/tree/main/tutorials/llm_on_genie
+#foreach (feat v68 v69 v73 v75 v79)
+#foreach (feat v73 v75 v79)
+#for simplify workflow, only support v75 and v79, or only support 8Gen3 and 8Elite
+foreach (feat v75 v79)
     if (${feat} STREQUAL ${HTP_ARCH_VERSION})
         set(CHECK_HTP_ARCH "GOOD")
     endif()
 endforeach()
 if (${CHECK_HTP_ARCH} STREQUAL "WRONG")
-    message(FATAL_ERROR "ggml-hexagon backend only support htp arch v68,v69,v73,v75,v79")
+    #message(FATAL_ERROR "ggml-hexagon backend only support htp arch v68,v69,v73,v75,v79")
+    #for simplify workflow, only support v75 and v79, or only support 8Gen3 and 8Elite
+    message(FATAL_ERROR "ggml-hexagon backend only support htp arch v75,v79")
 endif()
 
 #check optimization flags
@@ -92,10 +98,10 @@ else()
     message(FATAL_ERROR "ggml-hexagon now only available on Android and Windows(Windows on ARM)")
 endif()
 
-set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} ${DEBUG_FLAG} ${OPT_FLAG}")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${DEBUG_FLAG} ${OPT_FLAG}")
-set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${DEBUG_FLAG} ${OPT_FLAG}")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${DEBUG_FLAG} ${OPT_FLAG}")
+set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -DGGML_USE_HEXAGON ${DEBUG_FLAG} ${OPT_FLAG}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGGML_USE_HEXAGON ${DEBUG_FLAG} ${OPT_FLAG}")
+set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -DGGML_USE_HEXAGON ${DEBUG_FLAG} ${OPT_FLAG}")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -DGGML_USE_HEXAGON ${DEBUG_FLAG} ${OPT_FLAG}")
 
 file(GLOB HEXAGON_SOURCES "${CMAKE_CURRENT_LIST_DIR}/*.cpp" "${CMAKE_CURRENT_LIST_DIR}/kernels/stub.c")
 ggml_add_backend_library(ggml-hexagon ${HEXAGON_SOURCES})
@@ -118,7 +124,7 @@ function(ggml_hexagon_build_kernel KNAME)
         COMMAND make -C ${CMAKE_CURRENT_LIST_DIR}/kernels/ clean
         COMMAND make -C ${CMAKE_CURRENT_LIST_DIR}/kernels/ HEXAGON_SDK_PATH=${HEXAGON_SDK_PATH} HTP_ARCH_VERSION=${HTP_ARCH_VERSION} DEBUG_FLAG=${DEBUG_FLAG}
         COMMAND echo "current working path:`pwd`\n"
-        COMMAND ls -l  ../../../bin/libggmlop-skel.so
+        COMMAND ls -l  ../../../bin/libggmldsp-skel.so
         COMMENT "build hexagon-kernel"
     )
 endfunction()
