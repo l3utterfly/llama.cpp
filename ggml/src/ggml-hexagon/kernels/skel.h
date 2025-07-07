@@ -278,7 +278,6 @@ __QAIC_HEADER_EXPORT int __QAIC_HEADER(ggmlop_dsp_mulmat)(remote_handle64 _h, co
 __QAIC_HEADER_EXPORT int __QAIC_HEADER(ggmlop_dsp_softmax)(remote_handle64 _h, const dsptensor* src0, const dsptensor* src1, dsptensor* dst) __QAIC_HEADER_ATTRIBUTE;
 __QAIC_HEADER_EXPORT int __QAIC_HEADER(ggmlop_dsp_rmsnorm)(remote_handle64 _h, const dsptensor* src0, const dsptensor* src1, dsptensor* dst) __QAIC_HEADER_ATTRIBUTE;
 __QAIC_HEADER_EXPORT int __QAIC_HEADER(ggmlop_dsp_pool2d)(remote_handle64 _h, const dsptensor* src0, const dsptensor* src1, dsptensor* dst) __QAIC_HEADER_ATTRIBUTE;
-
 #ifdef __cplusplus
 }
 #endif

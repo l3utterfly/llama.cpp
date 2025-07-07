@@ -56,25 +56,30 @@ endif()
 
 #check optimization flags
 set(OPT_FLAG " ")
-if (${HTP_ARCH_VERSION} STREQUAL "v75" OR ${HTP_ARCH_VERSION} STREQUAL "v79")
+if ((${HTP_ARCH_VERSION} STREQUAL "v75" OR ${HTP_ARCH_VERSION} STREQUAL "v79") AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
     #works fine on Snapdragon 8Gen3&8Elite with 1.5x - 3x performance gains with the default ggml backend
-    set(OPT_FLAG " -O3 -march=armv8.7-a -mcpu=cortex-x1 -mtune=cortex-x1 -flto -D_GNU_SOURCE -fvectorize -ffp-model=fast -fno-finite-math-only")
+    #set(OPT_FLAG " -O3 -march=armv8.7-a -mcpu=cortex-x1 -mtune=cortex-x1 -flto -D_GNU_SOURCE -fvectorize -ffp-model=fast -fno-finite-math-only")
+
+    # this set of flag is more general (without the cortex cpu optimisation, which is only available on very very modern archs)
+    set(OPT_FLAG " -O3 -flto -D_GNU_SOURCE -fvectorize -ffp-model=fast -fno-finite-math-only")
 endif()
 message("OPT_FLAG:${OPT_FLAG}")
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Android")
     find_library(LOG_LIB log)
 
-    add_library(cdsprpc
-        SHARED
-        IMPORTED)
-    set_target_properties(cdsprpc
-        PROPERTIES
-        IMPORTED_LOCATION
-        ${HEXAGON_SDK_PATH}/ipc/fastrpc/remote/ship/android_aarch64/libcdsprpc.so)
+    # we do not use libcdsprpc.so provided in the Hexagon SDK, we will look for the one installed by the user's phone vendor
+    #add_library(cdsprpc
+    #    SHARED
+    #    IMPORTED)
+    #set_target_properties(cdsprpc
+    #    PROPERTIES
+    #    IMPORTED_LOCATION
+    #    ${HEXAGON_SDK_PATH}/ipc/fastrpc/remote/ship/android_aarch64/libcdsprpc.so)
 
-    set(QNN_LINK_LIBRARIES ${LOG_LIB} cdsprpc)
-    set(QNN_DEFAULT_LIB_SEARCH_PATH "/data/local/tmp/" CACHE STRING "customized library search path for QNN backend")
+    #set(QNN_LINK_LIBRARIES ${LOG_LIB} cdsprpc)
+    set(QNN_LINK_LIBRARIES ${LOG_LIB})
+    #set(QNN_DEFAULT_LIB_SEARCH_PATH "/data/local/tmp/" CACHE STRING "customized library search path for QNN backend")
 
     include_directories(${HEXAGON_SDK_PATH}/incs)
     include_directories(${HEXAGON_SDK_PATH}/incs/stddef)
@@ -135,5 +140,6 @@ function(ggml_hexagon_setup_cfg KNAME)
     )
 endfunction()
 
-ggml_hexagon_build_kernel("cdsp")
-ggml_hexagon_setup_cfg("ggml-hexagon.cfg")
+# we do not build cdsp kernels directly in CMake
+#ggml_hexagon_build_kernel("cdsp")
+#ggml_hexagon_setup_cfg("ggml-hexagon.cfg")

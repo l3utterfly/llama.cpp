@@ -9,7 +9,6 @@
 #pragma once
 
 #include "minja.hpp"
-
 #include <chrono>
 #include <cstddef>
 #include <cstdio>
@@ -21,8 +20,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
-
-#include <nlohmann/json.hpp>
+#include "nlohmann/json.hpp"
 
 using json = nlohmann::ordered_json;
 
