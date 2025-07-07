@@ -5778,8 +5778,8 @@ static int ggmlhexagon_init_dsp(ggml_backend_hexagon_context * ctx) {
         if (dsp_version == 0x68 || dsp_version == 0x69 || dsp_version == 0x73 ||
             dsp_version == 0x75 || dsp_version == 0x79) {
 
-            // delete the file $(g_hexagon_appcfg.runtime_libpath)/libggmlop-skel.so if it exists
-            std::string filepath = std::string(g_hexagon_appcfg.runtime_libpath) + "/libggmlop-skel.so";
+            // delete the file $(g_hexagon_appcfg.runtime_libpath)/libggmldsp-skel.so if it exists
+            std::string filepath = std::string(g_hexagon_appcfg.runtime_libpath) + "/libggmldsp-skel.so";
             if (std::filesystem::exists(filepath)) {
                 std::filesystem::remove(filepath);
             }
@@ -5787,13 +5787,13 @@ static int ggmlhexagon_init_dsp(ggml_backend_hexagon_context * ctx) {
             // detect the htp arch number
             size_t htp_arch = ggmlhexagon_htparch_hex_to_decimal(dsp_version);
 
-            // find the file $(g_hexagon_appcfg.runtime_libpath)/libggmlop-skelV$(htp_arch).so if it exists
-            // copy and rename it to libggmlop-skel.so in the same folder
+            // find the file $(g_hexagon_appcfg.runtime_libpath)/libggmldsp-skelV$(htp_arch).so if it exists
+            // copy and rename it to libggmldsp-skel.so in the same folder
 
             // Construct file paths
-            std::string source_filename = std::string("libggmlop-skelV") + std::to_string(htp_arch) + ".so";
-            std::string source_path = std::string(g_hexagon_appcfg.runtime_libpath) + "/" + source_filename;
-            std::string dest_path = std::string(g_hexagon_appcfg.runtime_libpath) + "/libggmlop-skel.so";
+            std::string source_filename = std::string("libggmldsp-skelV") + std::to_string(htp_arch) + ".so";
+            std::string source_path = std::string(g_hexagon_appcfg.runtime_libpath) + source_filename;
+            std::string dest_path = std::string(g_hexagon_appcfg.runtime_libpath) + "libggmldsp-skel.so";
 
             // Check if source file exists
             if (std::filesystem::exists(source_path)) {
