@@ -89,6 +89,7 @@ set(GGML_OPENCL_KERNELS
     rms_norm
     rope
     scale
+    set_rows
     sigmoid
     silu
     softmax_4_f32
@@ -104,6 +105,7 @@ set(GGML_OPENCL_KERNELS
     tanh
     pad
     repeat
+    mul_mat_f16_f32
 )
 
 foreach (K ${GGML_OPENCL_KERNELS})
