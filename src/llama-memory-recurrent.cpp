@@ -446,7 +446,7 @@ bool llama_memory_recurrent::find_slot(const llama_ubatch & ubatch) {
     // A slot should be always be contiguous.
 
     // can only process batches with an equal number of new tokens in each sequence
-    GGML_ASSERT(ubatch.equal_seqs);
+    GGML_ASSERT(ubatch.equal_seqs());
 
     int32_t min = size - 1;
     int32_t max = 0;
@@ -1018,7 +1018,7 @@ bool llama_memory_recurrent::state_read_data(llama_io_read_i & io, uint32_t cell
         // For each layer, read the values for each cell (transposed)
         for (uint32_t il = 0; il < n_layer; ++il) {
             // skip null layers
-            if(s_l[il] == nullptr) continue;
+            if (s_l[il] == nullptr) continue;
 
             const uint32_t n_embd_s = hparams.n_embd_s();
 
