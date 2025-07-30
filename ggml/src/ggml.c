@@ -211,6 +211,24 @@ GGML_API ggml_abort_callback_t ggml_set_abort_callback(ggml_abort_callback_t cal
     return ret_val;
 }
 
+#if defined(__ANDROID__)
+#include <android/log.h>
+
+void ggml_abort(const char * file, int line, const char * fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+
+    char message[1024];  // Adjust size as needed
+    vsnprintf(message, sizeof(message), fmt, args);
+
+    __android_log_print(ANDROID_LOG_ERROR, "GGML", "%s:%d: %s", file, line, message);
+
+    va_end(args);
+
+    ggml_print_backtrace();  // You may need to modify this function as well
+    abort();
+}
+#else
 void ggml_abort(const char * file, int line, const char * fmt, ...) {
     fflush(stdout);
 
@@ -232,6 +250,7 @@ void ggml_abort(const char * file, int line, const char * fmt, ...) {
 
     abort();
 }
+#endif
 
 // ggml_print_backtrace is registered with std::set_terminate by ggml.cpp
 
@@ -272,12 +291,44 @@ void ggml_log_internal(enum ggml_log_level level, const char * format, ...) {
     va_end(args);
 }
 
+#ifdef __ANDROID__
+#include <android/log.h>
+
+void ggml_log_callback_default(enum ggml_log_level level, const char * text, void * user_data) {
+    (void) user_data;
+
+    android_LogPriority priority;
+    const char* tag = "GGML";
+
+    // Map GGML log levels to Android log priorities
+    switch (level) {
+        case GGML_LOG_LEVEL_ERROR:
+            priority = ANDROID_LOG_ERROR;
+            break;
+        case GGML_LOG_LEVEL_WARN:
+            priority = ANDROID_LOG_WARN;
+            break;
+        case GGML_LOG_LEVEL_INFO:
+            priority = ANDROID_LOG_INFO;
+            break;
+        default:
+            priority = ANDROID_LOG_DEBUG;
+            break;
+    }
+
+    __android_log_write(priority, tag, text);
+}
+
+#else
+
 void ggml_log_callback_default(enum ggml_log_level level, const char * text, void * user_data) {
     (void) level;
     (void) user_data;
     fputs(text, stderr);
     fflush(stderr);
 }
+
+#endif
 
 //
 // end of logging block
@@ -577,11 +628,40 @@ FILE * ggml_fopen(const char * fname, const char * mode) {
     }
 
     return file;
-#else
+#else // Non-Windows (Android, Linux, etc.)
     return fopen(fname, mode);
 #endif
-
 }
+
+FILE * ggml_fdopen(int fd, const char * mode, size_t fd_offset) {
+    int duplicated_fd = dup(fd);
+    if (duplicated_fd < 0) {
+        GGML_LOG_ERROR("ggml_fopen: dup(%ld) failed: %s (errno: %d)\n", fd, strerror(errno), errno);
+        return NULL;
+    }
+    GGML_LOG_DEBUG("ggml_fopen: Duplicated FD: %d (from original: %ld)\n", duplicated_fd, fd);
+
+    // seek to the specified offset
+    // Note: lseek() is used here to set the file position before fdopen()
+    int lseek_result = lseek(duplicated_fd, fd_offset, SEEK_SET);
+    if (lseek_result == -1) {
+        GGML_LOG_ERROR("ggml_fopen: lseek(%d, %ld, SEEK_SET) FAILED: %s (errno: %d)\n", duplicated_fd, fd_offset, strerror(errno), errno);
+        close(duplicated_fd);
+        return NULL;
+    }
+    GGML_LOG_DEBUG("ggml_fopen: lseek(%d, %ld, SEEK_SET) SUCCESS. New position reported by lseek: %ld\n", duplicated_fd, fd_offset, (long)lseek_result);
+
+
+    FILE *file = fdopen(duplicated_fd, mode);
+    if (file == NULL) {
+        GGML_LOG_ERROR("ggml_fopen: fdopen(%d, %s) FAILED: %s (errno: %d)\n", duplicated_fd, mode, strerror(errno), errno);
+        close(duplicated_fd);
+    } else {
+        GGML_LOG_DEBUG("ggml_fopen: fdopen(%d, %s) SUCCESS. FILE* created. (ftell: %ld)\n", duplicated_fd, mode, ftell(file));
+    }
+    return file;
+}
+
 static void ggml_vec_dot_f32(int n, float * GGML_RESTRICT s, size_t bs, const float * GGML_RESTRICT x, size_t bx, const float * GGML_RESTRICT y, size_t by, int nrc);
 static void ggml_vec_dot_f16(int n, float * GGML_RESTRICT s, size_t bs, ggml_fp16_t * GGML_RESTRICT x, size_t bx, ggml_fp16_t * GGML_RESTRICT y, size_t by, int nrc);
 static void ggml_vec_dot_bf16(int n, float * GGML_RESTRICT s, size_t bs, ggml_bf16_t * GGML_RESTRICT x, size_t bx, ggml_bf16_t * GGML_RESTRICT y, size_t by, int nrc);

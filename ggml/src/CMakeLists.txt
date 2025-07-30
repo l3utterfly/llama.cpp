@@ -205,6 +205,14 @@ add_library(ggml-base
             ggml-quants.h
             gguf.cpp)
 
+# Search for the 'log' library on Android
+if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Android")
+    find_library(log-lib log)
+    set(GGML_EXTRA_LIBS     ${GGML_EXTRA_LIBS}     ${log-lib})
+
+    target_link_libraries(ggml-base PUBLIC ${GGML_EXTRA_LIBS})
+endif()
+
 target_include_directories(ggml-base PRIVATE .)
 if (GGML_BACKEND_DL)
     target_compile_definitions(ggml-base PUBLIC GGML_BACKEND_DL)
@@ -358,7 +366,14 @@ if (GGML_CPU_ALL_VARIANTS)
         message(FATAL_ERROR "GGML_CPU_ALL_VARIANTS not yet supported with ${GGML_SYSTEM_ARCH} on ${CMAKE_SYSTEM_NAME}")
     endif()
 elseif (GGML_CPU)
-    ggml_add_cpu_backend_variant_impl("")
+    if(ANDROID)
+        ggml_add_cpu_backend_variant("ARMV86A" ARMV86A)
+        ggml_add_cpu_backend_variant("ARMV82A" ARMV82A)
+    elseif(APPLE)
+        ggml_add_cpu_backend_variant_impl("")
+    else()
+        message(FATAL_ERROR "Not supported: platform is neither apple nor android")
+    endif()
 endif()
 
 ggml_add_backend(BLAS)
@@ -372,6 +387,7 @@ ggml_add_backend(SYCL)
 ggml_add_backend(Vulkan)
 ggml_add_backend(WebGPU)
 ggml_add_backend(OpenCL)
+ggml_add_backend(HEXAGON)
 
 foreach (target ggml-base ggml)
     target_include_directories(${target} PUBLIC    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include> $<INSTALL_INTERFACE:include>)
