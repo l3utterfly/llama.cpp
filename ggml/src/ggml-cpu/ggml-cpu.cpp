@@ -34,12 +34,13 @@
 #endif
 
 // ggml-backend interface
+
 std::vector<ggml_backend_buffer_type_t> & ggml_backend_cpu_get_extra_buffer_types() {
     static std::vector<ggml_backend_buffer_type_t> bufts = []() {
         std::vector<ggml_backend_buffer_type_t> bufts;
 
 #if defined(__AMX_INT8__) && defined(__AVX512VNNI__)
-    if (ggml_backend_amx_buffer_type()) {
+        if (ggml_backend_amx_buffer_type()) {
             bufts.push_back(ggml_backend_amx_buffer_type());
         }
 #endif
@@ -60,10 +61,6 @@ std::vector<ggml_backend_buffer_type_t> & ggml_backend_cpu_get_extra_buffer_type
     }();
 
     return bufts;
-}();
-
-std::vector<ggml_backend_buffer_type_t>& ggml_backend_cpu_get_extra_buffers_type() {
-    return g_bufts;
 }
 
 static ggml_backend_buffer_type_t * ggml_backend_cpu_device_get_extra_buffers_type(ggml_backend_dev_t device) {
@@ -180,19 +177,19 @@ static enum ggml_status ggml_backend_cpu_graph_compute(ggml_backend_t backend, s
 }
 
 static const struct ggml_backend_i ggml_backend_cpu_i = {
-    /* .get_name                = */ ggml_backend_cpu_get_name,
-    /* .free                    = */ ggml_backend_cpu_free,
-    /* .set_tensor_async        = */ NULL,
-    /* .get_tensor_async        = */ NULL,
-    /* .cpy_tensor_async        = */ NULL,
-    /* .synchronize             = */ NULL,
-    /* .graph_plan_create       = */ ggml_backend_cpu_graph_plan_create,
-    /* .graph_plan_free         = */ ggml_backend_cpu_graph_plan_free,
-    /* .graph_plan_update       = */ NULL,
-    /* .graph_plan_compute      = */ ggml_backend_cpu_graph_plan_compute,
-    /* .graph_compute           = */ ggml_backend_cpu_graph_compute,
-    /* .event_record            = */ NULL,
-    /* .event_wait              = */ NULL,
+        /* .get_name                = */ ggml_backend_cpu_get_name,
+        /* .free                    = */ ggml_backend_cpu_free,
+        /* .set_tensor_async        = */ NULL,
+        /* .get_tensor_async        = */ NULL,
+        /* .cpy_tensor_async        = */ NULL,
+        /* .synchronize             = */ NULL,
+        /* .graph_plan_create       = */ ggml_backend_cpu_graph_plan_create,
+        /* .graph_plan_free         = */ ggml_backend_cpu_graph_plan_free,
+        /* .graph_plan_update       = */ NULL,
+        /* .graph_plan_compute      = */ ggml_backend_cpu_graph_plan_compute,
+        /* .graph_compute           = */ ggml_backend_cpu_graph_compute,
+        /* .event_record            = */ NULL,
+        /* .event_wait              = */ NULL,
 };
 
 static ggml_guid_t ggml_backend_cpu_guid(void) {
@@ -217,10 +214,10 @@ ggml_backend_t ggml_backend_cpu_init(void) {
     ctx->abort_callback_data = NULL;
 
     ggml_backend_t cpu_backend = new ggml_backend {
-        /* .guid    = */ ggml_backend_cpu_guid(),
-        /* .iface   = */ ggml_backend_cpu_i,
-        /* .device  = */ ggml_backend_reg_dev_get(ggml_backend_cpu_reg(), 0),
-        /* .context = */ ctx,
+            /* .guid    = */ ggml_backend_cpu_guid(),
+            /* .iface   = */ ggml_backend_cpu_i,
+            /* .device  = */ ggml_backend_reg_dev_get(ggml_backend_cpu_reg(), 0),
+            /* .context = */ ctx,
     };
 
     if (cpu_backend == NULL) {
@@ -369,10 +366,10 @@ static void ggml_backend_cpu_device_get_props(ggml_backend_dev_t dev, struct ggm
     props->type        = ggml_backend_cpu_device_get_type(dev);
     ggml_backend_cpu_device_get_memory(dev, &props->memory_free, &props->memory_total);
     props->caps = {
-        /* .async                 = */ false,
-        /* .host_buffer           = */ false,
-        /* .buffer_from_host_ptr  = */ true,
-        /* .events                = */ false,
+            /* .async                 = */ false,
+            /* .host_buffer           = */ false,
+            /* .buffer_from_host_ptr  = */ true,
+            /* .events                = */ false,
     };
 }
 
@@ -418,13 +415,13 @@ static bool ggml_backend_cpu_device_supports_op(ggml_backend_dev_t dev, const st
         case GGML_OP_CPY:
         case GGML_OP_SET_ROWS:
             return
-                op->type != GGML_TYPE_IQ3_XXS &&
-                op->type != GGML_TYPE_IQ3_S   &&
-                op->type != GGML_TYPE_IQ2_XXS &&
-                op->type != GGML_TYPE_IQ2_XS  &&
-                op->type != GGML_TYPE_IQ2_S   &&
-                op->type != GGML_TYPE_IQ1_S   &&
-                op->type != GGML_TYPE_IQ1_M; // missing type_traits.from_float
+                    op->type != GGML_TYPE_IQ3_XXS &&
+                    op->type != GGML_TYPE_IQ3_S   &&
+                    op->type != GGML_TYPE_IQ2_XXS &&
+                    op->type != GGML_TYPE_IQ2_XS  &&
+                    op->type != GGML_TYPE_IQ2_S   &&
+                    op->type != GGML_TYPE_IQ1_S   &&
+                    op->type != GGML_TYPE_IQ1_M; // missing type_traits.from_float
         case GGML_OP_MUL_MAT:
             return src1->type == GGML_TYPE_F32 || src1->type == ggml_get_type_traits_cpu(src0->type)->vec_dot_type;
         case GGML_OP_SOFT_MAX_BACK: {
@@ -443,7 +440,7 @@ static bool ggml_backend_cpu_device_supports_op(ggml_backend_dev_t dev, const st
             return src0->type == GGML_TYPE_F32 || src0->type == GGML_TYPE_F16;
         case GGML_OP_OUT_PROD:
             return (src0->type == GGML_TYPE_F32 || (ggml_is_quantized(src0->type) && src0->ne[2] == src1->ne[2] && src0->ne[3] == src1->ne[3])) &&
-                src1->type == GGML_TYPE_F32 && op->type == GGML_TYPE_F32;
+                   src1->type == GGML_TYPE_F32 && op->type == GGML_TYPE_F32;
         default:
             return true;
     }
@@ -455,21 +452,21 @@ static bool ggml_backend_cpu_device_supports_buft(ggml_backend_dev_t dev, ggml_b
 }
 
 static const struct ggml_backend_device_i ggml_backend_cpu_device_i = {
-    /* .get_name             = */ ggml_backend_cpu_device_get_name,
-    /* .get_description      = */ ggml_backend_cpu_device_get_description,
-    /* .get_memory           = */ ggml_backend_cpu_device_get_memory,
-    /* .get_type             = */ ggml_backend_cpu_device_get_type,
-    /* .get_props            = */ ggml_backend_cpu_device_get_props,
-    /* .init_backend         = */ ggml_backend_cpu_device_init_backend,
-    /* .get_buffer_type      = */ ggml_backend_cpu_device_get_buffer_type,
-    /* .get_host_buffer_type = */ NULL,
-    /* .buffer_from_host_ptr = */ ggml_backend_cpu_device_buffer_from_host_ptr,
-    /* .supports_op          = */ ggml_backend_cpu_device_supports_op,
-    /* .supports_buft        = */ ggml_backend_cpu_device_supports_buft,
-    /* .offload_op           = */ NULL,
-    /* .event_new            = */ NULL,
-    /* .event_free           = */ NULL,
-    /* .event_synchronize    = */ NULL,
+        /* .get_name             = */ ggml_backend_cpu_device_get_name,
+        /* .get_description      = */ ggml_backend_cpu_device_get_description,
+        /* .get_memory           = */ ggml_backend_cpu_device_get_memory,
+        /* .get_type             = */ ggml_backend_cpu_device_get_type,
+        /* .get_props            = */ ggml_backend_cpu_device_get_props,
+        /* .init_backend         = */ ggml_backend_cpu_device_init_backend,
+        /* .get_buffer_type      = */ ggml_backend_cpu_device_get_buffer_type,
+        /* .get_host_buffer_type = */ NULL,
+        /* .buffer_from_host_ptr = */ ggml_backend_cpu_device_buffer_from_host_ptr,
+        /* .supports_op          = */ ggml_backend_cpu_device_supports_op,
+        /* .supports_buft        = */ ggml_backend_cpu_device_supports_buft,
+        /* .offload_op           = */ NULL,
+        /* .event_new            = */ NULL,
+        /* .event_free           = */ NULL,
+        /* .event_synchronize    = */ NULL,
 };
 
 // CPU backend - backend (reg)
@@ -486,22 +483,17 @@ static size_t ggml_backend_cpu_reg_get_device_count(ggml_backend_reg_t reg) {
     GGML_UNUSED(reg);
 }
 
-// Global statics
-static ggml_backend_cpu_device_context g_cpu_ctx;
-static ggml_backend_device g_cpu_device;
-static bool g_is_initialized = false;
-
 static ggml_backend_dev_t ggml_backend_cpu_reg_get_device(ggml_backend_reg_t reg, size_t index) {
     GGML_ASSERT(index == 0);
 
-    if (!g_is_initialized) {
-        g_cpu_device.iface = ggml_backend_cpu_device_i;
-        g_cpu_device.reg = reg;
-        g_cpu_device.context = &g_cpu_ctx;
-        g_is_initialized = true;
-    }
+    static ggml_backend_cpu_device_context ctx;
+    static ggml_backend_device ggml_backend_cpu_device = {
+            /* .iface   = */ ggml_backend_cpu_device_i,
+            /* .reg     = */ reg,
+            /* .context = */ &ctx,
+    };
 
-    return &g_cpu_device;
+    return &ggml_backend_cpu_device;
 }
 
 // This is intended to replace the the ggml_cpu_has_* functions when loading the CPU backend dynamically,
@@ -593,21 +585,21 @@ static ggml_backend_feature * ggml_backend_cpu_get_features(ggml_backend_reg_t r
         if (ggml_cpu_has_llamafile()) {
             features.push_back({ "LLAMAFILE", "1" });
         }
-    #ifdef GGML_USE_ACCELERATE
+#ifdef GGML_USE_ACCELERATE
         features.push_back({ "ACCELERATE", "1" });
-    #endif
-    #ifdef GGML_USE_CPU_HBM
+#endif
+#ifdef GGML_USE_CPU_HBM
         features.push_back({ "CPU_HBM", "1" });
-    #endif
-    #ifdef GGML_USE_OPENMP
+#endif
+#ifdef GGML_USE_OPENMP
         features.push_back({ "OPENMP", "1" });
-    #endif
-    #ifdef GGML_USE_CPU_KLEIDIAI
+#endif
+#ifdef GGML_USE_CPU_KLEIDIAI
         features.push_back({ "KLEIDIAI", "1" });
-    #endif
-    #ifdef GGML_USE_CPU_REPACK
+#endif
+#ifdef GGML_USE_CPU_REPACK
         features.push_back({ "REPACK", "1" });
-    #endif
+#endif
 
         features.push_back({ nullptr, nullptr });
 
@@ -658,10 +650,10 @@ static void * ggml_backend_cpu_get_proc_address(ggml_backend_reg_t reg, const ch
 }
 
 static const struct ggml_backend_reg_i ggml_backend_cpu_reg_i = {
-    /* .get_name         = */ ggml_backend_cpu_reg_get_name,
-    /* .get_device_count = */ ggml_backend_cpu_reg_get_device_count,
-    /* .get_device       = */ ggml_backend_cpu_reg_get_device,
-    /* .get_proc_address = */ ggml_backend_cpu_get_proc_address,
+        /* .get_name         = */ ggml_backend_cpu_reg_get_name,
+        /* .get_device_count = */ ggml_backend_cpu_reg_get_device_count,
+        /* .get_device       = */ ggml_backend_cpu_reg_get_device,
+        /* .get_proc_address = */ ggml_backend_cpu_get_proc_address,
 };
 
 ggml_backend_reg_t ggml_backend_cpu_reg(void) {
@@ -669,9 +661,9 @@ ggml_backend_reg_t ggml_backend_cpu_reg(void) {
     ggml_cpu_init();
 
     static struct ggml_backend_reg ggml_backend_cpu_reg = {
-        /* .api_version = */ GGML_BACKEND_API_VERSION,
-        /* .iface       = */ ggml_backend_cpu_reg_i,
-        /* .context     = */ NULL,
+            /* .api_version = */ GGML_BACKEND_API_VERSION,
+            /* .iface       = */ ggml_backend_cpu_reg_i,
+            /* .context     = */ NULL,
     };
 
     return &ggml_backend_cpu_reg;
