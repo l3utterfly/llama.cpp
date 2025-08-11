@@ -16,6 +16,8 @@ static __global__ void flash_attn_vec_ext_f16(
         const char * __restrict__ K,
         const char * __restrict__ V,
         const char * __restrict__ mask,
+        const char * __restrict__ sinks,
+        const int  * __restrict__ KV_max,
         float      * __restrict__ dst,
         float2     * __restrict__ dst_meta,
         const float scale,
@@ -60,7 +62,8 @@ static __global__ void flash_attn_vec_ext_f16(
     K += nb13*sequence + nb12*(head / gqa_ratio);
     V += nb23*sequence + nb22*(head / gqa_ratio);
 
-    const half * maskh = (const half *) (mask + nb33*(sequence % ne33) + nb31*ic0);
+    const half  * maskh  = (const half  *) (mask + nb33*(sequence % ne33) + nb31*ic0);
+    const float * sinksf = (const float *) (sinks);
 
     const float slopef = get_alibi_slope(max_bias, head, n_head_log2, m0, m1);
     const half  slopeh = __float2half(slopef);
@@ -74,11 +77,12 @@ static __global__ void flash_attn_vec_ext_f16(
     half2 * KQ2 = (half2 *) KQ;
 
     half kqmax[ncols];
+    half kqsum[ncols];
 #pragma unroll
     for (int j = 0; j < ncols; ++j) {
         kqmax[j] = -HALF_MAX_HALF;
+        kqsum[j] = 0.0f;
     }
-    half kqsum[ncols] = {0.0f};
 
     __shared__ half kqmax_shared[ncols][WARP_SIZE];
     __shared__ half kqsum_shared[ncols][WARP_SIZE];
@@ -177,10 +181,11 @@ static __global__ void flash_attn_vec_ext_f16(
 
     half2 VKQ[ncols] = {{0.0f, 0.0f}};
 
+    const int k_VKQ_max = KV_max ? KV_max[sequence*gridDim.x + blockIdx.x] : ne11;
     K     += blockIdx.y*D * nb11;
     V     += blockIdx.y*D * nb21;
     maskh += blockIdx.y*D;
-    for (int k_VKQ_0 = blockIdx.y*D; k_VKQ_0 < ne11; k_VKQ_0 += gridDim.y*D,
+    for (int k_VKQ_0 = blockIdx.y*D; k_VKQ_0 < k_VKQ_max; k_VKQ_0 += gridDim.y*D,
              // Increment pointers after each loop:
              K += gridDim.y*D*nb11, V += gridDim.y*D*nb21, maskh += gridDim.y*D) {
 
@@ -191,29 +196,7 @@ static __global__ void flash_attn_vec_ext_f16(
             for (int j = 0; j < ncols; ++j) {
                 maskh_shared[j*D + tid] = slopeh*maskh[j*ne11 + tid];
             }
-
             __syncthreads();
-
-            // When using multiple parallel sequences in llama.cpp, some KV slices can be fully masked out.
-            // In such cases, skip the KV slice.
-            // On AMD __all_sync would not work correctly because it assumes a warp size of 64.
-#ifndef GGML_USE_HIP
-            bool skip = true;
-#pragma unroll
-            for (int j = 0; j < ncols; ++j) {
-#pragma unroll
-                for (int i0 = 0; i0 < D/2; i0 += WARP_SIZE) {
-                    const int i = i0 + threadIdx.x;
-
-                    const float2 tmp = __half22float2(((const half2 *) maskh_shared)[j*(D/2) + i]);
-                    skip = skip && isinf(tmp.x) && isinf(tmp.y);
-                }
-            }
-            if (__all_sync(0xFFFFFFFF, skip)) {
-                __syncthreads();
-                continue;
-            }
-#endif // GGML_USE_HIP
         }
 
         // For unknown reasons using a half array of size 1 for kqmax_new causes a performance regression,
@@ -303,6 +286,39 @@ static __global__ void flash_attn_vec_ext_f16(
         __syncthreads();
     }
 
+    if (sinksf && blockIdx.y == 0) {
+        const half sink = __float2half(sinksf[head]);
+
+#pragma unroll
+        for (int j = 0; j < ncols; ++j) {
+            if (threadIdx.x == 0) {
+                kqmax_shared[j][threadIdx.y] = fmaxf(kqmax[j], sink);
+            }
+        }
+
+        __syncthreads();
+
+#pragma unroll
+        for (int j = 0; j < ncols; ++j) {
+            half kqmax_new_j = kqmax_shared[j][threadIdx.x];
+            kqmax_new_j = warp_reduce_max(kqmax_new_j);
+
+            const half KQ_max_scale = hexp(kqmax[j] - kqmax_new_j);
+            kqmax[j] = kqmax_new_j;
+
+            const half val = hexp(sink - kqmax[j]);
+            kqsum[j] = kqsum[j]*KQ_max_scale;
+
+            if (tid == 0) {
+                kqsum[j] += val;
+            }
+
+            VKQ[j] *= __half2half2(KQ_max_scale);
+        }
+
+        __syncthreads();
+    }
+
 #pragma unroll
     for (int j = 0; j < ncols; ++j) {
         kqsum[j] = warp_reduce_sum((float)kqsum[j]);
@@ -333,7 +349,7 @@ static __global__ void flash_attn_vec_ext_f16(
         dst_meta[((sequence*ne01 + ic0 + tid)*ne02 + head)*gridDim.y + blockIdx.y] = make_float2(kqmax[tid], kqsum[tid]);
     }
 #else
-    GGML_UNUSED(Q); GGML_UNUSED(K); GGML_UNUSED(V); GGML_UNUSED(mask);
+    GGML_UNUSED(Q); GGML_UNUSED(K); GGML_UNUSED(V); GGML_UNUSED(mask); GGML_UNUSED(sinks);
     GGML_UNUSED(dst); GGML_UNUSED(dst_meta);
     GGML_UNUSED(scale); GGML_UNUSED(max_bias); GGML_UNUSED(m0); GGML_UNUSED(m1);
     GGML_UNUSED(n_head_log2); GGML_UNUSED(logit_softcap);
