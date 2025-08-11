@@ -65,6 +65,10 @@
 #include "ggml-cann.h"
 #endif
 
+#ifdef GGML_USE_HEXAGON
+#include "ggml-hexagon.h"
+#endif
+
 // disable C++17 deprecation warning for std::codecvt_utf8
 #if defined(__clang__)
 #    pragma clang diagnostic push
@@ -160,6 +164,8 @@ struct ggml_backend_reg_entry {
     dl_handle_ptr handle;
 };
 
+static bool _useMetal = false;
+
 struct ggml_backend_registry {
     std::vector<ggml_backend_reg_entry> backends;
     std::vector<ggml_backend_dev_t> devices;
@@ -169,7 +175,8 @@ struct ggml_backend_registry {
         register_backend(ggml_backend_cuda_reg());
 #endif
 #ifdef GGML_USE_METAL
-        register_backend(ggml_backend_metal_reg());
+        if(_useMetal)
+            register_backend(ggml_backend_metal_reg());
 #endif
 #ifdef GGML_USE_SYCL
         register_backend(ggml_backend_sycl_reg());
@@ -192,6 +199,11 @@ struct ggml_backend_registry {
 #ifdef GGML_USE_RPC
         register_backend(ggml_backend_rpc_reg());
 #endif
+
+#ifdef GGML_USE_HEXAGON
+        register_backend(ggml_backend_hexagon_reg());
+#endif
+
 #ifdef GGML_USE_CPU
         register_backend(ggml_backend_cpu_reg());
 #endif
@@ -303,7 +315,58 @@ struct ggml_backend_registry {
 
 static ggml_backend_registry & get_reg() {
     static ggml_backend_registry reg;
+
     return reg;
+}
+
+#if defined(__linux__) && defined(__aarch64__)
+#include <sys/auxv.h>
+#elif defined(__APPLE__)
+#include <sys/sysctl.h>
+#endif
+int is_i8mm_supported()
+{
+#if defined(__linux__) && defined(__aarch64__)
+    uint32_t hwcap = getauxval(AT_HWCAP);
+    uint32_t hwcap2 = getauxval(AT_HWCAP2);
+
+    return !!(hwcap2 & HWCAP2_I8MM);
+#elif defined(__APPLE__)
+    int oldp = 0;
+    size_t size = sizeof(oldp);
+
+    if (sysctlbyname("hw.optional.arm.FEAT_I8MM", &oldp, &size, NULL, 0) != 0) {
+        oldp = 0;
+    }
+    return oldp;
+#else
+    return 0;
+#endif
+}
+
+void ggml_backend_reg_layla(bool useVulkan, bool useOpenCL, bool useHexagon, bool useMetal) {
+    // set the global flag for Metal usage first
+    _useMetal = useMetal;
+
+    if(useVulkan) {
+        get_reg().load_backend("libggml-vulkan.so", false);
+    }
+
+    if(useOpenCL) {
+        get_reg().load_backend("libggml-opencl.so", false);
+    }
+
+    if(useHexagon) {
+        get_reg().load_backend("libggml-hexagon.so", false);
+    }
+
+    // load cpu backend depending on feature detection
+    if(is_i8mm_supported()) {
+        get_reg().load_backend("libggml-blas.so", false);
+        get_reg().load_backend("libggml-cpu-android_armv8.6_1.so", false);
+    } else {
+        get_reg().load_backend("libggml-cpu-android_armv8.0_1.so", false);
+    }
 }
 
 // Internal API
@@ -530,9 +593,11 @@ static ggml_backend_reg_t ggml_backend_load_best(const char * name, bool silent,
                         auto score_fn = (ggml_backend_score_t) dl_get_sym(handle.get(), "ggml_backend_score");
                         if (score_fn) {
                             int s = score_fn();
-#ifndef NDEBUG
-                            GGML_LOG_DEBUG("%s: %s score: %d\n", __func__, path_str(entry.path()).c_str(), s);
-#endif
+
+                            if(!silent) {
+                                GGML_LOG_DEBUG("%s: %s score: %d\n", __func__, path_str(entry.path()).c_str(), s);
+                            }
+
                             if (s > best_score) {
                                 best_score = s;
                                 best_path = entry.path();
@@ -569,7 +634,7 @@ void ggml_backend_load_all() {
 
 void ggml_backend_load_all_from_path(const char * dir_path) {
 #ifdef NDEBUG
-    bool silent = true;
+    bool silent = false;
 #else
     bool silent = false;
 #endif
@@ -584,6 +649,7 @@ void ggml_backend_load_all_from_path(const char * dir_path) {
     ggml_backend_load_best("vulkan", silent, dir_path);
     ggml_backend_load_best("opencl", silent, dir_path);
     ggml_backend_load_best("musa", silent, dir_path);
+    ggml_backend_load_best("hexagon", silent, dir_path);
     ggml_backend_load_best("cpu", silent, dir_path);
     // check the environment variable GGML_BACKEND_PATH to load an out-of-tree backend
     const char * backend_path = std::getenv("GGML_BACKEND_PATH");

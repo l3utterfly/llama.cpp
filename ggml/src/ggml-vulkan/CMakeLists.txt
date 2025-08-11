@@ -45,9 +45,16 @@ if (Vulkan_FOUND)
     message(STATUS "Vulkan found")
 
     ggml_add_backend_library(ggml-vulkan
-                             ggml-vulkan.cpp
-                             ../../include/ggml-vulkan.h
-                            )
+            ggml-vulkan.cpp
+            ../../include/ggml-vulkan.h
+    )
+
+    target_include_directories(ggml-vulkan PRIVATE
+            $ENV{VULKAN_SDK}/Include
+    )
+    target_compile_definitions(ggml-vulkan PRIVATE
+            VK_USE_PLATFORM_ANDROID_KHR
+    )
 
     set(VULKAN_SHADER_GEN_CMAKE_ARGS "")
 
@@ -193,7 +200,10 @@ if (Vulkan_FOUND)
         COMMENT "Generate vulkan shaders"
     )
 
-    target_sources(ggml-vulkan PRIVATE ${_ggml_vk_source} ${_ggml_vk_header})
+    # target_sources(ggml-vulkan PRIVATE ${_ggml_vk_source} ${_ggml_vk_header})
+
+    # we pre-generate the vulkan shaders since we are cross compiling for Android
+    target_sources(ggml-vulkan PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/ggml-vulkan-shaders.cpp ${CMAKE_CURRENT_SOURCE_DIR}/ggml-vulkan-shaders.hpp)
 
 else()
     message(WARNING "Vulkan not found")

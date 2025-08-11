@@ -2312,12 +2312,16 @@ static bool ggml_backend_opencl_cpy_tensor_async(ggml_backend_t backend, const g
 }
 
 static void ggml_backend_opencl_synchronize(ggml_backend_t backend) {
+    GGML_UNUSED(backend);
+
+    /* revert change in this PR: https://github.com/ggml-org/llama.cpp/pull/13939/files, it crashes on S23 for some reason, it's not used in runtime and only used during test-backend-ops, so this is ok
     auto * backend_ctx = static_cast<ggml_backend_opencl_context *>(backend->context);
 
     cl_event evt;
     CL_CHECK(clEnqueueBarrierWithWaitList(backend_ctx->queue, 0, nullptr, &evt));
     CL_CHECK(clWaitForEvents(1, &evt));
     CL_CHECK(clReleaseEvent(evt));
+    */
 }
 
 // Syncronizes the 'backend_ctx's device with others so that commands
