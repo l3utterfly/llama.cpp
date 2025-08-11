@@ -548,6 +548,9 @@ struct ggml_backend_opencl_context {
     }
 
     size_t get_kernel_workgroup_size(cl_kernel kernel) const {
+        // FIXME: hack, some phones crash when trying to get work group info
+        return 8;
+
         size_t workgroup_size = 0;
         size_t ret_size = 0;
         CL_CHECK(
@@ -2200,7 +2203,8 @@ static void ggml_cl2_free(ggml_backend_t backend) {
     }
 
     if (should_release_opencl) {
-        CL_CHECK(clReleaseContext(ctx->context));
+        // FIXME: hack, some phones crash when releasing the context
+        //CL_CHECK(clReleaseContext(ctx->context));
     }
 }
 
