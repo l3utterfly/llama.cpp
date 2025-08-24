@@ -648,6 +648,7 @@ static constexpr const qnn_op_caps ggmlqnn_k_op_caps[] = {
         {false, GGML_OP_IM2COL, 0, nullptr},
         {false, GGML_OP_IM2COL_BACK, 0, nullptr},
         {false, GGML_OP_CONV_2D, 0, nullptr},
+        {false, GGML_OP_CONV_3D, 0, nullptr},
         {false, GGML_OP_CONV_2D_DW, 0, nullptr},
         {false, GGML_OP_CONV_TRANSPOSE_2D, 0, nullptr},
         {false, GGML_OP_POOL_1D, 0, nullptr},
@@ -680,6 +681,7 @@ static constexpr const qnn_op_caps ggmlqnn_k_op_caps[] = {
         {false, GGML_OP_CROSS_ENTROPY_LOSS, 0, nullptr},
         {false, GGML_OP_CROSS_ENTROPY_LOSS_BACK, 0, nullptr},
         {false, GGML_OP_OPT_STEP_ADAMW, 0, nullptr},
+        {false, GGML_OP_OPT_STEP_SGD, 0, nullptr},
         {false, GGML_OP_GLU, 0, nullptr},
 };
 
@@ -746,6 +748,7 @@ static constexpr const hexagon_op_caps ggmlhexagon_k_op_caps[] = {
         {false, GGML_OP_IM2COL, 0, nullptr, nullptr},
         {false, GGML_OP_IM2COL_BACK, 0, nullptr, nullptr},
         {false, GGML_OP_CONV_2D, 0, nullptr, nullptr},
+        {false, GGML_OP_CONV_3D, 0, nullptr, nullptr},
         {false, GGML_OP_CONV_2D_DW, 0, nullptr, nullptr},
         {false, GGML_OP_CONV_TRANSPOSE_2D, 0, nullptr, nullptr},
         {false, GGML_OP_POOL_1D, 0, nullptr, nullptr},
@@ -778,6 +781,7 @@ static constexpr const hexagon_op_caps ggmlhexagon_k_op_caps[] = {
         {false, GGML_OP_CROSS_ENTROPY_LOSS, 0, nullptr, nullptr},
         {false, GGML_OP_CROSS_ENTROPY_LOSS_BACK, 0, nullptr, nullptr},
         {false, GGML_OP_OPT_STEP_ADAMW, 0, nullptr, nullptr},
+        {false, GGML_OP_OPT_STEP_SGD, 0, nullptr},
         {false, GGML_OP_GLU, 0, nullptr, nullptr},
 };
 
