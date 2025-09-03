@@ -562,9 +562,6 @@ struct ggml_backend_opencl_context {
     }
 
     size_t get_kernel_workgroup_size(cl_kernel kernel) const {
-        // FIXME: hack, some phones crash when trying to get work group info
-        return 8;
-
         size_t workgroup_size = 0;
         size_t ret_size = 0;
         CL_CHECK(
@@ -2323,8 +2320,7 @@ static void ggml_cl2_free(ggml_backend_t backend) {
     }
 
     if (should_release_opencl) {
-        // FIXME: hack, some phones crash when releasing the context
-        //CL_CHECK(clReleaseContext(ctx->context));
+        CL_CHECK(clReleaseContext(ctx->context));
     }
 }
 
@@ -2436,16 +2432,12 @@ static bool ggml_backend_opencl_cpy_tensor_async(ggml_backend_t backend, const g
 }
 
 static void ggml_backend_opencl_synchronize(ggml_backend_t backend) {
-    GGML_UNUSED(backend);
-
-    /* revert change in this PR: https://github.com/ggml-org/llama.cpp/pull/13939/files, it crashes on S23 for some reason, it's not used in runtime and only used during test-backend-ops, so this is ok
     auto * backend_ctx = static_cast<ggml_backend_opencl_context *>(backend->context);
 
     cl_event evt;
     CL_CHECK(clEnqueueBarrierWithWaitList(backend_ctx->queue, 0, nullptr, &evt));
     CL_CHECK(clWaitForEvents(1, &evt));
     CL_CHECK(clReleaseEvent(evt));
-    */
 }
 
 // Syncronizes the 'backend_ctx's device with others so that commands

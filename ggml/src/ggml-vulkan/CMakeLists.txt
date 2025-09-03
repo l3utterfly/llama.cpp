@@ -200,11 +200,7 @@ if (Vulkan_FOUND)
         COMMENT "Generate vulkan shaders"
     )
 
-    # target_sources(ggml-vulkan PRIVATE ${_ggml_vk_source} ${_ggml_vk_header})
-
-    # we pre-generate the vulkan shaders since we are cross compiling for Android
-    target_sources(ggml-vulkan PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/ggml-vulkan-shaders.cpp ${CMAKE_CURRENT_SOURCE_DIR}/ggml-vulkan-shaders.hpp)
-
+    target_sources(ggml-vulkan PRIVATE ${_ggml_vk_source} ${_ggml_vk_header})
 else()
     message(WARNING "Vulkan not found")
 endif()
