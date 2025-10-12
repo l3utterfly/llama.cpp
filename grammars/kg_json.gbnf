@@ -1,0 +1,12 @@
+root ::= array
+array ::= "[" edge ("," edge){0,9} "]"
+edge   ::= "{\"relationship\":" string ", \"subject\":" string ", \"object\":" string "}"
+
+string ::=
+  "\"" (
+    [^"\\\x7F\x00-\x1F] |
+    "\\" (["\\bfnrt] | "u" [0-9a-fA-F]{4}) # escapes
+  )* "\"" ws
+
+# Optional space: by convention, applied in this grammar after literal chars when allowed
+ws ::= | " " | "\n" [ \t]{0,20}

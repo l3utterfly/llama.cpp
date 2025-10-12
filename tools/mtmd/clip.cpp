@@ -370,6 +370,75 @@ struct clip_model {
     }
 };
 
+// Helper function to parse "fd" or "fd;offset" strings
+// Returns true on success, false on parsing error.
+// out_fd and out_offset will be populated on success.
+bool gguf_parse_fd_offset_string(const char* input_str, int* out_fd, long* out_offset) {
+    if (input_str == nullptr || out_fd == nullptr || out_offset == nullptr) {
+        LOG_ERR("parse_fd_offset_string: Invalid null input arguments.\n");
+        return false;
+    }
+
+    // Create a mutable copy of input_str for tokenization (strtok modifies string)
+    // Even though we're using strchr/strtol here, it's good practice for safety
+    // if input_str could be a literal or const char*.
+    char* temp_str = strdup(input_str);
+    if (temp_str == nullptr) {
+        LOG_ERR("parse_fd_offset_string: Memory allocation failed for temporary string.\n");
+        return false;
+    }
+
+    char* separator = strchr(temp_str, ';');
+    bool success = false;
+
+    if (separator != nullptr) {
+        // Format is "fd;offset"
+        *separator = '\0'; // Null-terminate the FD part
+        char* fd_part = temp_str;
+        char* offset_part = separator + 1;
+
+        char* fd_endptr;
+        long fd_val = strtol(fd_part, &fd_endptr, 10);
+
+        // Validate FD part: entire string consumed by number, or only whitespace/newline follows
+        if (fd_endptr == fd_part || (*fd_endptr != '\0' && *fd_endptr != '\n' && *fd_endptr != '\r')) {
+            LOG_ERR("parse_fd_offset_string: Malformed FD part (non-numeric or trailing chars): '%s' in '%s'.\n", fd_part, input_str);
+            goto cleanup;
+        }
+
+        char* offset_endptr;
+        long offset_val = strtol(offset_part, &offset_endptr, 10);
+
+        // Validate offset part
+        if (offset_endptr == offset_part || (*offset_endptr != '\0' && *offset_endptr != '\n' && *offset_endptr != '\r')) {
+            LOG_ERR("parse_fd_offset_string: Malformed offset part (non-numeric or trailing chars): '%s' in '%s'.\n", offset_part, input_str);
+            goto cleanup;
+        }
+
+        *out_fd = (int)fd_val;
+        *out_offset = offset_val;
+        success = true;
+    } else {
+        // Format is "fd" only (no semicolon)
+        char* fd_endptr;
+        long fd_val = strtol(temp_str, &fd_endptr, 10);
+
+        // Validate FD part
+        if (fd_endptr == temp_str || (*fd_endptr != '\0' && *fd_endptr != '\n' && *fd_endptr != '\r')) {
+            LOG_ERR("parse_fd_offset_string: Malformed bare FD string (non-numeric or trailing chars): '%s' in '%s'.\n", temp_str, input_str);
+            goto cleanup;
+        }
+
+        *out_fd = (int)fd_val;
+        *out_offset = 0; // Default offset to 0 for bare FD
+        success = true;
+    }
+
+    cleanup:
+    free(temp_str);
+    return success;
+}
+
 struct clip_ctx {
     clip_model model;
 
@@ -2760,12 +2829,25 @@ struct clip_model_loader {
 
         // load data
         {
+            int parsed_fd_num = -1;
+            long parsed_offset_num = 0;
+
+            FILE * file = nullptr;
+
+            // Use the new helper function to parse
+            if (gguf_parse_fd_offset_string(fname.c_str(), &parsed_fd_num, &parsed_offset_num)) {
+                file = ggml_fdopen(parsed_fd_num, "rb", parsed_offset_num);
+            } else {
+                file = ggml_fopen(fname.c_str(), "rb");
+            }
+
             std::vector<uint8_t> read_buf;
 
-            auto fin = std::ifstream(fname, std::ios::binary);
+            /*std::ifstream fin = std::ifstream(fname, std::ios::binary);
+
             if (!fin) {
                 throw std::runtime_error(string_format("%s: failed to open %s\n", __func__, fname.c_str()));
-            }
+            }*/
 
             // alloc memory and offload data
             ggml_backend_buffer_type_t buft = ggml_backend_get_default_buffer_type(ctx_clip.backend);
@@ -2774,22 +2856,25 @@ struct clip_model_loader {
             for (auto & t : tensors_to_load) {
                 ggml_tensor * cur = ggml_get_tensor(ctx_clip.ctx_data.get(), t->name);
                 const size_t offset = tensor_offset[t->name];
-                fin.seekg(offset, std::ios::beg);
-                if (!fin) {
+                //fin.seekg(offset, std::ios::beg);
+                if (fseek(file, offset, SEEK_SET) != 0) {
                     throw std::runtime_error(string_format("%s: failed to seek for tensor %s\n", __func__, t->name));
                 }
                 size_t num_bytes = ggml_nbytes(cur);
                 if (ggml_backend_buft_is_host(buft)) {
                     // for the CPU and Metal backend, we can read directly into the tensor
-                    fin.read(reinterpret_cast<char *>(cur->data), num_bytes);
+                    //fin.read(reinterpret_cast<char *>(cur->data), num_bytes);
+                    fread(reinterpret_cast<char *>(cur->data), 1, num_bytes, file);
                 } else {
                     // read into a temporary buffer first, then copy to device memory
                     read_buf.resize(num_bytes);
-                    fin.read(reinterpret_cast<char *>(read_buf.data()), num_bytes);
+                    //fin.read(reinterpret_cast<char *>(read_buf.data()), num_bytes);
+                    fread(reinterpret_cast<char *>(read_buf.data()), 1, num_bytes, file);
                     ggml_backend_tensor_set(cur, read_buf.data(), 0, num_bytes);
                 }
             }
-            fin.close();
+            //fin.close();
+            fclose(file);
 
             LOG_DBG("%s: loaded %zu tensors from %s\n", __func__, tensors_to_load.size(), fname.c_str());
         }

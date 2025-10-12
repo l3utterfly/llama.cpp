@@ -7,6 +7,24 @@ set(CMAKE_WARN_UNUSED_CLI YES)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Android")
+    if(DEFINED HTP_ARCH_VERSION AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+        if (${HTP_ARCH_VERSION} STREQUAL "v75" OR ${HTP_ARCH_VERSION} STREQUAL "v79")
+            #works fine on Snapdragon 8Gen3&8Elite with 1.5x - 3x performance gains with the default ggml backend
+            #set(OPT_FLAG " -O3 -march=armv8.7-a -mcpu=cortex-x1 -mtune=cortex-x1 -ffp-model=fast -fno-finite-math-only")
+
+            # this set of flag is more general (without the cortex cpu optimisation, which is only available on very very modern archs)
+            set(OPT_FLAG " -O3 -flto -D_GNU_SOURCE -fvectorize -ffp-model=fast -fno-finite-math-only")
+
+            message("OPT_FLAG:${OPT_FLAG}")
+            set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} ${DEBUG_FLAG} ${OPT_FLAG}")
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${DEBUG_FLAG} ${OPT_FLAG}")
+            set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${DEBUG_FLAG} ${OPT_FLAG}")
+            set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${DEBUG_FLAG} ${OPT_FLAG}")
+        endif()
+    endif()
+endif()
+
 if (NOT XCODE AND NOT MSVC AND NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
@@ -137,6 +155,7 @@ llama_option_depr(WARNING     LLAMA_RPC                 GGML_RPC)
 llama_option_depr(WARNING     LLAMA_SYCL                GGML_SYCL)
 llama_option_depr(WARNING     LLAMA_SYCL_F16            GGML_SYCL_F16)
 llama_option_depr(WARNING     LLAMA_CANN                GGML_CANN)
+llama_option_depr(WARNING     LLAMA_HEXAGON             GGML_HEXAGON)
 
 if (NOT MSVC)
     if (LLAMA_SANITIZE_THREAD)

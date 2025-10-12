@@ -688,6 +688,7 @@ extern "C" {
 
     // accepts a UTF-8 path, even on Windows
     GGML_API FILE *  ggml_fopen(const char * fname, const char * mode);
+    GGML_API FILE *  ggml_fdopen(int fd, const char * mode, size_t fd_offset);
 
     GGML_API void    ggml_print_object (const struct ggml_object * obj);
     GGML_API void    ggml_print_objects(const struct ggml_context * ctx);
