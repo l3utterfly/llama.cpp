@@ -149,6 +149,10 @@ poetry.toml
 
 .ccache/
 
+# IDE
+*.code-workspace
+.windsurf/
+
 HEXAGON_Tools/
 prebuilts/QNN_SDK/qairt/2.35.0.250530/
 prebuilts/QNN_SDK/qairt/2.36.0.250627/
