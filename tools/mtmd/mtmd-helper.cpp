@@ -10,6 +10,7 @@
 #include "mtmd.h"
 #include "mtmd-helper.h"
 #include "llama.h"
+#include "llama-impl.h"
 
 #include <algorithm>
 #include <cinttypes>
@@ -32,8 +33,8 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
 
-#define LOG_INF(...) fprintf(stdout, __VA_ARGS__)
-#define LOG_ERR(...) fprintf(stderr, __VA_ARGS__)
+#define LOG_INF(...) LLAMA_LOG_DEBUG(__VA_ARGS__)
+#define LOG_ERR(...) LLAMA_LOG_ERROR(__VA_ARGS__)
 
 size_t mtmd_helper_get_n_tokens(const mtmd_input_chunks * chunks) {
     size_t n_tokens = 0;
