@@ -243,34 +243,68 @@ static inline HVX_Vector_x4 hvx_vec_load_x4_f32_as_f16(const uint8_t * restrict 
     return r;
 }
 
-static inline HVX_Vector hvx_vec_rmpy_x8(HVX_Vector_x8 x, HVX_Vector_x8 y) {
-    HVX_Vector r0 = Q6_Vw_vrmpy_VbVb(x.v[0], y.v[0]);
-    HVX_Vector r1 = Q6_Vw_vrmpy_VbVb(x.v[1], y.v[1]);
-    HVX_Vector r2 = Q6_Vw_vrmpy_VbVb(x.v[2], y.v[2]);
-    HVX_Vector r3 = Q6_Vw_vrmpy_VbVb(x.v[3], y.v[3]);
-    HVX_Vector r4 = Q6_Vw_vrmpy_VbVb(x.v[4], y.v[4]);
-    HVX_Vector r5 = Q6_Vw_vrmpy_VbVb(x.v[5], y.v[5]);
-    HVX_Vector r6 = Q6_Vw_vrmpy_VbVb(x.v[6], y.v[6]);
-    HVX_Vector r7 = Q6_Vw_vrmpy_VbVb(x.v[7], y.v[7]);
+// Reduce multiply 1024 x 1024 int8 elements (32x q4/8 blocks in 8x HVX vectors).
+// Accumulate each block into a single int32 value.
+// Return a single HVX vector with 32x int32 accumulators.
+// This version is parameterized to support less than 1024 elements.
+// if() checks are optimized out at compile time -- make sure to pass N as a constexpr.
 
-    HVX_VectorPair p0 = Q6_W_vdeal_VVR(r1, r0, -4);
-    HVX_VectorPair p1 = Q6_W_vdeal_VVR(r3, r2, -4);
-    HVX_VectorPair p2 = Q6_W_vdeal_VVR(r5, r4, -4);
-    HVX_VectorPair p3 = Q6_W_vdeal_VVR(r7, r6, -4);
-    r0 = Q6_Vw_vadd_VwVw(Q6_V_lo_W(p0), Q6_V_hi_W(p0));
-    r1 = Q6_Vw_vadd_VwVw(Q6_V_lo_W(p1), Q6_V_hi_W(p1));
-    r2 = Q6_Vw_vadd_VwVw(Q6_V_lo_W(p2), Q6_V_hi_W(p2));
-    r3 = Q6_Vw_vadd_VwVw(Q6_V_lo_W(p3), Q6_V_hi_W(p3));
+static inline HVX_Vector hvx_vec_rmpy_x8_n(HVX_Vector_x8 x, HVX_Vector_x8 y, unsigned int n) {
+    HVX_Vector r0 = Q6_V_vsplat_R(0);
+    HVX_Vector r1 = Q6_V_vsplat_R(0);
+    HVX_Vector r2 = Q6_V_vsplat_R(0);
+    HVX_Vector r3 = Q6_V_vsplat_R(0);
+    HVX_Vector r4 = Q6_V_vsplat_R(0);
+    HVX_Vector r5 = Q6_V_vsplat_R(0);
+    HVX_Vector r6 = Q6_V_vsplat_R(0);
+    HVX_Vector r7 = Q6_V_vsplat_R(0);
 
-    p0 = Q6_W_vdeal_VVR(r1, r0, -4);
-    p1 = Q6_W_vdeal_VVR(r3, r2, -4);
-    r0 = Q6_Vw_vadd_VwVw(Q6_V_lo_W(p0), Q6_V_hi_W(p0));
-    r1 = Q6_Vw_vadd_VwVw(Q6_V_lo_W(p1), Q6_V_hi_W(p1));
+    HVX_VectorPair p3;
+    HVX_VectorPair p2;
+    HVX_VectorPair p1;
+    HVX_VectorPair p0;
 
-    p0 = Q6_W_vdeal_VVR(r1, r0, -4);
-    r0 = Q6_Vw_vadd_VwVw(Q6_V_lo_W(p0), Q6_V_hi_W(p0));
+    if (n >=  128) { r0 = Q6_Vw_vrmpy_VbVb(x.v[0], y.v[0]); }
+    if (n >=  256) { r1 = Q6_Vw_vrmpy_VbVb(x.v[1], y.v[1]); }
+    if (n >=  384) { r2 = Q6_Vw_vrmpy_VbVb(x.v[2], y.v[2]); }
+    if (n >=  512) { r3 = Q6_Vw_vrmpy_VbVb(x.v[3], y.v[3]); }
+    if (n >=  640) { r4 = Q6_Vw_vrmpy_VbVb(x.v[4], y.v[4]); }
+    if (n >=  768) { r5 = Q6_Vw_vrmpy_VbVb(x.v[5], y.v[5]); }
+    if (n >=  896) { r6 = Q6_Vw_vrmpy_VbVb(x.v[6], y.v[6]); }
+    if (n >= 1024) { r7 = Q6_Vw_vrmpy_VbVb(x.v[7], y.v[7]); }
+
+    if (n >=  128) { p0 = Q6_W_vdeal_VVR(r1, r0, -4); }
+    if (n >=  384) { p1 = Q6_W_vdeal_VVR(r3, r2, -4); }
+    if (n >=  640) { p2 = Q6_W_vdeal_VVR(r5, r4, -4); }
+    if (n >=  896) { p3 = Q6_W_vdeal_VVR(r7, r6, -4); }
+
+    if (n >=  128) { r0 = Q6_Vw_vadd_VwVw(Q6_V_lo_W(p0), Q6_V_hi_W(p0)); }
+    if (n >=  384) { r1 = Q6_Vw_vadd_VwVw(Q6_V_lo_W(p1), Q6_V_hi_W(p1)); }
+    if (n >=  640) { r2 = Q6_Vw_vadd_VwVw(Q6_V_lo_W(p2), Q6_V_hi_W(p2)); }
+    if (n >=  896) { r3 = Q6_Vw_vadd_VwVw(Q6_V_lo_W(p3), Q6_V_hi_W(p3)); }
+
+    if (n >=  128) { p0 = Q6_W_vdeal_VVR(r1, r0, -4); }
+    if (n >=  640) { p1 = Q6_W_vdeal_VVR(r3, r2, -4); }
+
+    if (n >=  128) { r0 = Q6_Vw_vadd_VwVw(Q6_V_lo_W(p0), Q6_V_hi_W(p0)); }
+    if (n >=  640) { r1 = Q6_Vw_vadd_VwVw(Q6_V_lo_W(p1), Q6_V_hi_W(p1)); }
+
+    if (n >=  128) { p0 = Q6_W_vdeal_VVR(r1, r0, -4); }
+    if (n >=  128) { r0 = Q6_Vw_vadd_VwVw(Q6_V_lo_W(p0), Q6_V_hi_W(p0)); }
 
     return r0;
+}
+
+static inline HVX_Vector hvx_vec_rmpy_x8_full(HVX_Vector_x8 x, HVX_Vector_x8 y) {
+    return hvx_vec_rmpy_x8_n(x, y, 1024);
+}
+
+// Handle most common cases of tensors not multiple of 1024.
+static inline HVX_Vector hvx_vec_rmpy_x8_nloe(HVX_Vector_x8 x, HVX_Vector_x8 y, unsigned int n) {
+    if (n <= 256) { return hvx_vec_rmpy_x8_n(x, y, 256); };
+    if (n <= 512) { return hvx_vec_rmpy_x8_n(x, y, 512); };
+    if (n <= 768) { return hvx_vec_rmpy_x8_n(x, y, 768); };
+    return hvx_vec_rmpy_x8_n(x, y, 1024);
 }
 
 static void vec_dot_q4x4x2_q8x4x2(const int n, float * restrict s, const void * restrict vx, const void * restrict vy) {
@@ -309,7 +343,7 @@ static void vec_dot_q4x4x2_q8x4x2(const int n, float * restrict s, const void * 
         HVX_Vector_x8 vy_q = hvx_vec_load_q8x4x8(y_q + i * y_qblk_size);
         HVX_Vector_x8 r0_q = hvx_vec_load_q4x4x8(r0_x_q + i * x_qblk_size);
 
-        HVX_Vector r0_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8(r0_q, vy_q));
+        HVX_Vector r0_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8_full(r0_q, vy_q));
 
         HVX_Vector vy_d = Q6_Vh_vshuff_Vh(*(const HVX_UVector *) (y_d + i * y_dblk_size));
         HVX_Vector r0_d = Q6_Vh_vshuff_Vh(*(const HVX_UVector *) (r0_x_d + i * x_dblk_size));
@@ -326,7 +360,7 @@ static void vec_dot_q4x4x2_q8x4x2(const int n, float * restrict s, const void * 
         HVX_Vector_x8 vy_q = hvx_vec_load_q8x4x8(y_q + i * y_qblk_size);
         HVX_Vector_x8 r0_q = hvx_vec_load_q4x4x8(r0_x_q + i * x_qblk_size);
 
-        HVX_Vector r0_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8(r0_q, vy_q));
+        HVX_Vector r0_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8_nloe(r0_q, vy_q, nloe));
 
         HVX_Vector vy_d = Q6_Vh_vshuff_Vh(*(const HVX_UVector *) (y_d + i * y_dblk_size));
         HVX_Vector r0_d = Q6_Vh_vshuff_Vh(*(const HVX_UVector *) (r0_x_d + i * x_dblk_size));
@@ -393,8 +427,8 @@ static void vec_dot_q4x4x2_q8x4x2_rx2(const int n,
         HVX_Vector_x8 r0_q = hvx_vec_load_q4x4x8(r0_x_q + i * x_qblk_size);
         HVX_Vector_x8 r1_q = hvx_vec_load_q4x4x8(r1_x_q + i * x_qblk_size);
 
-        HVX_Vector r0_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8(r0_q, vy_q));
-        HVX_Vector r1_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8(r1_q, vy_q));
+        HVX_Vector r0_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8_full(r0_q, vy_q));
+        HVX_Vector r1_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8_full(r1_q, vy_q));
 
         HVX_Vector vy_d = Q6_Vh_vshuff_Vh(*(const HVX_UVector *) (y_d + i * y_dblk_size));
         HVX_Vector r0_d = Q6_Vh_vshuff_Vh(*(const HVX_UVector *) (r0_x_d + i * x_dblk_size));
@@ -416,8 +450,8 @@ static void vec_dot_q4x4x2_q8x4x2_rx2(const int n,
         HVX_Vector_x8 r0_q = hvx_vec_load_q4x4x8(r0_x_q + i * x_qblk_size);
         HVX_Vector_x8 r1_q = hvx_vec_load_q4x4x8(r1_x_q + i * x_qblk_size);
 
-        HVX_Vector r0_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8(r0_q, vy_q));
-        HVX_Vector r1_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8(r1_q, vy_q));
+        HVX_Vector r0_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8_nloe(r0_q, vy_q, nloe));
+        HVX_Vector r1_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8_nloe(r1_q, vy_q, nloe));
 
         HVX_Vector vy_d = Q6_Vh_vshuff_Vh(*(const HVX_UVector *) (y_d + i * y_dblk_size));
         HVX_Vector r0_d = Q6_Vh_vshuff_Vh(*(const HVX_UVector *) (r0_x_d + i * x_dblk_size));
@@ -482,7 +516,7 @@ static void vec_dot_q8x4x2_q8x4x2(const int n, float * restrict s, const void * 
         HVX_Vector_x8 vy_q = hvx_vec_load_q8x4x8(y_q + i * y_qblk_size);
         HVX_Vector_x8 r0_q = hvx_vec_load_q8x4x8(r0_x_q + i * x_qblk_size);
 
-        HVX_Vector r0_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8(r0_q, vy_q));
+        HVX_Vector r0_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8_full(r0_q, vy_q));
 
         HVX_Vector vy_d = Q6_Vh_vshuff_Vh(*(const HVX_UVector *) (y_d + i * y_dblk_size));
         HVX_Vector r0_d = Q6_Vh_vshuff_Vh(*(const HVX_UVector *) (r0_x_d + i * x_dblk_size));
@@ -499,7 +533,7 @@ static void vec_dot_q8x4x2_q8x4x2(const int n, float * restrict s, const void * 
         HVX_Vector_x8 vy_q = hvx_vec_load_q8x4x8(y_q + i * y_qblk_size);
         HVX_Vector_x8 r0_q = hvx_vec_load_q8x4x8(r0_x_q + i * x_qblk_size);
 
-        HVX_Vector r0_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8(r0_q, vy_q));
+        HVX_Vector r0_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8_nloe(r0_q, vy_q, nloe));
 
         HVX_Vector vy_d = Q6_Vh_vshuff_Vh(*(const HVX_UVector *) (y_d + i * y_dblk_size));
         HVX_Vector r0_d = Q6_Vh_vshuff_Vh(*(const HVX_UVector *) (r0_x_d + i * x_dblk_size));
@@ -566,8 +600,8 @@ static void vec_dot_q8x4x2_q8x4x2_rx2(const int n,
         HVX_Vector_x8 r0_q = hvx_vec_load_q8x4x8(r0_x_q + i * x_qblk_size);
         HVX_Vector_x8 r1_q = hvx_vec_load_q8x4x8(r1_x_q + i * x_qblk_size);
 
-        HVX_Vector r0_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8(r0_q, vy_q));
-        HVX_Vector r1_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8(r1_q, vy_q));
+        HVX_Vector r0_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8_full(r0_q, vy_q));
+        HVX_Vector r1_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8_full(r1_q, vy_q));
 
         HVX_Vector vy_d = Q6_Vh_vshuff_Vh(*(const HVX_UVector *) (y_d + i * y_dblk_size));
         HVX_Vector r0_d = Q6_Vh_vshuff_Vh(*(const HVX_UVector *) (r0_x_d + i * x_dblk_size));
@@ -589,8 +623,8 @@ static void vec_dot_q8x4x2_q8x4x2_rx2(const int n,
         HVX_Vector_x8 r0_q = hvx_vec_load_q8x4x8(r0_x_q + i * x_qblk_size);
         HVX_Vector_x8 r1_q = hvx_vec_load_q8x4x8(r1_x_q + i * x_qblk_size);
 
-        HVX_Vector r0_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8(r0_q, vy_q));
-        HVX_Vector r1_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8(r1_q, vy_q));
+        HVX_Vector r0_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8_nloe(r0_q, vy_q, nloe));
+        HVX_Vector r1_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8_nloe(r1_q, vy_q, nloe));
 
         HVX_Vector vy_d = Q6_Vh_vshuff_Vh(*(const HVX_UVector *) (y_d + i * y_dblk_size));
         HVX_Vector r0_d = Q6_Vh_vshuff_Vh(*(const HVX_UVector *) (r0_x_d + i * x_dblk_size));
@@ -658,7 +692,7 @@ static void vec_dot_mxfp4x4x2_q8x4x2(const int n,
         HVX_Vector_x8 vy_q = hvx_vec_load_q8x4x8(y_q + i * y_qblk_size);
         HVX_Vector_x8 r0_q = hvx_vec_load_mxfp4x4x8(r0_x_q + i * x_qblk_size);
 
-        HVX_Vector r0_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8(r0_q, vy_q));
+        HVX_Vector r0_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8_full(r0_q, vy_q));
 
         HVX_Vector vy_d = *(const HVX_UVector *) (y_d + i * y_dblk_size);
         HVX_Vector r0_d = *(const HVX_UVector *) (r0_x_d + i * x_dblk_size);
@@ -690,7 +724,7 @@ static void vec_dot_mxfp4x4x2_q8x4x2(const int n,
         HVX_Vector_x8 vy_q = hvx_vec_load_q8x4x8(y_q + i * y_qblk_size);
         HVX_Vector_x8 r0_q = hvx_vec_load_mxfp4x4x8(r0_x_q + i * x_qblk_size);
 
-        HVX_Vector r0_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8(r0_q, vy_q));
+        HVX_Vector r0_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8_full(r0_q, vy_q));
 
         HVX_Vector vy_d = *(const HVX_UVector *) (y_d + i * y_dblk_size);
         HVX_Vector r0_d = *(const HVX_UVector *) (r0_x_d + i * x_dblk_size);
@@ -772,8 +806,8 @@ static void vec_dot_mxfp4x4x2_q8x4x2_rx2(const int n,
         HVX_Vector_x8 r0_q = hvx_vec_load_mxfp4x4x8(r0_x_q + i * x_qblk_size);
         HVX_Vector_x8 r1_q = hvx_vec_load_mxfp4x4x8(r1_x_q + i * x_qblk_size);
 
-        HVX_Vector r0_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8(r0_q, vy_q));
-        HVX_Vector r1_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8(r1_q, vy_q));
+        HVX_Vector r0_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8_full(r0_q, vy_q));
+        HVX_Vector r1_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8_full(r1_q, vy_q));
 
         HVX_Vector vy_d = *(const HVX_UVector *) (y_d + i * y_dblk_size);
         HVX_Vector r0_d = *(const HVX_UVector *) (r0_x_d + i * x_dblk_size);
@@ -813,8 +847,8 @@ static void vec_dot_mxfp4x4x2_q8x4x2_rx2(const int n,
         HVX_Vector_x8 r0_q = hvx_vec_load_mxfp4x4x8(r0_x_q + i * x_qblk_size);
         HVX_Vector_x8 r1_q = hvx_vec_load_mxfp4x4x8(r1_x_q + i * x_qblk_size);
 
-        HVX_Vector r0_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8(r0_q, vy_q));
-        HVX_Vector r1_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8(r1_q, vy_q));
+        HVX_Vector r0_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8_full(r0_q, vy_q));
+        HVX_Vector r1_ia = Q6_Vsf_equals_Vw(hvx_vec_rmpy_x8_full(r1_q, vy_q));
 
         HVX_Vector vy_d = *(const HVX_UVector *) (y_d + i * y_dblk_size);
         HVX_Vector r0_d = *(const HVX_UVector *) (r0_x_d + i * x_dblk_size);
