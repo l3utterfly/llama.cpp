@@ -1,6 +1,5 @@
 include(CheckCXXCompilerFlag)
 include("../cmake/common.cmake")
-include(ExternalProject)
 
 add_compile_definitions(GGML_SCHED_MAX_COPIES=${GGML_SCHED_MAX_COPIES})
 

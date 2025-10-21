@@ -1,4 +1,5 @@
 include(${HEXAGON_SDK_ROOT}/build/cmake/hexagon_fun.cmake)
+include(ExternalProject)
 
 option(GGML_HEXAGON_HTP_DEBUG "ggml-hexagon: enable HTP debug output" OFF)
 
