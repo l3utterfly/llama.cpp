@@ -1356,16 +1356,11 @@ static void ggml_backend_hexagon_buffer_get_tensor(ggml_backend_buffer_t buffer,
 static bool ggml_backend_hexagon_buffer_cpy_tensor(ggml_backend_buffer_t      buffer,
                                                    const struct ggml_tensor * src,
                                                    struct ggml_tensor *       dst) {
-    auto ctx  = (ggml_backend_hexagon_buffer_context *) buffer->context;
-    auto sess = ctx->sess;
-
-    GGML_LOG_DEBUG("ggml-hex: %s copy-tensor %s -> %s size %zu\n", sess->name.c_str(), src->name, dst->name,
-                ggml_nbytes(src));
-
-    memcpy(dst->data, src->data, ggml_nbytes(src));
-    return true;
-
     GGML_UNUSED(buffer);
+    GGML_UNUSED(src);
+    GGML_UNUSED(dst);
+    // we might optimize this later, for now take the slow path (ie get/set_tensor)
+    return false;
 }
 
 static void ggml_backend_hexagon_buffer_clear(ggml_backend_buffer_t buffer, uint8_t value) {
