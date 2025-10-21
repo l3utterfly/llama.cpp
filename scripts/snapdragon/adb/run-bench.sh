@@ -19,6 +19,9 @@ device="HTP0"
 verbose=""
 [ "$V" != "" ] && verbose="$V"
 
+opmask=
+[ "$OPMASK" != "" ] && opmask="GGML_HEXAGON_OPMASK=$OPMASK"
+
 nhvx=
 [ "$NHVX" != "" ] && nhvx="GGML_HEXAGON_NHVX=$NHVX"
 
@@ -31,6 +34,6 @@ adb $adbserial shell " \
   cd $basedir;         \
   LD_LIBRARY_PATH=$basedir/$branch/lib   \
   ADSP_LIBRARY_PATH=$basedir/$branch/lib \
-    $ndev $nhvx ./$branch/bin/llama-bench --device $device --mmap 0 -m $basedir/../gguf/$model \
+    $ndev $nhvx $opmask ./$branch/bin/llama-bench --device $device --mmap 0 -m $basedir/../gguf/$model \
         -t 4 --batch-size 128 -ngl 99 $@ \
 "
