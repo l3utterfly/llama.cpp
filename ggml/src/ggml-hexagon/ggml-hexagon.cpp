@@ -1286,6 +1286,9 @@ static void ggml_backend_hexagon_buffer_set_tensor(ggml_backend_buffer_t buffer,
                                                    const void *          data,
                                                    size_t                offset,
                                                    size_t                size) {
+    GGML_ASSERT(offset == 0);
+    GGML_ASSERT(size == ggml_nbytes(tensor));
+
     auto ctx  = (ggml_backend_hexagon_buffer_context *) buffer->context;
     auto sess = ctx->sess;
 
@@ -1319,6 +1322,9 @@ static void ggml_backend_hexagon_buffer_get_tensor(ggml_backend_buffer_t buffer,
                                                    void *                data,
                                                    size_t                offset,
                                                    size_t                size) {
+    GGML_ASSERT(offset == 0);
+    GGML_ASSERT(size == ggml_nbytes(tensor));
+
     auto ctx  = (ggml_backend_hexagon_buffer_context *) buffer->context;
     auto sess = ctx->sess;
 
