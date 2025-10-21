@@ -405,9 +405,7 @@ static enum ggml_status ggml_backend_hexagon_buffer_init_tensor(ggml_backend_buf
                 (int) ctx->repack);
 
     if (tensor->view_src != NULL && tensor->view_offs == 0) {
-        // Just a view, reuse the same extra info
-        tensor->flags = tensor->view_src->flags;
-        tensor->extra = tensor->view_src->extra;
+        ; // nothing to do for the view
     } else {
         if (!ctx->mapped) {
             ctx->mmap();
