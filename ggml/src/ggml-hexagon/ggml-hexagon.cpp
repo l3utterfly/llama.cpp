@@ -1388,19 +1388,28 @@ static const char * ggml_backend_hexagon_buffer_type_name(ggml_backend_buffer_ty
     return static_cast<ggml_backend_hexagon_buffer_type_context *>(buffer_type->context)->name.c_str();
 }
 
-static ggml_backend_buffer_t ggml_backend_hexagon_buffer_type_alloc_buffer(ggml_backend_buffer_type_t buffer_type,
-                                                                           size_t                     size) {
+static ggml_backend_buffer_t ggml_backend_hexagon_buffer_type_alloc_buffer(
+            ggml_backend_buffer_type_t buffer_type, size_t size) {
     auto sess = static_cast<ggml_backend_hexagon_buffer_type_context *>(buffer_type->context)->sess;
-    ggml_backend_hexagon_buffer_context * ctx = new ggml_backend_hexagon_buffer_context(sess, size, false /*repack*/);
-    return ggml_backend_buffer_init(buffer_type, ggml_backend_hexagon_buffer_interface, ctx, size);
+    try {
+        ggml_backend_hexagon_buffer_context * ctx = new ggml_backend_hexagon_buffer_context(sess, size, false /*repack*/);
+        return ggml_backend_buffer_init(buffer_type, ggml_backend_hexagon_buffer_interface, ctx, size);
+    } catch (std::exception const &exc) {
+        GGML_LOG_ERROR("ggml-hex: %s failed to allocate buffer context: %s\n", sess->name.c_str(), exc.what());
+        return nullptr;
+    }
 }
 
 static ggml_backend_buffer_t ggml_backend_hexagon_repack_buffer_type_alloc_buffer(
-    ggml_backend_buffer_type_t buffer_type,
-    size_t                     size) {
+            ggml_backend_buffer_type_t buffer_type, size_t size) {
     auto sess = static_cast<ggml_backend_hexagon_buffer_type_context *>(buffer_type->context)->sess;
-    ggml_backend_hexagon_buffer_context * ctx = new ggml_backend_hexagon_buffer_context(sess, size, true /*repack*/);
-    return ggml_backend_buffer_init(buffer_type, ggml_backend_hexagon_buffer_interface, ctx, size);
+    try {
+        ggml_backend_hexagon_buffer_context * ctx = new ggml_backend_hexagon_buffer_context(sess, size, true /*repack*/);
+        return ggml_backend_buffer_init(buffer_type, ggml_backend_hexagon_buffer_interface, ctx, size);
+    } catch (std::exception const &exc) {
+        GGML_LOG_ERROR("ggml-hex: %s failed to allocate buffer context: %s\n", sess->name.c_str(), exc.what());
+        return nullptr;
+    }
 }
 
 static size_t ggml_backend_hexagon_buffer_type_get_alignment(ggml_backend_buffer_type_t buffer_type) {
@@ -1408,8 +1417,7 @@ static size_t ggml_backend_hexagon_buffer_type_get_alignment(ggml_backend_buffer
     GGML_UNUSED(buffer_type);
 }
 
-static size_t ggml_backend_hexagon_buffer_type_get_alloc_size(ggml_backend_buffer_type_t buft,
-                                                              const struct ggml_tensor * t) {
+static size_t ggml_backend_hexagon_buffer_type_get_alloc_size(ggml_backend_buffer_type_t buft, const struct ggml_tensor * t) {
     return ggml_nbytes(t);
 }
 
