@@ -19,6 +19,7 @@
             "HEXAGON_SDK_ROOT": "$env{HEXAGON_SDK_ROOT}",
             "PREBUILT_LIB_DIR": "android_aarch64",
             "GGML_OPENMP":      "OFF",
+            "GGML_LLAMAFILE":   "OFF",
             "GGML_OPENCL":      "ON",
             "GGML_HEXAGON":     "ON",
             "LLAMA_CURL":       "OFF"
@@ -32,6 +33,7 @@
             "HEXAGON_SDK_ROOT": "$env{HEXAGON_SDK_ROOT}",
             "PREBUILT_LIB_DIR": "windows_aarch64",
             "GGML_OPENMP":      "OFF",
+            "GGML_LLAMAFILE":   "OFF",
             "GGML_OPENCL":      "ON",
             "GGML_HEXAGON":     "ON",
             "LLAMA_CURL":       "OFF"
