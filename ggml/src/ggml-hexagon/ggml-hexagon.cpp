@@ -1632,6 +1632,9 @@ void ggml_hexagon_session::release() noexcept(true) {
 }
 
 ggml_hexagon_session::ggml_hexagon_session(int dev_id) noexcept(false) {
+    buffer_type.context        = nullptr;
+    repack_buffer_type.context = nullptr;
+
     try {
         allocate(dev_id);
 
@@ -1648,6 +1651,9 @@ ggml_hexagon_session::ggml_hexagon_session(int dev_id) noexcept(false) {
 
 ggml_hexagon_session::~ggml_hexagon_session() noexcept(true) {
     release();
+
+    delete static_cast<ggml_backend_hexagon_buffer_type_context*>(buffer_type.context);
+    delete static_cast<ggml_backend_hexagon_buffer_type_context*>(repack_buffer_type.context);
 }
 
 // ** backend interface
