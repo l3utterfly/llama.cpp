@@ -82,11 +82,6 @@ static const char * status_to_str(uint32_t status) {
     }
 }
 
-static uint64_t time_usec(void) {
-    auto now = std::chrono::high_resolution_clock::now().time_since_epoch();
-    return std::chrono::duration_cast<std::chrono::microseconds>(now).count();
-}
-
 // ** debug helpers
 
 static inline int hex_format_tensor_dims(char * str, const struct ggml_tensor * t) {
