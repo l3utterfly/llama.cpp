@@ -1286,9 +1286,6 @@ static void ggml_backend_hexagon_buffer_set_tensor(ggml_backend_buffer_t buffer,
                                                    const void *          data,
                                                    size_t                offset,
                                                    size_t                size) {
-    GGML_ASSERT(offset == 0);
-    GGML_ASSERT(size == ggml_nbytes(tensor));
-
     auto ctx  = (ggml_backend_hexagon_buffer_context *) buffer->context;
     auto sess = ctx->sess;
 
@@ -1298,16 +1295,19 @@ static void ggml_backend_hexagon_buffer_set_tensor(ggml_backend_buffer_t buffer,
     switch (tensor->type) {
         case GGML_TYPE_Q4_0:
             GGML_ASSERT(offset == 0);
+            GGML_ASSERT(size == ggml_nbytes(tensor));
             repack_q4_0_q4x4x2(tensor, data, size);
             break;
 
         case GGML_TYPE_Q8_0:
             GGML_ASSERT(offset == 0);
+            GGML_ASSERT(size == ggml_nbytes(tensor));
             repack_q8_0_q8x4x2(tensor, data, size);
             break;
 
         case GGML_TYPE_MXFP4:
             GGML_ASSERT(offset == 0);
+            GGML_ASSERT(size == ggml_nbytes(tensor));
             repack_mxfp4_mxfp4x4x2(tensor, data, size);
             break;
 
@@ -1322,9 +1322,6 @@ static void ggml_backend_hexagon_buffer_get_tensor(ggml_backend_buffer_t buffer,
                                                    void *                data,
                                                    size_t                offset,
                                                    size_t                size) {
-    GGML_ASSERT(offset == 0);
-    GGML_ASSERT(size == ggml_nbytes(tensor));
-
     auto ctx  = (ggml_backend_hexagon_buffer_context *) buffer->context;
     auto sess = ctx->sess;
 
@@ -1334,16 +1331,19 @@ static void ggml_backend_hexagon_buffer_get_tensor(ggml_backend_buffer_t buffer,
     switch (tensor->type) {
         case GGML_TYPE_Q4_0:
             GGML_ASSERT(offset == 0);
+            GGML_ASSERT(size == ggml_nbytes(tensor));
             repack_q4x4x2_q4_0(data, tensor, size);
             break;
 
         case GGML_TYPE_Q8_0:
             GGML_ASSERT(offset == 0);
+            GGML_ASSERT(size == ggml_nbytes(tensor));
             repack_q8x4x2_q8_0(data, tensor, size);
             break;
 
         case GGML_TYPE_MXFP4:
             GGML_ASSERT(offset == 0);
+            GGML_ASSERT(size == ggml_nbytes(tensor));
             repack_mxfp4x4x2_mxfp4(data, tensor, size);
             break;
 
