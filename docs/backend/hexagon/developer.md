@@ -7,8 +7,8 @@ The Hexagon backend consist of two parts:
   - `libggml-hexagon`
     This is the regular CPU-side GGML backend library, either shared or statically linked
 
-  - `libggm-htp-vNN`
-    This is the NPU-side (HTP stands for Hexagon Tensor Process) shared library that contains the Op dispatcher and kernels.
+  - `libggml-htp-vNN`
+    This is the NPU-side (HTP stands for Hexagon Tensor Processor) shared library that contains the Op dispatcher and kernels.
     The correct library is selected automatically at runtime based on the HW version.
 
 Here is an example of the build artifacts
