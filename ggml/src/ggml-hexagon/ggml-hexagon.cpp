@@ -3054,8 +3054,9 @@ static const char * ggml_backend_hexagon_name(ggml_backend_t backend) {
 }
 
 static void ggml_backend_hexagon_free(ggml_backend_t backend) {
-    auto sess = static_cast<ggml_hexagon_session *>(backend->context);
-    GGML_UNUSED(sess);
+    // we just need to delete the backend here
+    // the sessions are allocated & freed as part of the registry
+    delete backend;
 }
 
 static inline bool op_reuse_src1(const ggml_tensor * op1, const ggml_tensor * op0) {
