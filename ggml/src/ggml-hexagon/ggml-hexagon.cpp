@@ -1683,23 +1683,6 @@ static bool hex_supported_dims2(const struct ggml_tensor * x, const struct ggml_
     return true;
 }
 
-static bool hex_can_repeat(const struct ggml_tensor * t0, const struct ggml_tensor * t1) {
-    if ((t1->ne[0] % t0->ne[0]) != 0) {
-        return false;
-    }
-    if ((t1->ne[1] % t0->ne[1]) != 0) {
-        return false;
-    }
-    if ((t1->ne[2] % t0->ne[2]) != 0) {
-        return false;
-    }
-    if ((t1->ne[3] % t0->ne[3]) != 0) {
-        return false;
-    }
-
-    return true;
-}
-
 static bool hex_supported_src0_type(ggml_type t) {
     return t == GGML_TYPE_F32;
 }
@@ -1879,7 +1862,7 @@ static bool ggml_hexagon_supported_binary(const struct ggml_hexagon_session * se
     if (!hex_supported_dims2(src0, dst)) {
         return false;
     }
-    if (!hex_can_repeat(src1, src0)) {
+    if (!ggml_can_repeat(src1, src0)) {
         return false;
     }
 
