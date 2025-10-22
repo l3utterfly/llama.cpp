@@ -88,9 +88,9 @@ void hvx_mul_f32_opt(const uint8_t * restrict src0,
                      const uint8_t * restrict src1,
                      uint8_t * restrict dst,
                      const int num_elems) {
-    htp_binary_ops_preamble
+    htp_binary_ops_preamble;
 
-        for (int i = 0; i < step_of_4; i++) {
+    for (int i = 0; i < step_of_4; i++) {
         HVX_Vector v1a = *(HVX_Vector *) src0_curr;
 
         HVX_Vector v1b = *(HVX_Vector *) src1_curr;
@@ -129,6 +129,7 @@ void hvx_mul_f32_opt(const uint8_t * restrict src0,
 
         dst_curr += 4 * VLEN;
     }
+
     for (int i = 0; i < step_of_2; i++) {
         HVX_Vector v1a = *(HVX_Vector *) src0_curr;
 
@@ -152,6 +153,7 @@ void hvx_mul_f32_opt(const uint8_t * restrict src0,
 
         dst_curr += 2 * VLEN;
     }
+
     for (int i = 0; i < step_of_1; i++) {
         HVX_Vector va = *(HVX_Vector *) src0_curr;
 
@@ -167,6 +169,7 @@ void hvx_mul_f32_opt(const uint8_t * restrict src0,
 
         dst_curr += VLEN;
     }
+
     if (remaining > 0) {
         HVX_Vector v = Q6_Vqf32_vmpy_VsfVsf(*(HVX_Vector *) src0_curr, *(HVX_Vector *) src1_curr);
         hvx_vec_store_u((void *) dst_curr, remaining * SIZEOF_FP32, Q6_Vsf_equals_Vqf32(v));
@@ -297,9 +300,9 @@ void hvx_add_f32_opt(const uint8_t * restrict src0,
                      const uint8_t * restrict src1,
                      uint8_t * restrict dst,
                      const int num_elems) {
-    htp_binary_ops_preamble
+    htp_binary_ops_preamble;
 
-        for (int i = 0; i < step_of_4; i++) {
+    for (int i = 0; i < step_of_4; i++) {
         HVX_Vector v1a = *(HVX_Vector *) src0_curr;
 
         HVX_Vector v1b = *(HVX_Vector *) src1_curr;
@@ -539,9 +542,9 @@ void hvx_sub_f32_opt(const uint8_t * restrict src0,
                      const uint8_t * restrict src1,
                      uint8_t * restrict dst,
                      const int num_elems) {
-    htp_binary_ops_preamble
+    htp_binary_ops_preamble;
 
-        for (int i = 0; i < step_of_4; i++) {
+    for (int i = 0; i < step_of_4; i++) {
         HVX_Vector v1a = *(HVX_Vector *) src0_curr;
 
         HVX_Vector v1b = *(HVX_Vector *) src1_curr;
