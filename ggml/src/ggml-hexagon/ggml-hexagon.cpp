@@ -2226,7 +2226,7 @@ static void ggml_hexagon_mul_mat(const struct ggml_tensor * op, uint32_t flags) 
     bufs[0].ptr    = src0->data;
     bufs[0].offset = (uint8_t *) src0->data - src0_buf->base;
     bufs[0].size   = ggml_nbytes(src0);
-    bufs[0].flags  = DSPQUEUE_BUFFER_FLAG_REF;
+    bufs[0].flags  = 0;
 
     // Second buffer Input Activations. This is a buffer that the CPU
     // writes and the DSP reads, so we'll need to flush CPU caches and
@@ -2236,8 +2236,7 @@ static void ggml_hexagon_mul_mat(const struct ggml_tensor * op, uint32_t flags) 
     bufs[1].ptr    = src1->data;
     bufs[1].offset = (uint8_t *) src1->data - src1_buf->base;
     bufs[1].size   = ggml_nbytes(src1);
-    bufs[1].flags  = (DSPQUEUE_BUFFER_FLAG_REF |                   // Take a reference
-                     DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER |          // Flush CPU
+    bufs[1].flags  = (DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER |         // Flush CPU
                      DSPQUEUE_BUFFER_FLAG_INVALIDATE_RECIPIENT);  // Invalidate DSP
 
     // Third buffer Output Activations. We'll handle DSP
@@ -2248,7 +2247,7 @@ static void ggml_hexagon_mul_mat(const struct ggml_tensor * op, uint32_t flags) 
     bufs[2].ptr    = dst->data;
     bufs[2].offset = (uint8_t *) dst->data - dst_buf->base;
     bufs[2].size   = ggml_nbytes(dst);
-    bufs[2].flags  = (DSPQUEUE_BUFFER_FLAG_REF | DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER);
+    bufs[2].flags  = (DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER);
 
     // Primary DSP session from the src0 (normally weight) tensor
     auto sess = src0_buf->sess;
@@ -2332,7 +2331,7 @@ static void ggml_hexagon_mul_mat_id(const struct ggml_tensor * op, uint32_t flag
     bufs[0].ptr    = src0->data;
     bufs[0].offset = (uint8_t *) src0->data - src0_buf->base;
     bufs[0].size   = ggml_nbytes(src0);
-    bufs[0].flags  = DSPQUEUE_BUFFER_FLAG_REF;
+    bufs[0].flags  = 0;
 
     // Second buffer Input Activations. This is a buffer that the CPU
     // writes and the DSP reads, so we'll need to flush CPU caches and
@@ -2342,8 +2341,7 @@ static void ggml_hexagon_mul_mat_id(const struct ggml_tensor * op, uint32_t flag
     bufs[1].ptr    = src1->data;
     bufs[1].offset = (uint8_t *) src1->data - src1_buf->base;
     bufs[1].size   = ggml_nbytes(src1);
-    bufs[1].flags  = (DSPQUEUE_BUFFER_FLAG_REF |                   // Take a reference
-                     DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER |          // Flush CPU
+    bufs[1].flags  = (DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER |         // Flush CPU
                      DSPQUEUE_BUFFER_FLAG_INVALIDATE_RECIPIENT);  // Invalidate DSP
 
     // Third buffer expert IDs. This is a buffer that the CPU
@@ -2354,8 +2352,7 @@ static void ggml_hexagon_mul_mat_id(const struct ggml_tensor * op, uint32_t flag
     bufs[2].ptr    = src2->data;
     bufs[2].offset = (uint8_t *) src2->data - src2_buf->base;
     bufs[2].size   = ggml_nbytes(src2);
-    bufs[2].flags  = (DSPQUEUE_BUFFER_FLAG_REF |                   // Take a reference
-                     DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER |          // Flush CPU
+    bufs[2].flags  = (DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER |         // Flush CPU
                      DSPQUEUE_BUFFER_FLAG_INVALIDATE_RECIPIENT);  // Invalidate DSP
 
     // Forth buffer Output Activations. We'll handle DSP
@@ -2366,7 +2363,7 @@ static void ggml_hexagon_mul_mat_id(const struct ggml_tensor * op, uint32_t flag
     bufs[3].ptr    = dst->data;
     bufs[3].offset = (uint8_t *) dst->data - dst_buf->base;
     bufs[3].size   = ggml_nbytes(dst);
-    bufs[3].flags  = (DSPQUEUE_BUFFER_FLAG_REF | DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER);
+    bufs[3].flags  = (DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER);
 
     // Primary DSP session from the src0 (normally weight) tensor
     auto sess = src0_buf->sess;
@@ -2468,8 +2465,7 @@ static void ggml_hexagon_binary(const struct ggml_tensor * op, uint32_t flags) {
     bufs[0].ptr    = src0->data;
     bufs[0].offset = (uint8_t *) src0->data - src0_buf->base;
     bufs[0].size   = ggml_nbytes(src0);
-    bufs[0].flags  = (DSPQUEUE_BUFFER_FLAG_REF |                   // Take a reference
-                     DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER |          // Flush CPU
+    bufs[0].flags  = (DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER |         // Flush CPU
                      DSPQUEUE_BUFFER_FLAG_INVALIDATE_RECIPIENT);  // Invalidate DSP;
 
     // Second buffer = Second Operand of Binary op
@@ -2481,8 +2477,7 @@ static void ggml_hexagon_binary(const struct ggml_tensor * op, uint32_t flags) {
     bufs[1].ptr    = src1->data;
     bufs[1].offset = (uint8_t *) src1->data - src1_buf->base;
     bufs[1].size   = ggml_nbytes(src1);
-    bufs[1].flags  = (DSPQUEUE_BUFFER_FLAG_REF |                   // Take a reference
-                     DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER |          // Flush CPU
+    bufs[1].flags  = (DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER |         // Flush CPU
                      DSPQUEUE_BUFFER_FLAG_INVALIDATE_RECIPIENT);  // Invalidate DSP
 
     // Third buffer = Output Activations. We'll handle DSP
@@ -2493,7 +2488,7 @@ static void ggml_hexagon_binary(const struct ggml_tensor * op, uint32_t flags) {
     bufs[2].ptr    = dst->data;
     bufs[2].offset = (uint8_t *) dst->data - dst_buf->base;
     bufs[2].size   = ggml_nbytes(dst);
-    bufs[2].flags  = (DSPQUEUE_BUFFER_FLAG_REF | DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER);
+    bufs[2].flags  = (DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER);
 
     // Primary DSP session from the src0 tensor
     ggml_hexagon_session * sess = src0_buf->sess;
@@ -2586,8 +2581,7 @@ static void ggml_hexagon_add_id(const struct ggml_tensor * op, uint32_t flags) {
     bufs[0].ptr    = src0->data;
     bufs[0].offset = (uint8_t *) src0->data - src0_buf->base;
     bufs[0].size   = ggml_nbytes(src0);
-    bufs[0].flags  = (DSPQUEUE_BUFFER_FLAG_REF |                   // Take a reference
-                     DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER |          // Flush CPU
+    bufs[0].flags  = (DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER |         // Flush CPU
                      DSPQUEUE_BUFFER_FLAG_INVALIDATE_RECIPIENT);  // Invalidate DSP;
 
     // Second buffer = experts bias
@@ -2595,8 +2589,7 @@ static void ggml_hexagon_add_id(const struct ggml_tensor * op, uint32_t flags) {
     bufs[1].ptr    = src1->data;
     bufs[1].offset = (uint8_t *) src1->data - src1_buf->base;
     bufs[1].size   = ggml_nbytes(src1);
-    bufs[1].flags  = (DSPQUEUE_BUFFER_FLAG_REF |                   // Take a reference
-                     DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER |          // Flush CPU
+    bufs[1].flags  = (DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER |         // Flush CPU
                      DSPQUEUE_BUFFER_FLAG_INVALIDATE_RECIPIENT);  // Invalidate DSP
 
     // Third buffer = activated experts
@@ -2604,8 +2597,7 @@ static void ggml_hexagon_add_id(const struct ggml_tensor * op, uint32_t flags) {
     bufs[2].ptr    = src2->data;
     bufs[2].offset = (uint8_t *) src2->data - src2_buf->base;
     bufs[2].size   = ggml_nbytes(src2);
-    bufs[2].flags  = (DSPQUEUE_BUFFER_FLAG_REF |                   // Take a reference
-                     DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER |          // Flush CPU
+    bufs[2].flags  = (DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER |         // Flush CPU
                      DSPQUEUE_BUFFER_FLAG_INVALIDATE_RECIPIENT);  // Invalidate DSP
 
     // Forth buffer = output activations
@@ -2613,7 +2605,7 @@ static void ggml_hexagon_add_id(const struct ggml_tensor * op, uint32_t flags) {
     bufs[3].ptr    = dst->data;
     bufs[3].offset = (uint8_t *) dst->data - dst_buf->base;
     bufs[3].size   = ggml_nbytes(dst);
-    bufs[3].flags  = (DSPQUEUE_BUFFER_FLAG_REF | DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER);
+    bufs[3].flags  = (DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER);
 
     // Primary DSP session from the src0 tensor
     ggml_hexagon_session * sess = src0_buf->sess;
@@ -2741,8 +2733,7 @@ static void ggml_hexagon_unary(const struct ggml_tensor * op, uint32_t flags) {
     bufs[n_bufs].ptr    = src0->data;
     bufs[n_bufs].offset = (uint8_t *) src0->data - src0_buf->base;
     bufs[n_bufs].size   = ggml_nbytes(src0);
-    bufs[n_bufs].flags  = (DSPQUEUE_BUFFER_FLAG_REF |                   // Take a reference
-                          DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER |          // Flush CPU
+    bufs[n_bufs].flags  = (DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER |         // Flush CPU
                           DSPQUEUE_BUFFER_FLAG_INVALIDATE_RECIPIENT);  // Invalidate DSP;
     ++n_bufs;
 
@@ -2757,8 +2748,7 @@ static void ggml_hexagon_unary(const struct ggml_tensor * op, uint32_t flags) {
         bufs[n_bufs].ptr    = src1->data;
         bufs[n_bufs].offset = (uint8_t *) src1->data - src1_buf->base;
         bufs[n_bufs].size   = ggml_nbytes(src1);
-        bufs[n_bufs].flags  = (DSPQUEUE_BUFFER_FLAG_REF |                   // Take a reference
-                              DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER |          // Flush CPU
+        bufs[n_bufs].flags  = (DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER |         // Flush CPU
                               DSPQUEUE_BUFFER_FLAG_INVALIDATE_RECIPIENT);  // Invalidate DSP
         ++n_bufs;
     }
@@ -2773,7 +2763,7 @@ static void ggml_hexagon_unary(const struct ggml_tensor * op, uint32_t flags) {
     bufs[n_bufs].ptr    = dst->data;
     bufs[n_bufs].offset = (uint8_t *) dst->data - dst_buf->base;
     bufs[n_bufs].size   = ggml_nbytes(dst);
-    bufs[n_bufs].flags  = (DSPQUEUE_BUFFER_FLAG_REF | DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER);
+    bufs[n_bufs].flags  = (DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER);
     ++n_bufs;
 
     // Primary DSP session from the src0 tensor
@@ -2880,8 +2870,7 @@ static void ggml_hexagon_rope(const struct ggml_tensor * op, uint32_t flags) {
     bufs[n_bufs].ptr    = src0->data;
     bufs[n_bufs].offset = (uint8_t *) src0->data - src0_buf->base;
     bufs[n_bufs].size   = ggml_nbytes(src0);
-    bufs[n_bufs].flags  = (DSPQUEUE_BUFFER_FLAG_REF |                   // Take a reference
-                          DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER |          // Flush CPU
+    bufs[n_bufs].flags  = (DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER |         // Flush CPU
                           DSPQUEUE_BUFFER_FLAG_INVALIDATE_RECIPIENT);  // Invalidate DSP;
     ++n_bufs;
 
@@ -2895,8 +2884,7 @@ static void ggml_hexagon_rope(const struct ggml_tensor * op, uint32_t flags) {
     bufs[n_bufs].ptr    = src1->data;
     bufs[n_bufs].offset = (uint8_t *) src1->data - src1_buf->base;
     bufs[n_bufs].size   = ggml_nbytes(src1);
-    bufs[n_bufs].flags  = (DSPQUEUE_BUFFER_FLAG_REF |                   // Take a reference
-                          DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER |          // Flush CPU
+    bufs[n_bufs].flags  = (DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER |         // Flush CPU
                           DSPQUEUE_BUFFER_FLAG_INVALIDATE_RECIPIENT);  // Invalidate DSP
     ++n_bufs;
 
@@ -2911,8 +2899,7 @@ static void ggml_hexagon_rope(const struct ggml_tensor * op, uint32_t flags) {
         bufs[n_bufs].ptr    = src2->data;
         bufs[n_bufs].offset = (uint8_t *) src2->data - src2_buf->base;
         bufs[n_bufs].size   = ggml_nbytes(src2);
-        bufs[n_bufs].flags  = (DSPQUEUE_BUFFER_FLAG_REF |                   // Take a reference
-                              DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER |          // Flush CPU
+        bufs[n_bufs].flags  = (DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER |         // Flush CPU
                               DSPQUEUE_BUFFER_FLAG_INVALIDATE_RECIPIENT);  // Invalidate DSP
         ++n_bufs;
     }
@@ -2927,7 +2914,7 @@ static void ggml_hexagon_rope(const struct ggml_tensor * op, uint32_t flags) {
     bufs[n_bufs].ptr    = dst->data;
     bufs[n_bufs].offset = (uint8_t *) dst->data - dst_buf->base;
     bufs[n_bufs].size   = ggml_nbytes(dst);
-    bufs[n_bufs].flags  = (DSPQUEUE_BUFFER_FLAG_REF | DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER);
+    bufs[n_bufs].flags  = (DSPQUEUE_BUFFER_FLAG_FLUSH_SENDER);
     ++n_bufs;
 
     // Primary DSP session from the src0 tensor
