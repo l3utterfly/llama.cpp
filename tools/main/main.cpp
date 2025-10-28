@@ -6,10 +6,6 @@
 #include "llama.h"
 #include "chat.h"
 
-#ifdef GGML_USE_HEXAGON
-#include "ggml-hexagon.h"
-#endif
-
 #include <cstdio>
 #include <cstring>
 #include <ctime>
@@ -88,22 +84,6 @@ static void sigint_handler(int signo) {
 #endif
 
 int main(int argc, char ** argv) {
-#ifdef GGML_USE_HEXAGON
-    int backend = HEXAGON_BACKEND_CDSP;
-    for (int i = 1; i < argc; i++) {
-        if (0 == strcmp(argv[i], "-mg")) {
-            backend = atoi(argv[i+1]);
-        }
-    }
-    printf("backend %d\n", backend);
-    if (backend >= HEXAGON_BACKEND_CDSP) {
-        ggml_backend_hexagon_set_cfg(backend, HWACCEL_CDSP);
-    }
-    if (backend < HEXAGON_BACKEND_CDSP) {
-        ggml_backend_hexagon_set_cfg(backend, HWACCEL_QNN);
-    }
-#endif
-
     common_params params;
     g_params = &params;
     if (!common_params_parse(argc, argv, params, LLAMA_EXAMPLE_MAIN, print_usage)) {
