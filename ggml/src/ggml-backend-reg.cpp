@@ -380,7 +380,10 @@ void ggml_backend_reg_layla(bool useVulkan, bool useOpenCL, bool useHexagon, boo
     }
 
     if(useHexagon) {
-        get_reg().load_backend("libggml-hexagon.so", false);
+        //setenv("GGML_HEXAGON_VERBOSE", "1", 1);
+        setenv("LD_LIBRARY_PATH", "/data/data/com.layla/files/app-data/hexagon-inference", 1);
+        setenv("ADSP_LIBRARY_PATH", "/data/data/com.layla/files/app-data/hexagon-inference", 1);
+        get_reg().load_backend("/data/data/com.layla/files/app-data/hexagon-inference/libggml-hexagon.so", false);
     }
 
     // load cpu backend depending on feature detection
