@@ -20,7 +20,7 @@
             "PREBUILT_LIB_DIR": "android_aarch64",
             "GGML_OPENMP":      "OFF",
             "GGML_LLAMAFILE":   "OFF",
-            "GGML_OPENCL":      "ON",
+            "GGML_OPENCL":      "OFF",
             "GGML_HEXAGON":     "ON",
             "LLAMA_CURL":       "OFF"
         }
