@@ -1695,7 +1695,7 @@ void ggml_hexagon_session::allocate(int dev_id) noexcept(false) {
     sprintf(htp_uri, "file:///libggml-htp-v%u.so?htp_iface_skel_handle_invoke&_modver=1.0", opt_arch);
 
     char session_uri[256];
-    if(false) {
+    {
         struct remote_rpc_get_uri u;
         u.session_id      = this->session_id;
         u.domain_name     = const_cast<char *>(CDSP_DOMAIN_NAME);
@@ -1707,13 +1707,13 @@ void ggml_hexagon_session::allocate(int dev_id) noexcept(false) {
 
         int err = remote_session_control(FASTRPC_GET_URI, (void *) &u, sizeof(u));
         if (err != AEE_SUCCESS) {
-            GGML_LOG_ERROR("ggml-hex: failed to get URI for session %d : error 0x%x\n", dev_id, err);
-            throw std::runtime_error("ggml-hex: remote_session_control(get-uri) failed (see log for details)");
-        }
-    } else {
-        int htp_URI_domain_len = strlen(htp_uri) + MAX_DOMAIN_NAMELEN;
+            // fallback to single session uris
+            int htp_URI_domain_len = strlen(htp_uri) + MAX_DOMAIN_NAMELEN;
 
-        snprintf(session_uri, htp_URI_domain_len, "%s%s", htp_uri, my_domain->uri);
+            snprintf(session_uri, htp_URI_domain_len, "%s%s", htp_uri, my_domain->uri);
+
+            GGML_LOG_WARN("ggml-hex: failed to get URI for session %d : error 0x%x. Falling back to single session URI: %s\n", dev_id, err, session_uri);
+        }
     }
 
     // Enable Unsigned PD
