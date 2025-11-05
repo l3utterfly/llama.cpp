@@ -9,7 +9,6 @@
 #include <chrono>
 #include <mutex>
 #include <string>
-#include <dlfcn.h>
 
 #ifdef _WIN32
 #    include <sal.h>
@@ -51,15 +50,6 @@ static int    opt_experimental = 0;
 // Enable all stages by default
 static int opt_opmask = HTP_OPMASK_QUEUE | HTP_OPMASK_QUANTIZE | HTP_OPMASK_COMPUTE;
 static int opt_opsync = 0;  // synchronous ops
-
-// function signature defined in rpcmem.h
-using pfn_rpc_mem_alloc                         = void *(*)(int, uint32_t, size_t);
-
-// Dynamic pointers to functions in lib[cdsp]rpc.so, used for backward compatibility with older SoCs
-// library open happens in the constructor of ggml_hexagon_registry, and closed in the destructor
-
-// dynamic pointer to function rpcmem_alloc or rpcmem_alloc2 at runtime
-static pfn_rpc_mem_alloc _pfn_rpc_mem_alloc = nullptr;
 
 #define HEX_VERBOSE(...) \
     if (opt_verbose) GGML_LOG_DEBUG(__VA_ARGS__)
@@ -338,6 +328,8 @@ struct ggml_backend_hexagon_buffer_type_context {
     std::string            name;
 };
 
+#pragma weak rpcmem_alloc2
+
 struct ggml_backend_hexagon_buffer_context {
     bool mmap_to(ggml_hexagon_session * s) {
         HEX_VERBOSE("ggml-hex: %s mmaping buffer: base %p domain-id %d session-id %d size %zu fd %d repack %d\n",
@@ -377,9 +369,13 @@ struct ggml_backend_hexagon_buffer_context {
     ggml_backend_hexagon_buffer_context(ggml_hexagon_session * sess, size_t size, bool repack) {
         size += 4 * 1024;  // extra page for padding
 
-        GGML_ASSERT(_pfn_rpc_mem_alloc != nullptr);
+        if (rpcmem_alloc2) {
+            this->base = (uint8_t *) rpcmem_alloc2(RPCMEM_HEAP_ID_SYSTEM, RPCMEM_DEFAULT_FLAGS | RPCMEM_HEAP_NOREG, size);
+        } else {
+            GGML_LOG_INFO("ggml-hex: %s rpcmem_alloc2 not found, falling back to rpcmem_alloc\n", sess->name.c_str());
+            this->base = (uint8_t *) rpcmem_alloc(RPCMEM_HEAP_ID_SYSTEM, RPCMEM_DEFAULT_FLAGS | RPCMEM_HEAP_NOREG, size);
+        }
 
-        this->base = (uint8_t *) _pfn_rpc_mem_alloc(RPCMEM_HEAP_ID_SYSTEM, RPCMEM_DEFAULT_FLAGS | RPCMEM_HEAP_NOREG, size);
         if (!this->base) {
             GGML_LOG_ERROR("ggml-hex: %s failed to allocate buffer : size %zu\n", sess->name.c_str(), size);
             throw std::runtime_error("ggml-hex: rpcmem_alloc failed (see log for details)");
@@ -1691,12 +1687,13 @@ void ggml_hexagon_session::allocate(int dev_id) noexcept(false) {
     }
 
     // Get session URI
-    char htp_uri[256];
-    sprintf(htp_uri, "file:///libggml-htp-v%u.so?htp_iface_skel_handle_invoke&_modver=1.0", opt_arch);
 
     char session_uri[256];
     {
-        struct remote_rpc_get_uri u;
+        char htp_uri[256];
+        snprintf(htp_uri, sizeof(htp_uri), "file:///libggml-htp-v%u.so?htp_iface_skel_handle_invoke&_modver=1.0", opt_arch);
+
+        struct remote_rpc_get_uri u = {};
         u.session_id      = this->session_id;
         u.domain_name     = const_cast<char *>(CDSP_DOMAIN_NAME);
         u.domain_name_len = strlen(CDSP_DOMAIN_NAME);
@@ -3671,9 +3668,6 @@ struct ggml_hexagon_registry {
     ~ggml_hexagon_registry();
 
     ggml_backend_device devices[GGML_HEXAGON_MAX_SESSIONS];
-
-    // dynamic handles
-    void * _rpc_lib_handle      = nullptr;
 };
 
 ggml_hexagon_registry::ggml_hexagon_registry(ggml_backend_reg_t reg) {
@@ -3700,30 +3694,6 @@ ggml_hexagon_registry::ggml_hexagon_registry(ggml_backend_reg_t reg) {
             devices[i].context = nullptr;
         }
     }
-
-    // obtain handle to dsp library
-    _rpc_lib_handle = dlopen("libcdsprpc.so", RTLD_NOW | RTLD_LOCAL);
-    if (nullptr == _rpc_lib_handle) {
-        GGML_LOG_ERROR("ggml-hex: failed to load rpc lib: %s", dlerror());
-        throw std::runtime_error("failed to load rpc lib");
-    }
-
-    // attempt to load rpc_memalloc2 first
-    _pfn_rpc_mem_alloc  = reinterpret_cast<pfn_rpc_mem_alloc>(dlsym(_rpc_lib_handle,"rpcmem_alloc2"));
-
-    // fallback to rpc_memalloc
-    if(_pfn_rpc_mem_alloc == nullptr) {
-        _pfn_rpc_mem_alloc  = reinterpret_cast<pfn_rpc_mem_alloc>(dlsym(_rpc_lib_handle,"rpcmem_alloc"));
-
-        if(_pfn_rpc_mem_alloc == nullptr) {
-            GGML_LOG_ERROR("ggml-hex: failed to get rpcmem_alloc function address: %s", dlerror());
-            throw std::runtime_error("failed to get rpcmem_alloc function address");
-        } else {
-            GGML_LOG_INFO("ggml-hex: using rpcmem_alloc\n");
-        }
-    } else {
-        GGML_LOG_INFO("ggml-hex: using rpcmem_alloc2\n");
-    }
 }
 
 ggml_hexagon_registry::~ggml_hexagon_registry() {
@@ -3734,8 +3704,6 @@ ggml_hexagon_registry::~ggml_hexagon_registry() {
         auto sess = static_cast<ggml_hexagon_session *>(devices[i].context);
         delete sess;
     }
-
-    if(_rpc_lib_handle) dlclose(_rpc_lib_handle);
 }
 
 static const char * ggml_backend_hexagon_reg_get_name(ggml_backend_reg_t reg) {
