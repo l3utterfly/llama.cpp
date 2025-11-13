@@ -3158,26 +3158,17 @@ static inline bool op_reuse_src1(const ggml_tensor * op1, const ggml_tensor * op
     return (op0 && op0->src[1] == op1->src[1]);
 }
 
+static inline bool is_compute_op(ggml_tensor *node)
+{
+    return !(ggml_op_is_empty(node->op) || ggml_is_empty(node));
+}
+
 // scan the graph and figure out last compute op index
 static inline int last_compute_op(ggml_cgraph * graph) {
-    int last;
+    int last = 0;
     for (int i = 0; i < graph->n_nodes; ++i) {
-        ggml_tensor * node = graph->nodes[i];
-
-        switch (node->op) {
-            case GGML_OP_MUL_MAT:
-            case GGML_OP_MUL_MAT_ID:
-            case GGML_OP_MUL:
-            case GGML_OP_ADD:
-            case GGML_OP_SUB:
-            case GGML_OP_RMS_NORM:
-            case GGML_OP_GLU:
-            case GGML_OP_ADD_ID:
-                last = i;
-                break;
-
-            default:
-                break;
+        if (is_compute_op(graph->nodes[i])) {
+            last = i;
         }
     }
 
@@ -3195,6 +3186,10 @@ static ggml_status ggml_backend_hexagon_graph_compute(ggml_backend_t backend, gg
 
     for (int i = 0; i < graph->n_nodes; ++i) {
         ggml_tensor * node = graph->nodes[i];
+
+        if (!is_compute_op(node)) {
+            continue;
+        }
 
         uint32_t flags = 0;
 
@@ -3245,14 +3240,6 @@ static ggml_status ggml_backend_hexagon_graph_compute(ggml_backend_t backend, gg
 
             case GGML_OP_ROPE:
                 ggml_hexagon_rope(node, flags);
-                break;
-
-            // non-compute ops
-            case GGML_OP_NONE:
-            case GGML_OP_RESHAPE:
-            case GGML_OP_VIEW:
-            case GGML_OP_PERMUTE:
-            case GGML_OP_TRANSPOSE:
                 break;
 
             default:
@@ -3679,6 +3666,11 @@ ggml_hexagon_registry::ggml_hexagon_registry(ggml_backend_reg_t reg) {
             GGML_LOG_ERROR("ggml-hex: failed to query HTP version (err %d) defaulting to v73\n", err);
             opt_arch = 73;
         }
+    }
+
+    if(opt_arch < 75) {
+        opt_ndev = 1;
+        GGML_LOG_WARN("ggml-hex: forcing ndev to 1 for SoCs archs lower than v75.\n");
     }
 
     GGML_LOG_INFO("ggml-hex: Hexagon Arch version v%d\n", opt_arch);
