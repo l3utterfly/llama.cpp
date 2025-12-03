@@ -225,10 +225,10 @@ ggml_backend_t ggml_backend_cpu_init(void) {
     ctx->abort_callback_data = NULL;
 
     ggml_backend_t cpu_backend = new ggml_backend {
-        /* .guid    = */ ggml_backend_cpu_guid(),
-        /* .iface   = */ ggml_backend_cpu_i,
-        /* .device  = */ ggml_backend_reg_dev_get(ggml_backend_cpu_reg(), 0),
-        /* .context = */ ctx,
+            /* .guid    = */ ggml_backend_cpu_guid(),
+            /* .iface   = */ ggml_backend_cpu_i,
+            /* .device  = */ ggml_backend_reg_dev_get(ggml_backend_cpu_reg(), 0),
+            /* .context = */ ctx,
     };
 
     if (cpu_backend == NULL) {
@@ -379,10 +379,10 @@ static void ggml_backend_cpu_device_get_props(ggml_backend_dev_t dev, struct ggm
     props->type        = ggml_backend_cpu_device_get_type(dev);
     ggml_backend_cpu_device_get_memory(dev, &props->memory_free, &props->memory_total);
     props->caps = {
-        /* .async                 = */ false,
-        /* .host_buffer           = */ false,
-        /* .buffer_from_host_ptr  = */ true,
-        /* .events                = */ false,
+            /* .async                 = */ false,
+            /* .host_buffer           = */ false,
+            /* .buffer_from_host_ptr  = */ true,
+            /* .events                = */ false,
     };
 }
 
@@ -428,13 +428,13 @@ static bool ggml_backend_cpu_device_supports_op(ggml_backend_dev_t dev, const st
         case GGML_OP_CPY:
         case GGML_OP_SET_ROWS:
             return
-                op->type != GGML_TYPE_IQ3_XXS &&
-                op->type != GGML_TYPE_IQ3_S   &&
-                op->type != GGML_TYPE_IQ2_XXS &&
-                op->type != GGML_TYPE_IQ2_XS  &&
-                op->type != GGML_TYPE_IQ2_S   &&
-                op->type != GGML_TYPE_IQ1_S   &&
-                op->type != GGML_TYPE_IQ1_M; // missing type_traits.from_float
+                    op->type != GGML_TYPE_IQ3_XXS &&
+                    op->type != GGML_TYPE_IQ3_S   &&
+                    op->type != GGML_TYPE_IQ2_XXS &&
+                    op->type != GGML_TYPE_IQ2_XS  &&
+                    op->type != GGML_TYPE_IQ2_S   &&
+                    op->type != GGML_TYPE_IQ1_S   &&
+                    op->type != GGML_TYPE_IQ1_M; // missing type_traits.from_float
         case GGML_OP_MUL_MAT:
             return src1->type == GGML_TYPE_F32 || src1->type == ggml_get_type_traits_cpu(src0->type)->vec_dot_type;
         case GGML_OP_SOFT_MAX_BACK: {
@@ -453,7 +453,7 @@ static bool ggml_backend_cpu_device_supports_op(ggml_backend_dev_t dev, const st
             return src0->type == GGML_TYPE_F32 || src0->type == GGML_TYPE_F16;
         case GGML_OP_OUT_PROD:
             return (src0->type == GGML_TYPE_F32 || (ggml_is_quantized(src0->type) && src0->ne[2] == src1->ne[2] && src0->ne[3] == src1->ne[3])) &&
-                src1->type == GGML_TYPE_F32 && op->type == GGML_TYPE_F32;
+                   src1->type == GGML_TYPE_F32 && op->type == GGML_TYPE_F32;
         default:
             return true;
     }
@@ -465,21 +465,21 @@ static bool ggml_backend_cpu_device_supports_buft(ggml_backend_dev_t dev, ggml_b
 }
 
 static const struct ggml_backend_device_i ggml_backend_cpu_device_i = {
-    /* .get_name             = */ ggml_backend_cpu_device_get_name,
-    /* .get_description      = */ ggml_backend_cpu_device_get_description,
-    /* .get_memory           = */ ggml_backend_cpu_device_get_memory,
-    /* .get_type             = */ ggml_backend_cpu_device_get_type,
-    /* .get_props            = */ ggml_backend_cpu_device_get_props,
-    /* .init_backend         = */ ggml_backend_cpu_device_init_backend,
-    /* .get_buffer_type      = */ ggml_backend_cpu_device_get_buffer_type,
-    /* .get_host_buffer_type = */ NULL,
-    /* .buffer_from_host_ptr = */ ggml_backend_cpu_device_buffer_from_host_ptr,
-    /* .supports_op          = */ ggml_backend_cpu_device_supports_op,
-    /* .supports_buft        = */ ggml_backend_cpu_device_supports_buft,
-    /* .offload_op           = */ NULL,
-    /* .event_new            = */ NULL,
-    /* .event_free           = */ NULL,
-    /* .event_synchronize    = */ NULL,
+        /* .get_name             = */ ggml_backend_cpu_device_get_name,
+        /* .get_description      = */ ggml_backend_cpu_device_get_description,
+        /* .get_memory           = */ ggml_backend_cpu_device_get_memory,
+        /* .get_type             = */ ggml_backend_cpu_device_get_type,
+        /* .get_props            = */ ggml_backend_cpu_device_get_props,
+        /* .init_backend         = */ ggml_backend_cpu_device_init_backend,
+        /* .get_buffer_type      = */ ggml_backend_cpu_device_get_buffer_type,
+        /* .get_host_buffer_type = */ NULL,
+        /* .buffer_from_host_ptr = */ ggml_backend_cpu_device_buffer_from_host_ptr,
+        /* .supports_op          = */ ggml_backend_cpu_device_supports_op,
+        /* .supports_buft        = */ ggml_backend_cpu_device_supports_buft,
+        /* .offload_op           = */ NULL,
+        /* .event_new            = */ NULL,
+        /* .event_free           = */ NULL,
+        /* .event_synchronize    = */ NULL,
 };
 
 // CPU backend - backend (reg)
@@ -501,9 +501,9 @@ static ggml_backend_dev_t ggml_backend_cpu_reg_get_device(ggml_backend_reg_t reg
 
     static ggml_backend_cpu_device_context ctx;
     static ggml_backend_device ggml_backend_cpu_device = {
-        /* .iface   = */ ggml_backend_cpu_device_i,
-        /* .reg     = */ reg,
-        /* .context = */ &ctx,
+            /* .iface   = */ ggml_backend_cpu_device_i,
+            /* .reg     = */ reg,
+            /* .context = */ &ctx,
     };
 
     return &ggml_backend_cpu_device;
@@ -595,21 +595,21 @@ static ggml_backend_feature * ggml_backend_cpu_get_features(ggml_backend_reg_t r
         if (ggml_cpu_has_llamafile()) {
             features.push_back({ "LLAMAFILE", "1" });
         }
-    #ifdef GGML_USE_ACCELERATE
+#ifdef GGML_USE_ACCELERATE
         features.push_back({ "ACCELERATE", "1" });
-    #endif
-    #ifdef GGML_USE_CPU_HBM
+#endif
+#ifdef GGML_USE_CPU_HBM
         features.push_back({ "CPU_HBM", "1" });
-    #endif
-    #ifdef GGML_USE_OPENMP
+#endif
+#ifdef GGML_USE_OPENMP
         features.push_back({ "OPENMP", "1" });
-    #endif
-    #ifdef GGML_USE_CPU_KLEIDIAI
+#endif
+#ifdef GGML_USE_CPU_KLEIDIAI
         features.push_back({ "KLEIDIAI", "1" });
-    #endif
-    #ifdef GGML_USE_CPU_REPACK
+#endif
+#ifdef GGML_USE_CPU_REPACK
         features.push_back({ "REPACK", "1" });
-    #endif
+#endif
 
         features.push_back({ nullptr, nullptr });
 
@@ -660,10 +660,10 @@ static void * ggml_backend_cpu_get_proc_address(ggml_backend_reg_t reg, const ch
 }
 
 static const struct ggml_backend_reg_i ggml_backend_cpu_reg_i = {
-    /* .get_name         = */ ggml_backend_cpu_reg_get_name,
-    /* .get_device_count = */ ggml_backend_cpu_reg_get_device_count,
-    /* .get_device       = */ ggml_backend_cpu_reg_get_device,
-    /* .get_proc_address = */ ggml_backend_cpu_get_proc_address,
+        /* .get_name         = */ ggml_backend_cpu_reg_get_name,
+        /* .get_device_count = */ ggml_backend_cpu_reg_get_device_count,
+        /* .get_device       = */ ggml_backend_cpu_reg_get_device,
+        /* .get_proc_address = */ ggml_backend_cpu_get_proc_address,
 };
 
 ggml_backend_reg_t ggml_backend_cpu_reg(void) {
@@ -671,9 +671,9 @@ ggml_backend_reg_t ggml_backend_cpu_reg(void) {
     ggml_cpu_init();
 
     static struct ggml_backend_reg ggml_backend_cpu_reg = {
-        /* .api_version = */ GGML_BACKEND_API_VERSION,
-        /* .iface       = */ ggml_backend_cpu_reg_i,
-        /* .context     = */ NULL,
+            /* .api_version = */ GGML_BACKEND_API_VERSION,
+            /* .iface       = */ ggml_backend_cpu_reg_i,
+            /* .context     = */ NULL,
     };
 
     return &ggml_backend_cpu_reg;

@@ -346,6 +346,8 @@ struct ggml_backend_hexagon_buffer_type_context {
     std::string            name;
 };
 
+#pragma weak rpcmem_alloc2
+
 struct ggml_backend_hexagon_buffer_context {
     bool mmap_to(ggml_hexagon_session * s) {
         HEX_VERBOSE("ggml-hex: %s mmaping buffer: base %p domain-id %d session-id %d size %zu fd %d repack %d\n",

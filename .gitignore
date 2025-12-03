@@ -65,12 +65,11 @@
 !/.github/workflows/*.yml
 
 # Models
-
-/models/*
-/models-mnt
-!/models/.editorconfig
-!/models/ggml-vocab-*.gguf*
-!/models/templates
+models/*
+models-mnt
+!models/.editorconfig
+!models/ggml-vocab-*.gguf*
+!models/templates
 
 # Zig
 /zig-out/
@@ -129,10 +128,20 @@ poetry.toml
 # Local scripts
 /run-vim.sh
 /run-chat.sh
-/.ccache/
+
+.ccache/
 
 # IDE
-/*.code-workspace
-/.windsurf/
-# emscripten
-a.out.*
+*.code-workspace
+.windsurf/
+
+HEXAGON_Tools/
+prebuilts/QNN_SDK/qairt/2.35.0.250530/
+prebuilts/QNN_SDK/qairt/2.36.0.250627/
+prebuilts/QNN_SDK/v2.35.0.250530.zip
+prebuilts/QNN_SDK/v2.36.0.250627.zip
+prebuilts/Hexagon_SDK/minimal-hexagon-sdk-6.2.0.1.xz
+prebuilts/OpenCL_SDK/
+prebuilts/Vulkan_SDK/
+
+pkg-adb/
