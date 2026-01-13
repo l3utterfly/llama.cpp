@@ -346,12 +346,13 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, st
 
 void common_sampler_reinit_grammar(struct common_sampler * gsmpl, const struct llama_vocab * vocab, const std::string& grammar) {
     // free existing grammar (if any)
-    if(gsmpl->grmr)
+    if(gsmpl->grmr) {
         llama_sampler_free(gsmpl->grmr);
+        gsmpl->grmr = NULL;
+    }
 
     if(!grammar.empty()) {
         gsmpl->grmr = llama_sampler_init_grammar(vocab, grammar.c_str(), "root");
-
     }
 }
 
