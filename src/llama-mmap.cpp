@@ -179,15 +179,19 @@ struct llama_file::impl {
         init_fp(mode);
     }
 
+    explicit impl(int fd) : fd(fd) {
+        struct stat file_stats{};
+        if (fstat(fd, &file_stats) == -1) {
+            throw std::runtime_error(format("fstat error: %s", strerror(errno)));
+        }
+
+        size = file_stats.st_size;
+        alignment = file_stats.st_blksize;
+    }
+
 #ifdef __linux__
     bool init_fd() {
-        fd = -1;
-        int parsed_fd_num = -1;
-        long parsed_offset_num = 0;
-
-        if (gguf_parse_fd_offset_string(fname, &parsed_fd_num, &parsed_offset_num)) {
-            fd = ggml_fdopen(parsed_fd_num, mode, parsed_offset_num);
-        }
+        fd = open(fname.c_str(), O_RDONLY | O_DIRECT);
 
         if (fd != -1) {
             struct stat file_stats{};
@@ -196,7 +200,7 @@ struct llama_file::impl {
             size = file_stats.st_size;
             alignment = file_stats.st_blksize;
 
-            off_t ret = lseek(fd, parsed_offset_num, SEEK_SET);
+            off_t ret = lseek(fd, 0, SEEK_SET);
             if (ret == -1) {
                 throw std::runtime_error(format("seek error: %s", strerror(errno)));
             }
@@ -376,6 +380,7 @@ struct llama_file::impl {
 
 llama_file::llama_file(const char * fname, const char * mode, const bool use_direct_io) :
     pimpl(std::make_unique<impl>(fname, mode, use_direct_io)) {}
+llama_file::llama_file(int fd) : pimpl(std::make_unique<impl>(fd)) {}
 llama_file::~llama_file() = default;
 
 size_t llama_file::tell() const { return pimpl->tell(); }

@@ -345,27 +345,13 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, st
 }
 
 void common_sampler_reinit_grammar(struct common_sampler * gsmpl, const struct llama_vocab * vocab, const std::string& grammar) {
+    // free existing grammar (if any)
+    if(gsmpl->grmr)
+        llama_sampler_free(gsmpl->grmr);
+
     if(!grammar.empty()) {
-        if(gsmpl->grammar) {
-            // re-init the grammar sampler if we have one
-            llama_sampler_reinit_grammar(gsmpl->chain, vocab, grammar.c_str());
-        } else {
-            // we create one and insert it in the first position
-            auto * smpl = llama_sampler_init_grammar(vocab, grammar.c_str(), "root");
+        gsmpl->grmr = llama_sampler_init_grammar(vocab, grammar.c_str(), "root");
 
-            llama_sampler_chain_insert(gsmpl->chain, smpl, 0);
-
-            // set our flag
-            gsmpl->grammar = true;
-        }
-    } else {
-        if(gsmpl->grammar) {
-            // remove the grammar sampler (grammar sampler is always the first one)
-            llama_sampler_chain_remove(gsmpl->chain, 0);
-            gsmpl->grammar = false;
-        } else {
-            // we don't need to do anything if the sampler chain does not contain any grammar and we are not creating a new grammar sampler
-        }
     }
 }
 

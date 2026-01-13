@@ -889,11 +889,6 @@ void llama_sampler_chain_add(struct llama_sampler * chain, struct llama_sampler 
     });
 }
 
-void llama_sampler_chain_insert(struct llama_sampler * chain, struct llama_sampler * smpl, int32_t i) {
-    auto * p = (llama_sampler_chain *) chain->ctx;
-    p->samplers.insert(p->samplers.begin() + i, smpl);
-}
-
 struct llama_sampler * llama_sampler_chain_get(struct llama_sampler * chain, int32_t i) {
     if (chain == nullptr) {
         return nullptr;
@@ -941,12 +936,12 @@ int llama_sampler_reinit_grammar(const struct llama_sampler * chain, const struc
 
     // 2. Free the OLD sampler that is currently at index 0
     // the grammar sampler is always the first one
-    if (!p->samplers.empty() && p->samplers[0]) {
-        llama_sampler_free(p->samplers[0]);
+    if (!p->samplers.empty() && p->samplers[0].ptr) {
+        llama_sampler_free(p->samplers[0].ptr);
     }
 
     // 3. Create the new sampler and assign it DIRECTLY into the vector
-    p->samplers[0] = llama_sampler_init_grammar(vocab, grammar, "root");
+    p->samplers[0].ptr = llama_sampler_init_grammar(vocab, grammar, "root");
 
     return 0;
 }
