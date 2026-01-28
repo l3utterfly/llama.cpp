@@ -810,7 +810,8 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
         CL_CHECK((backend_ctx->kernel_fill = clCreateKernel(prog, "kernel_fill_f32", &err), err));
         GGML_LOG_CONT(".");
 
-        CL_CHECK(clReleaseProgram(prog));
+        // FIXME: bug in older drivers, this crashes
+        //CL_CHECK(clReleaseProgram(prog_f16));
     }
 
     // clamp
@@ -1834,7 +1835,9 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
             backend_ctx->kernel_expm1_f32_nd = nullptr;
             backend_ctx->kernel_expm1_f16_nd = nullptr;
         }
-        CL_CHECK(clReleaseProgram(prog));
+
+        // FIXME: bug in older drivers, this crashes
+        // CL_CHECK(clReleaseProgram(prog));
     }
 
     // softplus
@@ -1859,7 +1862,9 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
             backend_ctx->kernel_softplus_f32_nd = nullptr;
             backend_ctx->kernel_softplus_f16_nd = nullptr;
         }
-        CL_CHECK(clReleaseProgram(prog));
+
+        // FIXME: bug in older drivers, this crashes
+        // CL_CHECK(clReleaseProgram(prog));
     }
 
     // upscale
