@@ -211,10 +211,22 @@ struct llama_file::impl {
 #endif
 
     void init_fp(const char * mode) {
-        fp = ggml_fopen(fname.c_str(), mode);
+        int parsed_fd_num = -1;
+        long parsed_offset_num = 0;
+
+        fp = nullptr;
+
+        // Use the new helper function to parse
+        if (gguf_parse_fd_offset_string(fname.c_str(), &parsed_fd_num, &parsed_offset_num)) {
+            fp = ggml_fdopen(parsed_fd_num, "rb", parsed_offset_num);
+        } else {
+            fp = ggml_fopen(fname.c_str(), "rb");
+        }
+
         if (fp == NULL) {
             throw std::runtime_error(format("failed to open %s: %s", fname.c_str(), strerror(errno)));
         }
+
         seek(0, SEEK_END);
         size = tell();
         seek(0, SEEK_SET);
