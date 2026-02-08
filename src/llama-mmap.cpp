@@ -218,9 +218,9 @@ struct llama_file::impl {
 
         // Use the new helper function to parse
         if (gguf_parse_fd_offset_string(fname.c_str(), &parsed_fd_num, &parsed_offset_num)) {
-            fp = ggml_fdopen(parsed_fd_num, "rb", parsed_offset_num);
+            fp = ggml_fdopen(parsed_fd_num, mode, parsed_offset_num);
         } else {
-            fp = ggml_fopen(fname.c_str(), "rb");
+            fp = ggml_fopen(fname.c_str(), mode);
         }
 
         if (fp == NULL) {
