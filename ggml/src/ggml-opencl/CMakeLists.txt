@@ -1,7 +1,6 @@
 find_package(OpenCL REQUIRED)
 #find_package(Python3 REQUIRED)
-#set(Python3_EXECUTABLE "C:/Users/l3utterfly/AppData/Local/Python/bin/python.exe"  CACHE STRING "Python executable" FORCE)
-set(Python3_EXECUTABLE "C:/Python311/python.exe"  CACHE STRING "Python executable" FORCE)
+set(Python3_EXECUTABLE "C:/Python314/python.exe"  CACHE STRING "Python executable" FORCE)
 
 set(TARGET_NAME ggml-opencl)
 
