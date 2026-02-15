@@ -10,6 +10,8 @@
 #include <string>
 #include <vector>
 
+bool LAYLA_USE_CPU_REPACK = true;
+
 #ifdef GGML_USE_CPU_HBM
 #    include "hbm.h"
 #endif
@@ -62,9 +64,11 @@ std::vector<ggml_backend_buffer_type_t> & ggml_backend_cpu_get_extra_buffer_type
 #endif
 
 #ifdef GGML_USE_CPU_REPACK
+if(LAYLA_USE_CPU_REPACK) {
         if (ggml_backend_cpu_repack_buffer_type()) {
             bufts.push_back(ggml_backend_cpu_repack_buffer_type());
         }
+}
 #endif
 
         return bufts;
@@ -624,7 +628,9 @@ static ggml_backend_feature * ggml_backend_cpu_get_features(ggml_backend_reg_t r
         features.push_back({ "KLEIDIAI", "1" });
 #endif
 #ifdef GGML_USE_CPU_REPACK
+if(LAYLA_USE_CPU_REPACK) {
         features.push_back({ "REPACK", "1" });
+}
 #endif
 
         features.push_back({ nullptr, nullptr });
