@@ -7,9 +7,6 @@
 extern "C" {
 #endif
 
-    // FIXME: a hack to turn off CPU repack on runtime instead of compile time
-    extern bool LAYLA_USE_CPU_REPACK; 
-
     // the compute plan that needs to be prepared for ggml_graph_compute()
     // since https://github.com/ggml-org/ggml/issues/287
     struct ggml_cplan {
