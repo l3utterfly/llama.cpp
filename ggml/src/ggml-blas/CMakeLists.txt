@@ -90,7 +90,7 @@ if(ANDROID AND ${GGML_BLAS_VENDOR} MATCHES "Generic")
     endif()
 
     target_link_libraries     (ggml-blas PRIVATE ${BLAS_LIBRARIES})
-    target_include_directories(ggml-blas PRIVATE ${BLAS_INCLUDE_DIRS})
+    target_include_directories(ggml-blas SYSTEM PRIVATE ${BLAS_INCLUDE_DIRS})
 else()
     set(BLA_VENDOR ${GGML_BLAS_VENDOR})
     find_package(BLAS)
