@@ -31,6 +31,7 @@
 #endif
 
 #define ASYNCIO_CONCURRENCY 64
+#define GGML_VULKAN_COOPMAT_GLSLC_SUPPORT
 
 std::mutex lock;
 std::vector<std::pair<std::string, std::string>> shader_fnames;

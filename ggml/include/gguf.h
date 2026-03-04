@@ -197,6 +197,8 @@ extern "C" {
     // writes the meta data to pointer "data"
     GGML_API void   gguf_get_meta_data(const struct gguf_context * ctx, void * data);
 
+    GGML_API bool gguf_parse_fd_offset_string(const char* input_str, int* out_fd, long* out_offset);
+
 #ifdef  __cplusplus
 }
 #endif

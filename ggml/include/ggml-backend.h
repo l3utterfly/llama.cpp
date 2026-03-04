@@ -214,6 +214,7 @@ extern "C" {
     //
     // Backend registry
     //
+    GGML_API void               ggml_backend_reg_layla(bool useVulkan, bool useOpenCL, bool useHexagon, bool useMetal);
 
     GGML_API void ggml_backend_register(ggml_backend_reg_t reg);
 

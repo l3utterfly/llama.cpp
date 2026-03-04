@@ -254,6 +254,7 @@ option(GGML_OPENCL_EMBED_KERNELS            "ggml: embed kernels"               
 option(GGML_OPENCL_USE_ADRENO_KERNELS       "ggml: use optimized kernels for Adreno"          ON)
 set   (GGML_OPENCL_TARGET_VERSION "300" CACHE STRING
                                             "gmml: OpenCL API version to target")
+option(GGML_HEXAGON                         "ggml: use HEXAGON"                               OFF)
 
 option(GGML_HEXAGON                         "ggml: enable Hexagon backend"                    OFF)
 set(GGML_HEXAGON_FP32_QUANTIZE_GROUP_SIZE 128 CACHE STRING "ggml: quantize group size (32, 64, or 128)")
@@ -327,9 +328,17 @@ set(GGML_PUBLIC_HEADERS
     include/ggml-vulkan.h
     include/ggml-webgpu.h
     include/ggml-zendnn.h
+    include/ggml-hexagon.h
     include/gguf.h)
 
 set_target_properties(ggml PROPERTIES PUBLIC_HEADER "${GGML_PUBLIC_HEADERS}")
+
+# link android log library
+if(ANDROID)
+    find_library(log-lib log)
+    target_link_libraries(ggml PRIVATE ${log-lib})
+endif()
+
 #if (GGML_METAL)
 #    set_target_properties(ggml PROPERTIES RESOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/ggml-metal.metal")
 #endif()
