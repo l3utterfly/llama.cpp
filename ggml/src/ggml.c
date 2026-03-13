@@ -248,7 +248,14 @@ void ggml_abort(const char * file, int line, const char * fmt, ...) {
 
     va_end(args);
 
-    ggml_print_backtrace();  // You may need to modify this function as well
+    if (g_abort_callback) {
+        g_abort_callback(message);
+    } else {
+        // default: print error and backtrace to stderr
+        fprintf(stderr, "%s\n", message);
+        ggml_print_backtrace();
+    }
+    
     abort();
 }
 #else
