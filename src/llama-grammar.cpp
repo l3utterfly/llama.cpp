@@ -1160,13 +1160,13 @@ struct llama_grammar * llama_grammar_init_impl(
     // if there is a grammar, parse it
     // rules will be empty (default) if there are parse errors
     if (!parser.parse(grammar_str) || parser.rules.empty()) {
-        fprintf(stderr, "%s: failed to parse grammar\n", __func__);
+        LLAMA_LOG_ERROR("%s: failed to parse grammar\n", __func__);
         return nullptr;
     }
 
     // Ensure that there is a "root" node.
     if (parser.symbol_ids.find("root") == parser.symbol_ids.end()) {
-        fprintf(stderr, "%s: grammar does not contain a 'root' symbol\n", __func__);
+        LLAMA_LOG_ERROR("%s: grammar does not contain a 'root' symbol\n", __func__);
         return nullptr;
     }
 
