@@ -539,6 +539,22 @@ void server_models::load(const std::string & name) {
         return;
     }
 
+    // Re-check capacity under the lock to prevent concurrent loads from
+    // exceeding models_max. Without this, the window between unload_lru()
+    // releasing its lock and this lock_guard acquiring allows multiple
+    // threads to each observe capacity and all proceed to load.
+    if (base_params.models_max > 0) {
+        size_t count_active = 0;
+        for (const auto & m : mapping) {
+            if (m.second.meta.is_active()) {
+                count_active++;
+            }
+        }
+        if (count_active >= (size_t)base_params.models_max) {
+            throw std::runtime_error("model limit reached, try again later");
+        }
+    }
+
     // prepare new instance info
     instance_t inst;
     inst.meta           = meta;
@@ -606,13 +622,20 @@ void server_models::load(const std::string & name) {
         });
 
         std::thread stopping_thread([&]() {
-            // thread to monitor stopping signal
+            // thread to monitor stopping signal OR child crash
             auto is_stopping = [this, &name]() {
                 return this->stopping_models.find(name) != this->stopping_models.end();
             };
+            auto should_wake = [&]() {
+                return is_stopping() || !subprocess_alive(child_proc.get());
+            };
             {
                 std::unique_lock<std::mutex> lk(this->mutex);
-                this->cv_stop.wait(lk, is_stopping);
+                this->cv_stop.wait(lk, should_wake);
+            }
+            // child may have already exited (e.g. crashed) — skip shutdown sequence
+            if (!subprocess_alive(child_proc.get())) {
+                return;
             }
             SRV_INF("stopping model instance name=%s\n", name.c_str());
             // send interrupt to child process
@@ -783,6 +806,7 @@ server_http_res_ptr server_models::proxy_request(const server_http_req & req, co
     }
     auto proxy = std::make_unique<server_http_proxy>(
             method,
+            "http",
             CHILD_ADDR,
             meta->port,
             proxy_path,
@@ -1079,6 +1103,7 @@ static bool should_strip_proxy_header(const std::string & header_name) {
 
 server_http_proxy::server_http_proxy(
         const std::string & method,
+        const std::string & scheme,
         const std::string & host,
         int port,
         const std::string & path,
@@ -1089,11 +1114,20 @@ server_http_proxy::server_http_proxy(
         int32_t timeout_write
         ) {
     // shared between reader and writer threads
-    auto cli  = std::make_shared<httplib::Client>(host, port);
+    auto cli  = std::make_shared<httplib::ClientImpl>(host, port);
     auto pipe = std::make_shared<pipe_t<msg_t>>();
 
+    if (scheme == "https") {
+#ifdef CPPHTTPLIB_OPENSSL_SUPPORT
+        cli.reset(new httplib::SSLClient(host, port));
+#else
+        throw std::runtime_error("HTTPS requested but CPPHTTPLIB_OPENSSL_SUPPORT is not defined");
+#endif
+    }
+
     // setup Client
-    cli->set_connection_timeout(0, 200000); // 200 milliseconds
+    cli->set_follow_location(true);
+    cli->set_connection_timeout(5, 0); // 5 seconds
     cli->set_write_timeout(timeout_read, 0); // reversed for cli (client) vs srv (server)
     cli->set_read_timeout(timeout_write, 0);
     this->status = 500; // to be overwritten upon response
@@ -1142,7 +1176,15 @@ server_http_proxy::server_http_proxy(
         req.method = method;
         req.path = path;
         for (const auto & [key, value] : headers) {
-            req.set_header(key, value);
+            if (key == "Accept-Encoding") {
+                // disable Accept-Encoding to avoid compressed responses
+                continue;
+            }
+            if (key == "Host" || key == "host") {
+                req.set_header(key, host);
+            } else {
+                req.set_header(key, value);
+            }
         }
         req.body = body;
         req.response_handler = response_handler;
