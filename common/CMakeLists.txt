@@ -79,10 +79,10 @@ add_library(${TARGET} STATIC
     arg.cpp
     arg.h
     base64.hpp
-    chat-parser.cpp
-    chat-parser.h
-    chat-parser-xml-toolcall.h
-    chat-parser-xml-toolcall.cpp
+    chat-auto-parser-generator.cpp
+    chat-auto-parser-helpers.cpp
+    chat-auto-parser.h
+    chat-diff-analyzer.cpp
     chat-peg-parser.cpp
     chat-peg-parser.h
     chat.cpp
@@ -113,6 +113,8 @@ add_library(${TARGET} STATIC
     preset.cpp
     preset.h
     regex-partial.cpp
+    reasoning-budget.cpp
+    reasoning-budget.h
     regex-partial.h
     sampling.cpp
     sampling.h

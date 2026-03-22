@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { ModelsService } from '$lib/services/models.service';
 	import { config } from '$lib/stores/settings.svelte';
+	import { TruncatedText } from '$lib/components/app';
 
 	interface Props {
 		modelId: string;
@@ -27,14 +28,19 @@
 
 	let parsed = $derived(ModelsService.parseModelId(modelId));
 	let resolvedShowRaw = $derived(showRaw ?? (config().showRawModelNames as boolean) ?? false);
+	let displayName = $derived(
+		aliases && aliases.length > 0 ? aliases[0] : (parsed.modelName ?? modelId)
+	);
+	let remainingAliases = $derived(aliases && aliases.length > 1 ? aliases.slice(1) : []);
+	let allTags = $derived([...(parsed.tags ?? []), ...(tags ?? [])]);
 </script>
 
 {#if resolvedShowRaw}
-	<span class="min-w-0 truncate font-medium {className}">{modelId}</span>
+	<TruncatedText class="font-medium {className}" showTooltip={false} text={modelId} />
 {:else}
 	<span class="flex min-w-0 flex-wrap items-center gap-1 {className}">
 		<span class="min-w-0 truncate font-medium">
-			{#if showOrgName}{parsed.orgName}/{/if}{parsed.modelName ?? modelId}
+			{#if showOrgName && parsed.orgName && !(aliases && aliases.length > 0)}{parsed.orgName}/{/if}{displayName}
 		</span>
 
 		{#if parsed.params}
@@ -49,14 +55,14 @@
 			</span>
 		{/if}
 
-		{#if aliases && aliases.length > 0}
-			{#each aliases as alias (alias)}
+		{#if remainingAliases.length > 0}
+			{#each remainingAliases as alias (alias)}
 				<span class={badgeClass}>{alias}</span>
 			{/each}
 		{/if}
 
-		{#if tags && tags.length > 0}
-			{#each tags as tag (tag)}
+		{#if allTags.length > 0}
+			{#each allTags as tag (tag)}
 				<span class={tagBadgeClass}>{tag}</span>
 			{/each}
 		{/if}
