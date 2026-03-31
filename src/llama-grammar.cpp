@@ -1207,12 +1207,13 @@ struct llama_grammar * llama_grammar_init_impl(
     // rules will be empty (default) if there are parse errors
     if (!parser.parse(grammar_str) || parser.rules.empty()) {
         LLAMA_LOG_ERROR("failed to parse grammar\n");
-        return nullptr;
+        throw std::runtime_error("failed to parse grammar");
     }
 
     // Ensure that the grammar contains the start symbol
     if (parser.symbol_ids.find(grammar_root) == parser.symbol_ids.end()) {
         LLAMA_LOG_ERROR("grammar does not contain a '%s' symbol\n", grammar_root);
+        throw std::runtime_error("grammar does not contain a '" + std::string(grammar_root) + "' symbol");
         return nullptr;
     }
 
