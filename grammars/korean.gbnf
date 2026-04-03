@@ -1,0 +1,8 @@
+root            ::= conversation+ 
+conversation    ::= assistant-line "\nUSER: "
+assistant-line  ::= kr-string "\n"
+kr-string       ::= kr-char* 
+kr-char         ::= hangul | punctuation | whitespace
+hangul          ::= [가-힣]
+punctuation     ::= [、-〾]
+whitespace      ::= [ \t]
