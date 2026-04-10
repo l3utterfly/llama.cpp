@@ -174,7 +174,7 @@ public:
         }
         int lines_up = max_line - lines[this];
 
-        size_t bar = 55 - len;
+        size_t bar = (55 - len) * 2;
         size_t pct = (100 * current) / total;
         size_t pos = (bar * current) / total;
 
@@ -183,8 +183,8 @@ public:
         }
         std::cout << '\r' << "Downloading " << filename << " ";
 
-        for (size_t i = 0; i < bar; ++i) {
-            std::cout << (i < pos ? "—" : " ");
+        for (size_t i = 0; i < bar; i += 2) {
+            std::cout << (i + 1 < pos ? "─" : (i < pos ? "╴" : " "));
         }
         std::cout << std::setw(4) << pct << "%\033[K";
 
@@ -591,14 +591,25 @@ static hf_cache::hf_file find_best_model(const hf_cache::hf_files & files,
         for (const auto & f : files) {
             if (gguf_filename_is_model(f.path) &&
                 std::regex_search(f.path, pattern)) {
+                auto split = get_gguf_split_info(f.path);
+                if (split.count > 1 && split.index != 1) {
+                    continue;
+                }
                 return f;
             }
         }
     }
 
-    for (const auto & f : files) {
-        if (gguf_filename_is_model(f.path)) {
-            return f;
+    // fallback to first available model only if tag is empty
+    if (tag.empty()) {
+        for (const auto & f : files) {
+            if (gguf_filename_is_model(f.path)) {
+                auto split = get_gguf_split_info(f.path);
+                if (split.count > 1 && split.index != 1) {
+                    continue;
+                }
+                return f;
+            }
         }
     }
 
@@ -615,6 +626,7 @@ static void list_available_gguf_files(const hf_cache::hf_files & files) {
 }
 
 struct hf_plan {
+    hf_cache::hf_file primary;
     hf_cache::hf_files model_files;
     hf_cache::hf_file mmproj;
 };
@@ -660,6 +672,7 @@ static hf_plan get_hf_plan(const common_params_model        & model,
         }
     }
 
+    plan.primary = primary;
     plan.model_files = get_split_files(all, primary);
 
     if (opts.download_mmproj) {
@@ -746,7 +759,7 @@ common_download_model_result common_download_model(const common_params_model    
         for (const auto & f : hf.model_files) {
             hf_cache::finalize_file(f);
         }
-        result.model_path = hf.model_files[0].final_path;
+        result.model_path = hf.primary.final_path;
 
         if (!hf.mmproj.path.empty()) {
             result.mmproj_path = hf_cache::finalize_file(hf.mmproj);
