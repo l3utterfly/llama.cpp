@@ -671,9 +671,6 @@ struct ggml_backend_opencl_context {
     }
 
     size_t get_kernel_workgroup_size(cl_kernel kernel) const {
-        // simply return the max workgroup size
-        return max_workgroup_size;
-
         size_t workgroup_size = 0;
         size_t ret_size = 0;
         CL_CHECK(
@@ -853,8 +850,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
         CL_CHECK((backend_ctx->kernel_tri = clCreateKernel(prog, "kernel_tri_f32", &err), err));
         GGML_LOG_CONT(".");
 
-        // FIXME: bug in older drivers, this crashes
-        // CL_CHECK(clReleaseProgram(prog));
+        CL_CHECK(clReleaseProgram(prog));
     }
 
     // fill
@@ -872,8 +868,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
         CL_CHECK((backend_ctx->kernel_fill = clCreateKernel(prog, "kernel_fill_f32", &err), err));
         GGML_LOG_CONT(".");
 
-        // FIXME: bug in older drivers, this crashes
-        //CL_CHECK(clReleaseProgram(prog_f16));
+        CL_CHECK(clReleaseProgram(prog));
     }
 
     // clamp
@@ -980,8 +975,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
             build_program_from_source(backend_ctx->context, backend_ctx->device, kernel_src.c_str(), compile_opts);
 
         CL_CHECK((backend_ctx->kernel_diag_f32 = clCreateKernel(prog, "kernel_diag_f32", &err), err));
-        // FIXME: bug in older drivers, this crashes
-        // CL_CHECK(clReleaseProgram(prog));
+        CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -1064,8 +1058,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
 
         CL_CHECK((backend_ctx->kernel_solve_tri_f32 = clCreateKernel(prog, "kernel_solve_tri_f32", &err), err));
         GGML_LOG_CONT(".");
-        // FIXME: bug in older drivers, this crashes
-        // CL_CHECK(clReleaseProgram(prog));
+        CL_CHECK(clReleaseProgram(prog));
     }
 
     // im2col_f32
@@ -1201,8 +1194,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
             build_program_from_source(backend_ctx->context, backend_ctx->device, kernel_src.c_str(), compile_opts);
 
         CL_CHECK((backend_ctx->kernel_mul_mv_q4_1_f32 = clCreateKernel(prog, "kernel_mul_mv_q4_1_f32", &err), err));
-        // FIXME: bug in older drivers, this crashes
-        // CL_CHECK(clReleaseProgram(prog));
+        CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -1219,8 +1211,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
             build_program_from_source(backend_ctx->context, backend_ctx->device, kernel_src.c_str(), compile_opts);
 
         CL_CHECK((backend_ctx->kernel_mul_mv_q4_1_f32_flat = clCreateKernel(prog, "kernel_mul_mv_q4_1_f32_flat", &err), err));
-        // FIXME: bug in older drivers, this crashes
-        // CL_CHECK(clReleaseProgram(prog));
+        CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -1237,8 +1228,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
             build_program_from_source(backend_ctx->context, backend_ctx->device, kernel_src.c_str(), compile_opts);
 
         CL_CHECK((backend_ctx->kernel_mul_mv_q4_K_f32 = clCreateKernel(prog, "kernel_mul_mv_q4_K_f32", &err), err));
-        // FIXME: bug in older drivers, this crashes
-        // CL_CHECK(clReleaseProgram(prog));
+        CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -1288,8 +1278,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
             build_program_from_source(backend_ctx->context, backend_ctx->device, kernel_src.c_str(), compile_opts);
 
         CL_CHECK((backend_ctx->kernel_mul_mv_q6_K_f32_flat = clCreateKernel(prog, "kernel_mul_mv_q6_K_f32_flat", &err), err));
-        // FIXME: bug in older drivers, this crashes
-        // CL_CHECK(clReleaseProgram(prog));
+        CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -1563,8 +1552,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
             build_program_from_source(backend_ctx->context, backend_ctx->device, kernel_src.c_str(), compile_opts);
 
         CL_CHECK((backend_ctx->kernel_mul_mm_q6_k_f32_l4_lm = clCreateKernel(prog, "kernel_mul_mm_q6_k_f32_l4_lm", &err), err));
-        // FIXME: bug in older drivers, this crashes
-        // CL_CHECK(clReleaseProgram(prog));
+        CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -1669,8 +1657,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
             build_program_from_source(backend_ctx->context, backend_ctx->device, kernel_src.c_str(), compile_opts);
 
         CL_CHECK((backend_ctx->kernel_l2_norm_f32     = clCreateKernel(prog, "kernel_l2_norm_f32", &err), err));
-        // FIXME: bug in older drivers, this crashes
-        // CL_CHECK(clReleaseProgram(prog));
+        CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -1711,8 +1698,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
 
         CL_CHECK((backend_ctx->kernel_scale_f32   = clCreateKernel(prog, "kernel_scale_f32", &err), err));
         CL_CHECK((backend_ctx->kernel_scale_f32_4 = clCreateKernel(prog, "kernel_scale_f32_4", &err), err));
-        // FIXME: bug in older drivers, this crashes
-        // CL_CHECK(clReleaseProgram(prog));
+        CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -1839,8 +1825,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
                 CL_CHECK((k_f16_q1 = clCreateKernel(prog_f16, "flash_attn_f16_q1", &err), err));
                 backend_ctx->kernels_flash_attn_f16[{dk, dv}] = k_f16;
                 backend_ctx->kernels_flash_attn_f16_q1[{dk, dv}] = k_f16_q1;
-                // FIXME: bug in older drivers, this crashes
-                //CL_CHECK(clReleaseProgram(prog_f16));
+                CL_CHECK(clReleaseProgram(prog_f16));
 
                 cl_program prog_f32 = build_program_from_source(backend_ctx->context, backend_ctx->device, kernel_src_f32.c_str(), OPTS);
                 cl_kernel k_f32, k_f32_q1;
@@ -1848,8 +1833,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
                 CL_CHECK((k_f32_q1 = clCreateKernel(prog_f32, "flash_attn_f32_q1", &err), err));
                 backend_ctx->kernels_flash_attn_f32[{dk, dv}] = k_f32;
                 backend_ctx->kernels_flash_attn_f32_q1[{dk, dv}] = k_f32_q1;
-                // FIXME: bug in older drivers, this crashes
-                //CL_CHECK(clReleaseProgram(prog_f32));
+                CL_CHECK(clReleaseProgram(prog_f32));
 
                 cl_program prog_f32_f16 = build_program_from_source(backend_ctx->context, backend_ctx->device, kernel_src_f32_f16.c_str(), OPTS);
                 cl_kernel k_f32_f16, k_f32_f16_q1;
@@ -1857,8 +1841,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
                 CL_CHECK((k_f32_f16_q1 = clCreateKernel(prog_f32_f16, "flash_attn_f32_f16_q1", &err), err));
                 backend_ctx->kernels_flash_attn_f32_f16[{dk, dv}] = k_f32_f16;
                 backend_ctx->kernels_flash_attn_f32_f16_q1[{dk, dv}] = k_f32_f16_q1;
-                // FIXME: bug in older drivers, this crashes
-                //CL_CHECK(clReleaseProgram(prog_f32_f16));
+                CL_CHECK(clReleaseProgram(prog_f32_f16));
 
                 backend_ctx->kernels_flash_attn_bm[{dk, dv}] = bm;
                 backend_ctx->kernels_flash_attn_bn[{dk, dv}] = bn;
@@ -1922,8 +1905,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
         CL_CHECK((backend_ctx->kernel_sqr_cont_f16     = clCreateKernel(prog, "kernel_sqr_cont_f16", &err), err));
         CL_CHECK((backend_ctx->kernel_sqr_cont_f16_4   = clCreateKernel(prog, "kernel_sqr_cont_f16_4", &err), err));
 
-        // FIXME: bug in older drivers, this crashes
-        //CL_CHECK(clReleaseProgram(prog));
+        CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -1944,8 +1926,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
         CL_CHECK((backend_ctx->kernel_sqrt_cont_f16     = clCreateKernel(prog, "kernel_sqrt_cont_f16", &err), err));
         CL_CHECK((backend_ctx->kernel_sqrt_cont_f16_4   = clCreateKernel(prog, "kernel_sqrt_cont_f16_4", &err), err));
 
-        // FIXME: bug in older drivers, this crashes
-        //CL_CHECK(clReleaseProgram(prog));
+        CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -1964,8 +1945,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
         CL_CHECK((backend_ctx->kernel_mean_f32 = clCreateKernel(prog, "kernel_mean_f32", &err), err));
         CL_CHECK((backend_ctx->kernel_mean_f32_4 = clCreateKernel(prog, "kernel_mean_f32_4", &err), err));
 
-        // FIXME: bug in older drivers, this crashes
-        //CL_CHECK(clReleaseProgram(prog));
+        CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -2020,8 +2000,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
         CL_CHECK((backend_ctx->kernel_cumsum_blk = clCreateKernel(prog, "kernel_cumsum_blk", &err), err));
         CL_CHECK((backend_ctx->kernel_cumsum_add = clCreateKernel(prog, "kernel_cumsum_add", &err), err));
         GGML_LOG_CONT(".");
-        // FIXME: bug in older drivers, this crashes
-        // CL_CHECK(clReleaseProgram(prog));
+        CL_CHECK(clReleaseProgram(prog));
     }
 
     // sigmoid
@@ -2070,8 +2049,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
         cl_program prog =
             build_program_from_source(backend_ctx->context, backend_ctx->device, kernel_src.c_str(), compile_opts);
         CL_CHECK((backend_ctx->kernel_repeat_f32 = clCreateKernel(prog, "kernel_repeat_f32", &err), err));
-        // FIXME: bug in older drivers, this crashes
-        // CL_CHECK(clReleaseProgram(prog));
+        CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -2113,8 +2091,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
         CL_CHECK((backend_ctx->kernel_tanh_f16    = clCreateKernel(prog, "kernel_tanh_f16", &err), err));
         CL_CHECK((backend_ctx->kernel_tanh_f16_4  = clCreateKernel(prog, "kernel_tanh_f16_4", &err), err));
         CL_CHECK((backend_ctx->kernel_tanh_f16_nc = clCreateKernel(prog, "kernel_tanh_f16_nc", &err), err));
-        // FIXME: bug in older drivers, this crashes
-        // CL_CHECK(clReleaseProgram(prog));
+        CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -2135,8 +2112,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
         CL_CHECK((backend_ctx->kernel_neg_f16    = clCreateKernel(prog, "kernel_neg_f16", &err), err));
         CL_CHECK((backend_ctx->kernel_neg_f16_4  = clCreateKernel(prog, "kernel_neg_f16_4", &err), err));
         CL_CHECK((backend_ctx->kernel_neg_f16_nc = clCreateKernel(prog, "kernel_neg_f16_nc", &err), err));
-        // FIXME: bug in older drivers, this crashes
-        // CL_CHECK(clReleaseProgram(prog));
+        CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -2157,8 +2133,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
         CL_CHECK((backend_ctx->kernel_exp_f16    = clCreateKernel(prog, "kernel_exp_f16", &err), err));
         CL_CHECK((backend_ctx->kernel_exp_f16_4  = clCreateKernel(prog, "kernel_exp_f16_4", &err), err));
         CL_CHECK((backend_ctx->kernel_exp_f16_nc = clCreateKernel(prog, "kernel_exp_f16_nc", &err), err));
-        // FIXME: bug in older drivers, this crashes
-        // CL_CHECK(clReleaseProgram(prog));
+        CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -2179,9 +2154,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
         CL_CHECK((backend_ctx->kernel_expm1_f16    = clCreateKernel(prog, "kernel_expm1_f16", &err), err));
         CL_CHECK((backend_ctx->kernel_expm1_f16_4  = clCreateKernel(prog, "kernel_expm1_f16_4", &err), err));
         CL_CHECK((backend_ctx->kernel_expm1_f16_nc = clCreateKernel(prog, "kernel_expm1_f16_nc", &err), err));
-      
-        // FIXME: bug in older drivers, this crashes
-        // CL_CHECK(clReleaseProgram(prog));
+        CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -2202,9 +2175,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
         CL_CHECK((backend_ctx->kernel_softplus_f16    = clCreateKernel(prog, "kernel_softplus_f16", &err), err));
         CL_CHECK((backend_ctx->kernel_softplus_f16_4  = clCreateKernel(prog, "kernel_softplus_f16_4", &err), err));
         CL_CHECK((backend_ctx->kernel_softplus_f16_nc = clCreateKernel(prog, "kernel_softplus_f16_nc", &err), err));
-      
-        // FIXME: bug in older drivers, this crashes
-        // CL_CHECK(clReleaseProgram(prog));
+        CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -2252,8 +2223,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
         cl_program prog =
             build_program_from_source(backend_ctx->context, backend_ctx->device, kernel_src.c_str(), compile_opts);
         CL_CHECK((backend_ctx->kernel_concat_f32 = clCreateKernel(prog, "kernel_concat_f32", &err), err));
-        // FIXME: bug in older drivers, this crashes
-        // CL_CHECK(clReleaseProgram(prog));
+        CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -2353,8 +2323,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
 
         CL_CHECK((backend_ctx->kernel_ssm_conv_f32_f32   = clCreateKernel(prog, "kernel_ssm_conv_f32_f32", &err), err));
         CL_CHECK((backend_ctx->kernel_ssm_conv_f32_f32_4 = clCreateKernel(prog, "kernel_ssm_conv_f32_f32_4", &err), err));
-        // FIXME: bug in older drivers, this crashes
-        //CL_CHECK(clReleaseProgram(prog));
+        CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -2588,8 +2557,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
 #endif
         cl_program prog = build_program_from_source(backend_ctx->context, backend_ctx->device, kernel_src.c_str(), compile_opts);
         CL_CHECK((backend_ctx->kernel_gemm_noshuffle_q4_1_f32 = clCreateKernel(prog, "kernel_gemm_noshuffle_q4_1_f32", &err), err));
-        // FIXME: bug in older drivers, this crashes
-        // CL_CHECK(clReleaseProgram(prog));
+        CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -2613,8 +2581,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
             backend_ctx->context, backend_ctx->device, kernel_src.c_str(), CL_gemv_compile_opts);
 
         CL_CHECK((backend_ctx->kernel_gemv_noshuffle_q4_1_f32 = clCreateKernel(prog, "kernel_gemv_noshuffle_q4_1_f32", &err), err));
-        // FIXME: bug in older drivers, this crashes
-        // CL_CHECK(clReleaseProgram(prog));
+        CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -2654,9 +2621,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
             backend_ctx->context, backend_ctx->device, kernel_src_CL_gemv_general.c_str(), CL_gemv_compile_opts);
 
         CL_CHECK((backend_ctx->CL_mul_mat_vec_q8_0_f32 = clCreateKernel(prog, "kernel_gemv_noshuffle_q8_0_f32", &err), err));
-      
-        // FIXME: bug in older drivers, this crashes
-        // CL_CHECK(clReleaseProgram(prog));
+        CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -3252,8 +3217,7 @@ static void ggml_cl2_free(ggml_backend_t backend) {
         }
     }
 
-    // FIXME: bug in older drivers, crashes here for some reason
-    if (false /*should_release_opencl*/) {
+    if (should_release_opencl) {
         CL_CHECK(clReleaseContext(ctx->context));
     }
 }
@@ -3651,15 +3615,12 @@ static bool ggml_backend_opencl_cpy_tensor_async(ggml_backend_t backend, const g
 }
 
 static void ggml_backend_opencl_synchronize(ggml_backend_t backend) {
-    // do not synchronise due to crashes on older phones
-    // revert change in this PR: https://github.com/ggml-org/llama.cpp/pull/13939/files, it crashes on S23 for some reason, it's not used in runtime and only used during test-backend-ops, so this is ok
+    auto * backend_ctx = static_cast<ggml_backend_opencl_context *>(backend->context);
 
-    //auto * backend_ctx = static_cast<ggml_backend_opencl_context *>(backend->context);
-
-    //cl_event evt;
-    //CL_CHECK(clEnqueueBarrierWithWaitList(backend_ctx->queue, 0, nullptr, &evt));
-    //CL_CHECK(clWaitForEvents(1, &evt));
-    //CL_CHECK(clReleaseEvent(evt));
+    cl_event evt;
+    CL_CHECK(clEnqueueBarrierWithWaitList(backend_ctx->queue, 0, nullptr, &evt));
+    CL_CHECK(clWaitForEvents(1, &evt));
+    CL_CHECK(clReleaseEvent(evt));
 }
 
 // Synchronizes the 'backend_ctx's device with others so that commands
