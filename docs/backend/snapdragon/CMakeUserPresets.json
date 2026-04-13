@@ -25,7 +25,9 @@
             "GGML_OPENCL":      "OFF",
             "GGML_HEXAGON":     "ON",
             "GGML_HEXAGON_FP32_QUANTIZE_GROUP_SIZE": "128",
-            "LLAMA_OPENSSL":    "OFF"
+            "LLAMA_OPENSSL":    "OFF",
+            "BUILD_SHARED_LIBS": "ON",
+            "GGML_BACKEND_DL": "ON"
         }
     },
 
