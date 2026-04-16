@@ -24,6 +24,9 @@ DispatchLoaderDynamic & ggml_vk_default_dispatcher();
 // Linux packages use Khronos layout spirv/unified1/spirv.hpp. See docs/build.md#vulkan.
 #if defined(_WIN32) && !defined(__MINGW32__)
 #include <spirv-headers/spirv.hpp>
+// if we are cross-compiling for Android on windows, we are using the windows SDK, as a workaround, simply check if the target platform is android here
+#elif defined(__ANDROID__)
+#include <spirv-headers/spirv.hpp>
 #else
 #include <spirv/unified1/spirv.hpp>
 #endif
