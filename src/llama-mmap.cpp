@@ -3,6 +3,7 @@
 #include "llama-impl.h"
 
 #include "ggml.h"
+#include "gguf.h"
 
 #include <cstring>
 #include <climits>
@@ -186,6 +187,16 @@ struct llama_file::impl {
         init_fp(mode);
     }
 
+    explicit impl(int fd) : fd(fd) {
+        struct stat file_stats{};
+        if (fstat(fd, &file_stats) == -1) {
+            throw std::runtime_error(format("fstat error: %s", strerror(errno)));
+        }
+
+        size = file_stats.st_size;
+        alignment = file_stats.st_blksize;
+    }
+
 #ifdef __linux__
     bool init_fd() {
         fd = open(fname.c_str(), O_RDONLY | O_DIRECT);
@@ -208,10 +219,22 @@ struct llama_file::impl {
 #endif
 
     void init_fp(const char * mode) {
-        fp = ggml_fopen(fname.c_str(), mode);
+        int parsed_fd_num = -1;
+        long parsed_offset_num = 0;
+
+        fp = nullptr;
+
+        // Use the new helper function to parse
+        if (gguf_parse_fd_offset_string(fname.c_str(), &parsed_fd_num, &parsed_offset_num)) {
+            fp = ggml_fdopen(parsed_fd_num, mode, parsed_offset_num);
+        } else {
+            fp = ggml_fopen(fname.c_str(), mode);
+        }
+
         if (fp == NULL) {
             throw std::runtime_error(format("failed to open %s: %s", fname.c_str(), strerror(errno)));
         }
+
         seek(0, SEEK_END);
         size = tell();
         seek(0, SEEK_SET);

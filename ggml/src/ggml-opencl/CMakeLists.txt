@@ -1,13 +1,32 @@
-find_package(OpenCL REQUIRED)
-find_package(Python3 REQUIRED)
+# --- ICD Loader (static, embedded into ggml-opencl.so) ---
+set(_SAVED_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
+set(BUILD_SHARED_LIBS OFF)
+
+set(OPENCL_ICD_LOADER_BUILD_TESTING OFF CACHE BOOL "" FORCE)
+set(OPENCL_ICD_LOADER_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
+set(ENABLE_OPENCL_LAYERS OFF CACHE BOOL "" FORCE)
+
+set(OpenCL_INCLUDE_DIR
+    ${CPP_ROOT_DIR}/OpenCL-Headers
+    CACHE PATH "OpenCL include directories" FORCE)
+
+add_subdirectory(
+    ${CPP_ROOT_DIR}/OpenCL-ICD-Loader
+    ${CMAKE_CURRENT_BINARY_DIR}/OpenCL-ICD-Loader)
+
+set(BUILD_SHARED_LIBS ${_SAVED_BUILD_SHARED_LIBS})
+# --- end ICD Loader ---
+
+#find_package(Python3 REQUIRED)
+set(Python3_EXECUTABLE "C:/Python314/python.exe"  CACHE STRING "Python executable" FORCE)
 
 set(TARGET_NAME ggml-opencl)
 
 ggml_add_backend_library(${TARGET_NAME}
                          ggml-opencl.cpp
                          ../../include/ggml-opencl.h)
-target_link_libraries(${TARGET_NAME} PRIVATE ${OpenCL_LIBRARIES})
-target_include_directories(${TARGET_NAME} PRIVATE ${OpenCL_INCLUDE_DIRS})
+target_link_libraries(${TARGET_NAME} PRIVATE OpenCL)
+target_include_directories(${TARGET_NAME} PRIVATE ${OpenCL_INCLUDE_DIR})
 
 if (GGML_OPENCL_PROFILING)
     message(STATUS "OpenCL profiling enabled (increases CPU overhead)")
