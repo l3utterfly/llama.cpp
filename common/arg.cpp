@@ -903,11 +903,13 @@ bool common_params_parse(int argc, char ** argv, common_params & params, llama_e
         params.lr.init();
     } catch (const std::invalid_argument & ex) {
         fprintf(stderr, "%s\n", ex.what());
+        LOG("%s\n", ex.what());
         ctx_arg.params = params_org;
         return false;
     } catch (std::exception & ex) {
         fprintf(stderr, "%s\n", ex.what());
-        exit(1); // for other exceptions, we exit with status code 1
+        LOG("%s\n", ex.what());
+        return false;
     }
 
     return true;
@@ -1049,7 +1051,7 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
             exit(0);
         }
     ));
-    add_opt(common_arg(
+    /*add_opt(common_arg(
         {"--license"},
         "show source code license and dependencies",
         [](common_params &) {
@@ -1058,7 +1060,7 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
             }
             exit(0);
         }
-    ));
+    ));*/
     add_opt(common_arg(
         {"-cl", "--cache-list"},
         "show list of models in cache",
@@ -2331,7 +2333,7 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
             }
         }
     ).set_examples({LLAMA_EXAMPLE_SPECULATIVE, LLAMA_EXAMPLE_SERVER, LLAMA_EXAMPLE_CLI}).set_env("LLAMA_ARG_N_CPU_MOE_DRAFT"));
-    GGML_ASSERT(params.n_gpu_layers < 0); // string_format would need to be extended for a default >= 0
+    //GGML_ASSERT(params.n_gpu_layers < 0); // string_format would need to be extended for a default >= 0
     add_opt(common_arg(
         {"-ngl", "--gpu-layers", "--n-gpu-layers"}, "N",
         string_format("max. number of layers to store in VRAM, either an exact number, 'auto', or 'all' (default: %s)", params.n_gpu_layers == -1 ? "auto" : "all"),
@@ -3467,7 +3469,7 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
             params.speculative.devices = parse_device_list(value);
         }
     ).set_examples({LLAMA_EXAMPLE_SPECULATIVE, LLAMA_EXAMPLE_SERVER, LLAMA_EXAMPLE_CLI}));
-    GGML_ASSERT(params.speculative.n_gpu_layers < 0); // string_format would need to be extended for a default >= 0
+    //GGML_ASSERT(params.speculative.n_gpu_layers < 0); // string_format would need to be extended for a default >= 0
     add_opt(common_arg(
         {"-ngld", "--gpu-layers-draft", "--n-gpu-layers-draft"}, "N",
         string_format("max. number of draft model layers to store in VRAM, either an exact number, 'auto', or 'all' (default: %s)",
