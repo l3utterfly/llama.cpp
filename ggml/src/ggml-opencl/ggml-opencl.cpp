@@ -29,6 +29,16 @@
 #include <charconv>
 #include <mutex>
 
+#ifdef __ANDROID__
+#include <android/log.h>
+
+#ifdef GGML_LOG_INFO
+#undef GGML_LOG_INFO
+#endif
+#define GGML_LOG_INFO(...) __android_log_print(ANDROID_LOG_INFO, "ggml_opencl", __VA_ARGS__)
+
+#endif
+
 #undef MIN
 #undef MAX
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
@@ -675,6 +685,8 @@ struct ggml_backend_opencl_context {
     }
 
     size_t get_kernel_workgroup_size(cl_kernel kernel) const {
+        if(adreno_gen != ADRENO_GPU_GEN::A8X) return 64;
+
         size_t workgroup_size = 0;
         size_t ret_size = 0;
         CL_CHECK(
@@ -854,7 +866,8 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
         CL_CHECK((backend_ctx->kernel_tri = clCreateKernel(prog, "kernel_tri_f32", &err), err));
         GGML_LOG_CONT(".");
 
-        // FIXME: CL_CHECK(clReleaseProgram(prog));
+        if(backend_ctx->adreno_gen == ADRENO_GPU_GEN::A8X)
+            CL_CHECK(clReleaseProgram(prog));
     }
 
     // fill
@@ -872,7 +885,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
         CL_CHECK((backend_ctx->kernel_fill = clCreateKernel(prog, "kernel_fill_f32", &err), err));
         GGML_LOG_CONT(".");
 
-        // FIXME: CL_CHECK(clReleaseProgram(prog));
+        if(backend_ctx->adreno_gen == ADRENO_GPU_GEN::A8X) CL_CHECK(clReleaseProgram(prog));
     }
 
     // clamp
@@ -981,7 +994,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
             build_program_from_source(backend_ctx->context, backend_ctx->device, kernel_src.c_str(), compile_opts);
 
         CL_CHECK((backend_ctx->kernel_diag_f32 = clCreateKernel(prog, "kernel_diag_f32", &err), err));
-        // FIXME: CL_CHECK(clReleaseProgram(prog));
+        if(backend_ctx->adreno_gen == ADRENO_GPU_GEN::A8X) CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -1064,7 +1077,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
 
         CL_CHECK((backend_ctx->kernel_solve_tri_f32 = clCreateKernel(prog, "kernel_solve_tri_f32", &err), err));
         GGML_LOG_CONT(".");
-        // FIXME: CL_CHECK(clReleaseProgram(prog));
+        if(backend_ctx->adreno_gen == ADRENO_GPU_GEN::A8X) CL_CHECK(clReleaseProgram(prog));
     }
 
     // im2col_f32
@@ -1200,7 +1213,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
             build_program_from_source(backend_ctx->context, backend_ctx->device, kernel_src.c_str(), compile_opts);
 
         CL_CHECK((backend_ctx->kernel_mul_mv_q4_1_f32 = clCreateKernel(prog, "kernel_mul_mv_q4_1_f32", &err), err));
-        // FIXME: CL_CHECK(clReleaseProgram(prog));
+        if(backend_ctx->adreno_gen == ADRENO_GPU_GEN::A8X) CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -1217,7 +1230,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
             build_program_from_source(backend_ctx->context, backend_ctx->device, kernel_src.c_str(), compile_opts);
 
         CL_CHECK((backend_ctx->kernel_mul_mv_q4_1_f32_flat = clCreateKernel(prog, "kernel_mul_mv_q4_1_f32_flat", &err), err));
-        // FIXME: CL_CHECK(clReleaseProgram(prog));
+        if(backend_ctx->adreno_gen == ADRENO_GPU_GEN::A8X) CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -1234,7 +1247,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
             build_program_from_source(backend_ctx->context, backend_ctx->device, kernel_src.c_str(), compile_opts);
 
         CL_CHECK((backend_ctx->kernel_mul_mv_q4_K_f32 = clCreateKernel(prog, "kernel_mul_mv_q4_K_f32", &err), err));
-        // FIXME: CL_CHECK(clReleaseProgram(prog));
+        if(backend_ctx->adreno_gen == ADRENO_GPU_GEN::A8X) CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -1251,7 +1264,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
             build_program_from_source(backend_ctx->context, backend_ctx->device, kernel_src.c_str(), compile_opts);
 
         CL_CHECK((backend_ctx->kernel_mul_mv_q4_K_f32_flat = clCreateKernel(prog, "kernel_mul_mv_q4_K_f32_flat", &err), err));
-        // FIXME: CL_CHECK(clReleaseProgram(prog));
+        if(backend_ctx->adreno_gen == ADRENO_GPU_GEN::A8X) CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -1317,7 +1330,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
             build_program_from_source(backend_ctx->context, backend_ctx->device, kernel_src.c_str(), compile_opts);
 
         CL_CHECK((backend_ctx->kernel_mul_mv_q6_K_f32_flat = clCreateKernel(prog, "kernel_mul_mv_q6_K_f32_flat", &err), err));
-        // FIXME: CL_CHECK(clReleaseProgram(prog));
+        if(backend_ctx->adreno_gen == ADRENO_GPU_GEN::A8X) CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -1574,7 +1587,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
             build_program_from_source(backend_ctx->context, backend_ctx->device, kernel_src.c_str(), compile_opts);
 
         CL_CHECK((backend_ctx->kernel_mul_mm_q4_k_f32_l4_lm = clCreateKernel(prog, "kernel_mul_mm_q4_k_f32_l4_lm", &err), err));
-        // FIXME: CL_CHECK(clReleaseProgram(prog));
+        if(backend_ctx->adreno_gen == ADRENO_GPU_GEN::A8X) CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -1591,7 +1604,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
             build_program_from_source(backend_ctx->context, backend_ctx->device, kernel_src.c_str(), compile_opts);
 
         CL_CHECK((backend_ctx->kernel_mul_mm_q6_k_f32_l4_lm = clCreateKernel(prog, "kernel_mul_mm_q6_k_f32_l4_lm", &err), err));
-        // FIXME: CL_CHECK(clReleaseProgram(prog));
+        if(backend_ctx->adreno_gen == ADRENO_GPU_GEN::A8X) CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -1713,7 +1726,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
             build_program_from_source(backend_ctx->context, backend_ctx->device, kernel_src.c_str(), compile_opts);
 
         CL_CHECK((backend_ctx->kernel_l2_norm_f32     = clCreateKernel(prog, "kernel_l2_norm_f32", &err), err));
-        // FIXME: CL_CHECK(clReleaseProgram(prog));
+        if(backend_ctx->adreno_gen == ADRENO_GPU_GEN::A8X) CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -1754,7 +1767,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
 
         CL_CHECK((backend_ctx->kernel_scale_f32   = clCreateKernel(prog, "kernel_scale_f32", &err), err));
         CL_CHECK((backend_ctx->kernel_scale_f32_4 = clCreateKernel(prog, "kernel_scale_f32_4", &err), err));
-        // FIXME: CL_CHECK(clReleaseProgram(prog));
+        if(backend_ctx->adreno_gen == ADRENO_GPU_GEN::A8X) CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -1961,7 +1974,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
         CL_CHECK((backend_ctx->kernel_sqr_cont_f16     = clCreateKernel(prog, "kernel_sqr_cont_f16", &err), err));
         CL_CHECK((backend_ctx->kernel_sqr_cont_f16_4   = clCreateKernel(prog, "kernel_sqr_cont_f16_4", &err), err));
 
-        // FIXME: CL_CHECK(clReleaseProgram(prog));
+        if(backend_ctx->adreno_gen == ADRENO_GPU_GEN::A8X) CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -1982,7 +1995,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
         CL_CHECK((backend_ctx->kernel_sqrt_cont_f16     = clCreateKernel(prog, "kernel_sqrt_cont_f16", &err), err));
         CL_CHECK((backend_ctx->kernel_sqrt_cont_f16_4   = clCreateKernel(prog, "kernel_sqrt_cont_f16_4", &err), err));
 
-        // FIXME: CL_CHECK(clReleaseProgram(prog));
+        if(backend_ctx->adreno_gen == ADRENO_GPU_GEN::A8X) CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -2001,7 +2014,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
         CL_CHECK((backend_ctx->kernel_mean_f32 = clCreateKernel(prog, "kernel_mean_f32", &err), err));
         CL_CHECK((backend_ctx->kernel_mean_f32_4 = clCreateKernel(prog, "kernel_mean_f32_4", &err), err));
 
-        // FIXME: CL_CHECK(clReleaseProgram(prog));
+        if(backend_ctx->adreno_gen == ADRENO_GPU_GEN::A8X) CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -2056,7 +2069,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
         CL_CHECK((backend_ctx->kernel_cumsum_blk = clCreateKernel(prog, "kernel_cumsum_blk", &err), err));
         CL_CHECK((backend_ctx->kernel_cumsum_add = clCreateKernel(prog, "kernel_cumsum_add", &err), err));
         GGML_LOG_CONT(".");
-        // FIXME: CL_CHECK(clReleaseProgram(prog));
+        if(backend_ctx->adreno_gen == ADRENO_GPU_GEN::A8X) CL_CHECK(clReleaseProgram(prog));
     }
 
     // sigmoid
@@ -2105,7 +2118,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
         cl_program prog =
             build_program_from_source(backend_ctx->context, backend_ctx->device, kernel_src.c_str(), compile_opts);
         CL_CHECK((backend_ctx->kernel_repeat_f32 = clCreateKernel(prog, "kernel_repeat_f32", &err), err));
-        // FIXME: CL_CHECK(clReleaseProgram(prog));
+        if(backend_ctx->adreno_gen == ADRENO_GPU_GEN::A8X) CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -2147,7 +2160,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
         CL_CHECK((backend_ctx->kernel_tanh_f16    = clCreateKernel(prog, "kernel_tanh_f16", &err), err));
         CL_CHECK((backend_ctx->kernel_tanh_f16_4  = clCreateKernel(prog, "kernel_tanh_f16_4", &err), err));
         CL_CHECK((backend_ctx->kernel_tanh_f16_nc = clCreateKernel(prog, "kernel_tanh_f16_nc", &err), err));
-        // FIXME: CL_CHECK(clReleaseProgram(prog));
+        if(backend_ctx->adreno_gen == ADRENO_GPU_GEN::A8X) CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -2168,7 +2181,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
         CL_CHECK((backend_ctx->kernel_neg_f16    = clCreateKernel(prog, "kernel_neg_f16", &err), err));
         CL_CHECK((backend_ctx->kernel_neg_f16_4  = clCreateKernel(prog, "kernel_neg_f16_4", &err), err));
         CL_CHECK((backend_ctx->kernel_neg_f16_nc = clCreateKernel(prog, "kernel_neg_f16_nc", &err), err));
-        // FIXME: CL_CHECK(clReleaseProgram(prog));
+        if(backend_ctx->adreno_gen == ADRENO_GPU_GEN::A8X) CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -2189,7 +2202,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
         CL_CHECK((backend_ctx->kernel_exp_f16    = clCreateKernel(prog, "kernel_exp_f16", &err), err));
         CL_CHECK((backend_ctx->kernel_exp_f16_4  = clCreateKernel(prog, "kernel_exp_f16_4", &err), err));
         CL_CHECK((backend_ctx->kernel_exp_f16_nc = clCreateKernel(prog, "kernel_exp_f16_nc", &err), err));
-        // FIXME: CL_CHECK(clReleaseProgram(prog));
+        if(backend_ctx->adreno_gen == ADRENO_GPU_GEN::A8X) CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -2210,7 +2223,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
         CL_CHECK((backend_ctx->kernel_expm1_f16    = clCreateKernel(prog, "kernel_expm1_f16", &err), err));
         CL_CHECK((backend_ctx->kernel_expm1_f16_4  = clCreateKernel(prog, "kernel_expm1_f16_4", &err), err));
         CL_CHECK((backend_ctx->kernel_expm1_f16_nc = clCreateKernel(prog, "kernel_expm1_f16_nc", &err), err));
-        // FIXME: CL_CHECK(clReleaseProgram(prog));
+        if(backend_ctx->adreno_gen == ADRENO_GPU_GEN::A8X) CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -2231,7 +2244,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
         CL_CHECK((backend_ctx->kernel_softplus_f16    = clCreateKernel(prog, "kernel_softplus_f16", &err), err));
         CL_CHECK((backend_ctx->kernel_softplus_f16_4  = clCreateKernel(prog, "kernel_softplus_f16_4", &err), err));
         CL_CHECK((backend_ctx->kernel_softplus_f16_nc = clCreateKernel(prog, "kernel_softplus_f16_nc", &err), err));
-        // FIXME: CL_CHECK(clReleaseProgram(prog));
+        if(backend_ctx->adreno_gen == ADRENO_GPU_GEN::A8X) CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -2279,7 +2292,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
         cl_program prog =
             build_program_from_source(backend_ctx->context, backend_ctx->device, kernel_src.c_str(), compile_opts);
         CL_CHECK((backend_ctx->kernel_concat_f32 = clCreateKernel(prog, "kernel_concat_f32", &err), err));
-        // FIXME: CL_CHECK(clReleaseProgram(prog));
+        if(backend_ctx->adreno_gen == ADRENO_GPU_GEN::A8X) CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -2379,7 +2392,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
 
         CL_CHECK((backend_ctx->kernel_ssm_conv_f32_f32   = clCreateKernel(prog, "kernel_ssm_conv_f32_f32", &err), err));
         CL_CHECK((backend_ctx->kernel_ssm_conv_f32_f32_4 = clCreateKernel(prog, "kernel_ssm_conv_f32_f32_4", &err), err));
-        // FIXME: CL_CHECK(clReleaseProgram(prog));
+        if(backend_ctx->adreno_gen == ADRENO_GPU_GEN::A8X) CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -2613,7 +2626,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
 #endif
         cl_program prog = build_program_from_source(backend_ctx->context, backend_ctx->device, kernel_src.c_str(), compile_opts);
         CL_CHECK((backend_ctx->kernel_gemm_noshuffle_q4_1_f32 = clCreateKernel(prog, "kernel_gemm_noshuffle_q4_1_f32", &err), err));
-        // FIXME: CL_CHECK(clReleaseProgram(prog));
+        if(backend_ctx->adreno_gen == ADRENO_GPU_GEN::A8X) CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -2637,7 +2650,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
             backend_ctx->context, backend_ctx->device, kernel_src.c_str(), CL_gemv_compile_opts);
 
         CL_CHECK((backend_ctx->kernel_gemv_noshuffle_q4_1_f32 = clCreateKernel(prog, "kernel_gemv_noshuffle_q4_1_f32", &err), err));
-        // FIXME: CL_CHECK(clReleaseProgram(prog));
+        if(backend_ctx->adreno_gen == ADRENO_GPU_GEN::A8X) CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -2677,7 +2690,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
             backend_ctx->context, backend_ctx->device, kernel_src_CL_gemv_general.c_str(), CL_gemv_compile_opts);
 
         CL_CHECK((backend_ctx->CL_mul_mat_vec_q8_0_f32 = clCreateKernel(prog, "kernel_gemv_noshuffle_q8_0_f32", &err), err));
-        // FIXME: CL_CHECK(clReleaseProgram(prog));
+        if(backend_ctx->adreno_gen == ADRENO_GPU_GEN::A8X) CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -2692,7 +2705,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
 #endif
         cl_program prog = build_program_from_source(backend_ctx->context, backend_ctx->device, kernel_src.c_str(), compile_opts);
         CL_CHECK((backend_ctx->kernel_gemm_noshuffle_q4_k_f32 = clCreateKernel(prog, "kernel_gemm_noshuffle_q4_k_f32", &err), err));
-        // FIXME: CL_CHECK(clReleaseProgram(prog));
+        if(backend_ctx->adreno_gen == ADRENO_GPU_GEN::A8X) CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -2716,7 +2729,7 @@ static void load_cl_kernels(ggml_backend_opencl_context *backend_ctx, ggml_cl_ve
             backend_ctx->context, backend_ctx->device, kernel_src.c_str(), CL_gemv_compile_opts);
 
         CL_CHECK((backend_ctx->kernel_gemv_noshuffle_q4_k_f32 = clCreateKernel(prog, "kernel_gemv_noshuffle_q4_k_f32", &err), err));
-        // FIXME: CL_CHECK(clReleaseProgram(prog));
+        if(backend_ctx->adreno_gen == ADRENO_GPU_GEN::A8X) CL_CHECK(clReleaseProgram(prog));
         GGML_LOG_CONT(".");
     }
 
@@ -3273,7 +3286,7 @@ static void ggml_cl2_free(ggml_backend_t backend) {
         }
     }
 
-    if (should_release_opencl) {
+    if (should_release_opencl && ctx->adreno_gen == ADRENO_GPU_GEN::A8X) {
         CL_CHECK(clReleaseContext(ctx->context));
     }
 }
@@ -3314,8 +3327,9 @@ static void transpose_2d(
 
     if (blocking) {
         CL_CHECK(clEnqueueCopyBuffer(backend_ctx->queue, trans, dst, 0, 0, size, 0, NULL, &evt));
-        CL_CHECK(clWaitForEvents(1, &evt));
-        CL_CHECK(clReleaseEvent(evt));
+        CL_CHECK(clFinish(backend_ctx->queue));
+        // FIXME: CL_CHECK(clWaitForEvents(1, &evt));
+        // FIXME: CL_CHECK(clReleaseEvent(evt));
     } else {
         CL_CHECK(clEnqueueCopyBuffer(backend_ctx->queue, trans, dst, 0, 0, size, 0, NULL, NULL));
     }
@@ -3724,11 +3738,13 @@ static bool ggml_backend_opencl_cpy_tensor_async(ggml_backend_t backend, const g
 
 static void ggml_backend_opencl_synchronize(ggml_backend_t backend) {
     auto * backend_ctx = static_cast<ggml_backend_opencl_context *>(backend->context);
+    CL_CHECK(clFinish(backend_ctx->queue));
 
-    cl_event evt;
-    CL_CHECK(clEnqueueBarrierWithWaitList(backend_ctx->queue, 0, nullptr, &evt));
-    CL_CHECK(clWaitForEvents(1, &evt));
-    CL_CHECK(clReleaseEvent(evt));
+    // FIXME: This is a known bug in older Qualcomm Adreno drivers. clWaitForEvents on those drivers internally releases the event (decrements refcount to zero and frees it), so your subsequent clReleaseEvent is a double-free
+    // cl_event evt;
+    // CL_CHECK(clEnqueueBarrierWithWaitList(backend_ctx->queue, 0, nullptr, &evt));
+    // CL_CHECK(clWaitForEvents(1, &evt));
+    // CL_CHECK(clReleaseEvent(evt));
 }
 
 // Synchronizes the 'backend_ctx's device with others so that commands
