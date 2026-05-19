@@ -8,7 +8,7 @@ endif()
 
 find_package(Vulkan COMPONENTS glslc REQUIRED)
 
-find_package(SPIRV-Headers REQUIRED)
+add_subdirectory(C:/VulkanSDK/SPIRV-Headers ${CMAKE_BINARY_DIR}/spirv-headers)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     # Parallel build object files
