@@ -8,6 +8,9 @@ endif()
 
 find_package(Vulkan COMPONENTS glslc REQUIRED)
 
+if (DEFINED ENV{VULKAN_SDK})
+    list(APPEND CMAKE_PREFIX_PATH "$ENV{VULKAN_SDK}")
+endif()
 add_subdirectory(C:/VulkanSDK/SPIRV-Headers ${CMAKE_BINARY_DIR}/spirv-headers)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")

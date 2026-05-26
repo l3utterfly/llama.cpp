@@ -228,9 +228,18 @@ struct gguf_context {
 };
 
 struct gguf_reader {
-    gguf_reader(FILE * file) : file(file) {
-        // read the remaining bytes once and update on each read
-        nbytes_remain = file_remain(file);
+    gguf_reader(
+            gguf_reader_callback_t callback,
+            void * userdata,
+            size_t max_chunk_read,
+            uint64_t data_offset = 0,
+            uint64_t nbytes_remain = 0)
+        : callback(callback),
+          userdata(userdata),
+          max_chunk_read(max_chunk_read),
+          data_offset(data_offset),
+          nbytes_remain(nbytes_remain) {
+        GGML_ASSERT(max_chunk_read > 0);
     }
 
     // helper for remaining bytes in a file
@@ -257,12 +266,10 @@ struct gguf_reader {
     template <typename T>
     bool read(T & dst) const {
         const size_t size = sizeof(dst);
-        if (nbytes_remain < size) {
+        if (size > nbytes_remain) {
             return false;
         }
-        const size_t nread = fread(&dst, 1, size, file);
-        nbytes_remain -= nread;
-        return nread == size;
+        return read_raw(&dst, size) == size;
     }
 
     template <typename T>
@@ -344,24 +351,71 @@ struct gguf_reader {
             return false;
         }
         dst.resize(static_cast<size_t>(size));
-        const size_t nread = fread(dst.data(), 1, size, file);
-        nbytes_remain -= nread;
-        return nread == size;
+        return read_raw(dst.data(), static_cast<size_t>(size)) == size;
     }
 
     bool read(void * dst, const size_t size) const {
         if (size > nbytes_remain) {
             return false;
         }
-        const size_t nread = fread(dst, 1, size, file);
-        nbytes_remain -= nread;
-        return nread == size;
+        return read_raw(dst, size) == size;
+    }
+
+    uint64_t tell() const {
+        return data_offset;
+    }
+
+    bool seek(uint64_t absolute_offset) const {
+        const uint64_t end_offset = uint64_t(data_offset) + nbytes_remain;
+        if (absolute_offset > end_offset) {
+            return false;
+        }
+
+        data_offset = absolute_offset;
+        nbytes_remain = end_offset - absolute_offset;
+
+        return true;
     }
 
 private:
-    FILE * file;
+    size_t read_raw(void * dst, size_t size) const {
+        if (callback == nullptr || size == 0) {
+            return 0;
+        }
 
-    mutable uint64_t nbytes_remain;
+        uint8_t * data = static_cast<uint8_t *>(dst);
+        size_t total_nread = 0;
+        bool reached_eof = false;
+
+        while (total_nread < size) {
+            const size_t chunk_size = std::min(max_chunk_read, size - total_nread);
+            if (data_offset + total_nread < data_offset) {
+                break;
+            }
+            const size_t nread = callback(userdata, static_cast<void *>(data + total_nread), data_offset + total_nread, chunk_size);
+            total_nread += nread;
+            if (nread != chunk_size) {
+                reached_eof = true;
+                break;
+            }
+        }
+
+        data_offset += total_nread;
+        GGML_ASSERT(total_nread <= nbytes_remain);
+        nbytes_remain -= total_nread;
+
+        if (reached_eof) {
+            nbytes_remain = 0;
+        }
+
+        return total_nread;
+    }
+
+    gguf_reader_callback_t callback = nullptr;
+    void * userdata = nullptr;
+    size_t max_chunk_read = 0;
+    mutable uint64_t data_offset = 0;
+    mutable uint64_t nbytes_remain = 0;
 };
 
 struct gguf_context * gguf_init_empty(void) {
@@ -394,12 +448,7 @@ bool gguf_read_emplace_helper(const struct gguf_reader & gr, std::vector<struct 
     return true;
 }
 
-struct gguf_context * gguf_init_from_file_ptr(FILE * file, struct gguf_init_params params) {
-    if (!file) {
-        return nullptr;
-    }
-
-    const struct gguf_reader gr(file);
+static struct gguf_context * gguf_init_from_reader(const struct gguf_reader & gr, struct gguf_init_params params) {
     struct gguf_context * ctx = new gguf_context;
 
     bool ok = true;
@@ -700,14 +749,14 @@ struct gguf_context * gguf_init_from_file_ptr(FILE * file, struct gguf_init_para
     GGML_ASSERT(int64_t(ctx->info.size()) == n_tensors);
 
     // we require the data section to be aligned, so take into account any padding
-    if (gguf_fseek(file, GGML_PAD(gguf_ftell(file), ctx->alignment), SEEK_SET) != 0) {
+    if (n_tensors > 0 && !gr.seek(GGML_PAD(gr.tell(), ctx->alignment))) {
         GGML_LOG_ERROR("%s: failed to seek to beginning of data section\n", __func__);
         gguf_free(ctx);
         return nullptr;
     }
 
     // store the current file offset - this is where the data section starts
-    ctx->offset = gguf_ftell(file);
+    ctx->offset = gr.tell();
 
     // compute the total size of the data section, taking into account the alignment
     {
@@ -844,73 +893,87 @@ struct gguf_context * gguf_init_from_file_ptr(FILE * file, struct gguf_init_para
     return ctx;
 }
 
-// Helper function to parse "fd" or "fd;offset" strings
-// Returns true on success, false on parsing error.
-// out_fd and out_offset will be populated on success.
-bool gguf_parse_fd_offset_string(const char* input_str, int* out_fd, long* out_offset) {
-    if (input_str == nullptr || out_fd == nullptr || out_offset == nullptr) {
-        GGML_LOG_ERROR("parse_fd_offset_string: Invalid null input arguments.\n");
-        return false;
+struct gguf_context * gguf_init_from_callback(gguf_reader_callback_t callback, void * userdata, size_t max_chunk_read, uint64_t max_expected_size, struct gguf_init_params params) {
+    if (callback == nullptr) {
+        return nullptr;
     }
 
-    // Create a mutable copy of input_str for tokenization (strtok modifies string)
-    // Even though we're using strchr/strtol here, it's good practice for safety
-    // if input_str could be a literal or const char*.
-    char* temp_str = strdup(input_str);
-    if (temp_str == nullptr) {
-        GGML_LOG_ERROR("parse_fd_offset_string: Memory allocation failed for temporary string.\n");
-        return false;
+    const struct gguf_reader gr(callback, userdata, max_chunk_read == 0 ? SIZE_MAX : max_chunk_read, 0, max_expected_size);
+    return gguf_init_from_reader(gr, params);
+}
+
+struct gguf_file_reader {
+    FILE * file;
+    uint64_t offset;
+};
+
+static size_t gguf_file_reader_callback(void * userdata, void * output, uint64_t offset, size_t len) {
+    GGML_ASSERT(len > 0);
+
+    gguf_file_reader & reader = *static_cast<gguf_file_reader *>(userdata);
+
+    if (reader.offset != offset) {
+        if (offset > INT64_MAX || gguf_fseek(reader.file, static_cast<int64_t>(offset), SEEK_SET) != 0) {
+            return 0;
+        }
+
+        reader.offset = offset;
     }
 
-    char* separator = strchr(temp_str, ';');
-    bool success = false;
+    const size_t nread = fread(static_cast<uint8_t *>(output), 1, len, reader.file);
+    reader.offset += nread;
+    return nread;
+}
 
-    if (separator != nullptr) {
-        // Format is "fd;offset"
-        *separator = '\0'; // Null-terminate the FD part
-        char* fd_part = temp_str;
-        char* offset_part = separator + 1;
-
-        char* fd_endptr;
-        long fd_val = strtol(fd_part, &fd_endptr, 10);
-
-        // Validate FD part: entire string consumed by number, or only whitespace/newline follows
-        if (fd_endptr == fd_part || (*fd_endptr != '\0' && *fd_endptr != '\n' && *fd_endptr != '\r')) {
-            GGML_LOG_ERROR("parse_fd_offset_string: Malformed FD part (non-numeric or trailing chars): '%s' in '%s'.\n", fd_part, input_str);
-            goto cleanup;
-        }
-
-        char* offset_endptr;
-        long offset_val = strtol(offset_part, &offset_endptr, 10);
-
-        // Validate offset part
-        if (offset_endptr == offset_part || (*offset_endptr != '\0' && *offset_endptr != '\n' && *offset_endptr != '\r')) {
-            GGML_LOG_ERROR("parse_fd_offset_string: Malformed offset part (non-numeric or trailing chars): '%s' in '%s'.\n", offset_part, input_str);
-            goto cleanup;
-        }
-
-        *out_fd = (int)fd_val;
-        *out_offset = offset_val;
-        success = true;
-    } else {
-        // Format is "fd" only (no semicolon)
-        char* fd_endptr;
-        long fd_val = strtol(temp_str, &fd_endptr, 10);
-
-        // Validate FD part
-        if (fd_endptr == temp_str || (*fd_endptr != '\0' && *fd_endptr != '\n' && *fd_endptr != '\r')) {
-            GGML_LOG_ERROR("parse_fd_offset_string: Malformed bare FD string (non-numeric or trailing chars): '%s' in '%s'.\n", temp_str, input_str);
-            goto cleanup;
-        }
-
-        *out_fd = (int)fd_val;
-        *out_offset = 0; // Default offset to 0 for bare FD
-        success = true;
+struct gguf_context * gguf_init_from_file_ptr(FILE * file, struct gguf_init_params params) {
+    if (!file) {
+        return nullptr;
     }
 
-    cleanup:
-    free(temp_str);
-    return success;
+    const int64_t cur = gguf_ftell(file);
+    if (cur < 0) {
+        return nullptr;
+    }
+
+    gguf_file_reader reader = {
+        /*.file   = */ file,
+        /*.offset = */ static_cast<uint64_t>(cur),
+    };
+    const struct gguf_reader gr(gguf_file_reader_callback, &reader, SIZE_MAX, reader.offset, gguf_reader::file_remain(file));
+    return gguf_init_from_reader(gr, params);
+}
+
+struct gguf_buffer_reader {
+    const uint8_t * data;
+    size_t          size;
+};
+
+static size_t gguf_buffer_reader_callback(void * userdata, void * output, uint64_t offset, size_t len) {
+    GGML_ASSERT(len > 0);
+
+    const gguf_buffer_reader & reader = *static_cast<gguf_buffer_reader *>(userdata);
+
+    if (offset > reader.size || len > reader.size - offset) {
+        return 0;
+    }
+
+    const size_t data_offset = static_cast<size_t>(offset);
+    const size_t nread = std::min(len, reader.size - data_offset);
+    memcpy(static_cast<uint8_t *>(output), reader.data + data_offset, nread);
+    return nread;
+}
+
+struct gguf_context * gguf_init_from_buffer(const void * data, size_t size, struct gguf_init_params params) {
+    if (data == nullptr || size == 0) {
+        return nullptr;
+    }
+
+    gguf_buffer_reader reader = {
+        /*.data = */ static_cast<const uint8_t *>(data),
+        /*.size = */ size,
+    };
+    const struct gguf_reader gr(gguf_buffer_reader_callback, &reader, SIZE_MAX, 0, size);
+    return gguf_init_from_reader(gr, params);
 }
 
 struct gguf_context * gguf_init_from_file(const char * fname, struct gguf_init_params params) {
@@ -1632,4 +1695,73 @@ void gguf_get_meta_data(const struct gguf_context * ctx, void * data) {
     std::vector<int8_t> buf;
     gguf_write_to_buf(ctx, buf, /*only_meta =*/ true);
     memcpy(data, buf.data(), buf.size());
+}
+
+// Helper function to parse "fd" or "fd;offset" strings
+// Returns true on success, false on parsing error.
+// out_fd and out_offset will be populated on success.
+bool gguf_parse_fd_offset_string(const char* input_str, int* out_fd, long* out_offset) {
+    if (input_str == nullptr || out_fd == nullptr || out_offset == nullptr) {
+        GGML_LOG_ERROR("parse_fd_offset_string: Invalid null input arguments.\n");
+        return false;
+    }
+
+    // Create a mutable copy of input_str for tokenization (strtok modifies string)
+    // Even though we're using strchr/strtol here, it's good practice for safety
+    // if input_str could be a literal or const char*.
+    char* temp_str = strdup(input_str);
+    if (temp_str == nullptr) {
+        GGML_LOG_ERROR("parse_fd_offset_string: Memory allocation failed for temporary string.\n");
+        return false;
+    }
+
+    char* separator = strchr(temp_str, ';');
+    bool success = false;
+
+    if (separator != nullptr) {
+        // Format is "fd;offset"
+        *separator = '\0'; // Null-terminate the FD part
+        char* fd_part = temp_str;
+        char* offset_part = separator + 1;
+
+        char* fd_endptr;
+        long fd_val = strtol(fd_part, &fd_endptr, 10);
+
+        // Validate FD part: entire string consumed by number, or only whitespace/newline follows
+        if (fd_endptr == fd_part || (*fd_endptr != '\0' && *fd_endptr != '\n' && *fd_endptr != '\r')) {
+            GGML_LOG_ERROR("parse_fd_offset_string: Malformed FD part (non-numeric or trailing chars): '%s' in '%s'.\n", fd_part, input_str);
+            goto cleanup;
+        }
+
+        char* offset_endptr;
+        long offset_val = strtol(offset_part, &offset_endptr, 10);
+
+        // Validate offset part
+        if (offset_endptr == offset_part || (*offset_endptr != '\0' && *offset_endptr != '\n' && *offset_endptr != '\r')) {
+            GGML_LOG_ERROR("parse_fd_offset_string: Malformed offset part (non-numeric or trailing chars): '%s' in '%s'.\n", offset_part, input_str);
+            goto cleanup;
+        }
+
+        *out_fd = (int)fd_val;
+        *out_offset = offset_val;
+        success = true;
+    } else {
+        // Format is "fd" only (no semicolon)
+        char* fd_endptr;
+        long fd_val = strtol(temp_str, &fd_endptr, 10);
+
+        // Validate FD part
+        if (fd_endptr == temp_str || (*fd_endptr != '\0' && *fd_endptr != '\n' && *fd_endptr != '\r')) {
+            GGML_LOG_ERROR("parse_fd_offset_string: Malformed bare FD string (non-numeric or trailing chars): '%s' in '%s'.\n", temp_str, input_str);
+            goto cleanup;
+        }
+
+        *out_fd = (int)fd_val;
+        *out_offset = 0; // Default offset to 0 for bare FD
+        success = true;
+    }
+
+    cleanup:
+    free(temp_str);
+    return success;
 }
