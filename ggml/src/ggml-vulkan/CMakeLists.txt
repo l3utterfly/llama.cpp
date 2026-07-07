@@ -11,7 +11,7 @@ find_package(Vulkan COMPONENTS glslc REQUIRED)
 if (DEFINED ENV{VULKAN_SDK})
     list(APPEND CMAKE_PREFIX_PATH "$ENV{VULKAN_SDK}")
 endif()
-find_package(SPIRV-Headers CONFIG REQUIRED)
+add_subdirectory(C:/VulkanSDK/SPIRV-Headers ${CMAKE_BINARY_DIR}/spirv-headers)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     # Parallel build object files
@@ -60,9 +60,16 @@ if (Vulkan_FOUND)
     message(STATUS "Vulkan found")
 
     ggml_add_backend_library(ggml-vulkan
-                             ggml-vulkan.cpp
-                             ../../include/ggml-vulkan.h
-                            )
+            ggml-vulkan.cpp
+            ../../include/ggml-vulkan.h
+    )
+
+    target_include_directories(ggml-vulkan PRIVATE
+            $ENV{VULKAN_SDK}/Include
+    )
+    target_compile_definitions(ggml-vulkan PRIVATE
+            VK_USE_PLATFORM_ANDROID_KHR
+    )
 
     set(VULKAN_SHADER_GEN_CMAKE_ARGS "")
 
