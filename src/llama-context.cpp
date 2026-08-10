@@ -2512,12 +2512,11 @@ public:
     llama_io_write_host(
             uint8_t * p, size_t len) : ptr(p), buf_size(len) {}
 
-    void flush() {
+    ~llama_io_write_host() {
         // TODO: add backend support to batch tensor_get? or some other way to speed this up
         for (const auto & winfo : winfos) {
             ggml_backend_tensor_get(winfo.tensor, winfo.ptr, winfo.offset, winfo.size);
         }
-        winfos.clear();
     }
 
     void write(const void * src, size_t size) override {
@@ -2897,9 +2896,7 @@ size_t llama_context::state_get_size() {
 size_t llama_context::state_get_data(uint8_t * dst, size_t size) {
     llama_io_write_host io(dst, size);
     try {
-        const size_t result = state_write_data(io);
-        io.flush();
-        return result;
+        return state_write_data(io);
     } catch (const std::exception & err) {
         LLAMA_LOG_ERROR("%s: error saving state: %s\n", __func__, err.what());
         return 0;
@@ -2933,27 +2930,20 @@ size_t llama_context::state_seq_get_size(llama_seq_id seq_id, llama_state_seq_fl
 
 size_t llama_context::state_seq_get_data(llama_seq_id seq_id, uint8_t * dst, size_t size, llama_state_seq_flags flags) {
     std::unique_ptr<llama_io_write_i> io;
-    llama_io_write_host * io_host = nullptr;
     if (flags & LLAMA_STATE_SEQ_FLAGS_ON_DEVICE) {
         io = std::make_unique<llama_io_write_device>(dst, size, mem_storage[seq_id]);
     } else {
-        auto host = std::make_unique<llama_io_write_host>(dst, size);
-        io_host = host.get();
-        io = std::move(host);
+        io = std::make_unique<llama_io_write_host>(dst, size);
     }
 
     try {
         io->write(&io_magic, sizeof(io_magic));
         io->write(&seq_id, sizeof(seq_id));
 
-        const size_t result = state_seq_write_data(*io, seq_id, flags);
-        if (io_host) {
-            io_host->flush();
-        }
-        return result;
+        return state_seq_write_data(*io, seq_id, flags);
     } catch (const std::exception & err) {
         LLAMA_LOG_ERROR("%s: error saving state: %s\n", __func__, err.what());
-        throw;
+        return 0;
     }
 }
 
