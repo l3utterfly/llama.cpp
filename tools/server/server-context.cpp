@@ -2374,6 +2374,16 @@ private:
     }
 
     void process_single_task(server_task && task) {
+        const int id_task = task.id;
+        try {
+            process_single_task_impl(std::move(task));
+        } catch (const std::exception & e) {
+            SRV_ERR("task id = %d, exception: %s\n", id_task, e.what());
+            send_error(id_task, e.what(), ERROR_TYPE_SERVER);
+        }
+    }
+
+    void process_single_task_impl(server_task && task) {
         switch (task.type) {
             case SERVER_TASK_TYPE_COMPLETION:
             case SERVER_TASK_TYPE_INFILL:
