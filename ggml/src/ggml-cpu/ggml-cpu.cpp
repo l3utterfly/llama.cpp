@@ -61,11 +61,15 @@ std::vector<ggml_backend_buffer_type_t> & ggml_backend_cpu_get_extra_buffer_type
         }
 #endif
 
-#ifdef GGML_USE_CPU_REPACK
-        if (ggml_backend_cpu_repack_buffer_type()) {
-            bufts.push_back(ggml_backend_cpu_repack_buffer_type());
+//#ifdef GGML_USE_CPU_REPACK
+        const char * useCpuRepack = std::getenv("LAYLA_USE_CPU_REPACK");
+
+        if (useCpuRepack != nullptr && std::strcmp(useCpuRepack, "1") == 0) {
+            if (ggml_backend_cpu_repack_buffer_type()) {
+                bufts.push_back(ggml_backend_cpu_repack_buffer_type());
+            }
         }
-#endif
+//#endif
 
         return bufts;
     }();
@@ -634,9 +638,13 @@ static ggml_backend_feature * ggml_backend_cpu_get_features(ggml_backend_reg_t r
     #ifdef GGML_USE_CPU_KLEIDIAI
         features.push_back({ "KLEIDIAI", "1" });
     #endif
-    #ifdef GGML_USE_CPU_REPACK
-        features.push_back({ "REPACK", "1" });
-    #endif
+    //#ifdef GGML_USE_CPU_REPACK
+        const char * useCpuRepack = std::getenv("LAYLA_USE_CPU_REPACK");
+
+        if (useCpuRepack != nullptr && std::strcmp(useCpuRepack, "1") == 0) {
+            features.push_back({ "REPACK", "1" });
+        }
+    //#endif
 
         features.push_back({ nullptr, nullptr });
 

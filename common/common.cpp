@@ -11,10 +11,12 @@
 #include "unicode.h"
 
 #include <algorithm>
+#include <cerrno>
 #include <cinttypes>
 #include <climits>
 #include <cmath>
 #include <chrono>
+#include <cstdlib>
 #include <cstdarg>
 #include <cstring>
 #include <ctime>
@@ -1326,7 +1328,46 @@ common_init_result::common_init_result(common_params & params, bool model_only) 
             params.verbosity >= LOG_LEVEL_DEBUG ? GGML_LOG_LEVEL_DEBUG : GGML_LOG_LEVEL_ERROR);
     }
 
-    llama_model * model = llama_model_load_from_file(params.model.path.c_str(), mparams);
+    llama_model * model = nullptr;
+
+    const bool model_path_is_fd = !params.model.path.empty() &&
+        std::all_of(params.model.path.begin(), params.model.path.end(), [](char c) {
+            return c >= '0' && c <= '9';
+        });
+
+    if (model_path_is_fd) {
+        errno = 0;
+        char * end = nullptr;
+        const long parsed_fd = std::strtol(params.model.path.c_str(), &end, 10);
+        if (errno == ERANGE || end != params.model.path.c_str() + params.model.path.size() ||
+            parsed_fd < 0 || parsed_fd > INT_MAX) {
+            COM_ERR("invalid model file descriptor: '%s'\n", params.model.path.c_str());
+            return;
+        }
+
+        const int fd = static_cast<int>(parsed_fd);
+#ifdef _WIN32
+        FILE * file = _fdopen(fd, "rb");
+#else
+        FILE * file = fdopen(fd, "rb");
+#endif
+        if (file == nullptr) {
+            const int open_errno = errno;
+#ifdef _WIN32
+            _close(fd);
+#else
+            close(fd);
+#endif
+            COM_ERR("failed to open model file descriptor %d: %s\n", fd, std::strerror(open_errno));
+            return;
+        }
+
+        model = llama_model_load_from_file_ptr(file, mparams);
+        fclose(file);
+    } else {
+        model = llama_model_load_from_file(params.model.path.c_str(), mparams);
+    }
+
     if (model == NULL) {
         return;
     }
@@ -1681,6 +1722,9 @@ struct llama_model_params common_model_params_to_llama(common_params & params) {
     auto mparams = llama_model_default_params();
 
     if (!params.devices.empty()) {
+        // add nullptr to the end just in case
+        params.devices.push_back(nullptr);
+
         mparams.devices = params.devices.data();
     }
 

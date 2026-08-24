@@ -12,7 +12,9 @@
 
 // some of the code here is copied from whisper.cpp
 
-constexpr bool DEBUG = false;
+#ifndef DEBUG
+#define DEBUG false
+#endif
 
 void mtmd_audio_cache::fill_sin_cos_table(uint32_t n) {
     sin_vals.resize(n);
