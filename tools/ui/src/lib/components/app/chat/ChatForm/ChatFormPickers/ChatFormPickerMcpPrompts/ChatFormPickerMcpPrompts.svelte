@@ -9,8 +9,7 @@
 	} from '$lib/components/app/chat';
 	import Badge from '$lib/components/ui/badge/badge.svelte';
 	import { KeyboardKey } from '$lib/enums';
-	import { conversationsStore } from '$lib/stores/conversations.svelte';
-	import { mcpStore } from '$lib/stores/mcp.svelte';
+	import { conversationsStore, mcpStore } from '$lib/stores';
 	import type { GetPromptResult, MCPPromptInfo, MCPServerSettingsEntry } from '$lib/types';
 	import { debounce, uuid } from '$lib/utils';
 	import { SvelteMap } from 'svelte/reactivity';
@@ -88,7 +87,7 @@
 		isLoading = true;
 
 		try {
-			const perChatOverrides = conversationsStore.getAllMcpServerOverrides();
+			const perChatOverrides = conversationsStore.preferences.getAllMcpServerOverrides();
 			const initialized = await mcpStore.ensureInitialized(perChatOverrides);
 
 			if (!initialized) {

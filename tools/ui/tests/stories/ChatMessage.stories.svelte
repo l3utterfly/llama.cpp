@@ -1,6 +1,7 @@
 <script module lang="ts">
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 	import ChatMessage from '$lib/components/app/chat/ChatMessages/ChatMessage/ChatMessage.svelte';
+	import type { ChatMessageActions } from '$lib/types';
 
 	const { Story } = defineMeta({
 		component: ChatMessage,
@@ -9,6 +10,18 @@
 		},
 		title: 'Components/ChatScreen/ChatMessage'
 	});
+
+	const chatActions: ChatMessageActions = {
+		continueAssistantMessage: () => {},
+		copy: () => {},
+		delete: () => {},
+		editUserMessagePreserveResponses: () => {},
+		editWithBranching: () => {},
+		editWithReplacement: () => {},
+		forkConversation: () => {},
+		navigateToSibling: () => {},
+		regenerateWithBranching: () => {}
+	};
 
 	// Mock messages for different scenarios
 	const userMessage: DatabaseMessage = {
@@ -92,7 +105,7 @@
 		message: userMessage
 	}}
 	play={async () => {
-		const { settingsStore } = await import('$lib/stores/settings.svelte');
+		const { settingsStore } = await import('$lib/stores/settings/index.svelte');
 
 		settingsStore.updateConfig('showRawOutputSwitch', false);
 	}}
@@ -105,7 +118,7 @@
 		message: assistantMessage
 	}}
 	play={async () => {
-		const { settingsStore } = await import('$lib/stores/settings.svelte');
+		const { settingsStore } = await import('$lib/stores/settings/index.svelte');
 
 		settingsStore.updateConfig('showRawOutputSwitch', false);
 	}}
@@ -118,7 +131,7 @@
 		message: assistantWithReasoning
 	}}
 	play={async () => {
-		const { settingsStore } = await import('$lib/stores/settings.svelte');
+		const { settingsStore } = await import('$lib/stores/settings/index.svelte');
 
 		settingsStore.updateConfig('showRawOutputSwitch', false);
 	}}
@@ -131,7 +144,7 @@
 		message: rawOutputMessage
 	}}
 	play={async () => {
-		const { settingsStore } = await import('$lib/stores/settings.svelte');
+		const { settingsStore } = await import('$lib/stores/settings/index.svelte');
 
 		settingsStore.updateConfig('showRawOutputSwitch', true);
 	}}
@@ -144,7 +157,7 @@
 	}}
 	asChild
 	play={async () => {
-		const { settingsStore } = await import('$lib/stores/settings.svelte');
+		const { settingsStore } = await import('$lib/stores/settings/index.svelte');
 
 		settingsStore.updateConfig('showRawOutputSwitch', false);
 		// Phase 1: Stream reasoning content in chunks
@@ -190,7 +203,7 @@
 	}}
 >
 	<div class="w-[56rem]">
-		<ChatMessage message={streamingMessage} />
+		<ChatMessage message={streamingMessage} {chatActions} />
 	</div>
 </Story>
 
@@ -200,11 +213,11 @@
 		message: processingMessage
 	}}
 	play={async () => {
-		const { settingsStore } = await import('$lib/stores/settings.svelte');
+		const { settingsStore } = await import('$lib/stores/settings/index.svelte');
 
 		settingsStore.updateConfig('showRawOutputSwitch', false);
 		// Import the chat store to simulate loading state
-		const { chatStore } = await import('$lib/stores/chat.svelte');
+		const { chatStore } = await import('$lib/stores/chat/index.svelte');
 
 		// Set loading state to true to trigger the processing UI
 		chatStore.isLoading = true;

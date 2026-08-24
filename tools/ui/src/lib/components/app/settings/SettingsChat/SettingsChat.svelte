@@ -15,15 +15,11 @@
 		NUMERIC_FIELDS,
 		POSITIVE_INTEGER_FIELDS,
 		SETTINGS_CHAT_SECTIONS,
-		SETTINGS_SECTION_TITLES
+		SETTINGS_SECTION_SLUGS
 	} from '$lib/constants';
-	import { setChatSettingsConfigContext } from '$lib/contexts';
 	import { ColorMode } from '$lib/enums/ui.enums';
 	import { RouterService } from '$lib/services/router.service';
-	import { modelsStore } from '$lib/stores/models.svelte';
-	import { isRouterMode } from '$lib/stores/server.svelte';
-	import { config, settingsStore } from '$lib/stores/settings.svelte';
-	import { settingsReferrer } from '$lib/stores/settings-referrer.svelte';
+	import { modelsStore, serverStore, settingsReferrer, settingsStore } from '$lib/stores';
 	import type { SettingsSection } from '$lib/types';
 	import { setMode } from 'mode-watcher';
 	import { fade } from 'svelte/transition';
@@ -43,20 +39,20 @@
 			SETTINGS_CHAT_SECTIONS[0]
 	);
 
-	let localConfig: SettingsConfigType = $state({ ...config() });
+	let localConfig: SettingsConfigType = $state({ ...settingsStore.config });
 
 	let mobileHeader: { updateCarousel: () => void } | undefined;
 
 	let fetchInitiated = false;
 
 	$effect(() => {
-		if (isRouterMode() && currentSection.fields && !fetchInitiated) {
+		if (serverStore.isRouterMode && currentSection.fields?.length && !fetchInitiated) {
 			fetchInitiated = true;
 
 			void modelsStore
 				.fetch()
 				.then(() => modelsStore.fetchRouterModels())
-				.then(() => modelsStore.fetchModalitiesForLoadedModels())
+				.then(() => modelsStore.props.fetchModalitiesForLoadedModels())
 				.then(() => modelsStore.ensureFirstModelSelected());
 		}
 	});
@@ -71,7 +67,7 @@
 	}
 
 	function handleReset() {
-		localConfig = { ...config() };
+		localConfig = { ...settingsStore.config };
 		setMode(localConfig.theme as ColorMode);
 		mobileHeader?.updateCarousel();
 	}
@@ -123,16 +119,8 @@
 	}
 
 	export function reset() {
-		localConfig = { ...config() };
+		localConfig = { ...settingsStore.config };
 	}
-
-	setChatSettingsConfigContext({
-		handleConfigChange,
-		handleThemeChange,
-		get localConfig() {
-			return localConfig;
-		}
-	});
 </script>
 
 <div class="mx-auto flex h-full w-full flex-col md:pl-8" in:fade={{ duration: 150 }}>
@@ -160,9 +148,9 @@
 						<h3 class="text-lg font-semibold">{currentSection.title}</h3>
 					</div>
 
-					{#if currentSection.title === SETTINGS_SECTION_TITLES.TOOLS}
+					{#if currentSection.slug === SETTINGS_SECTION_SLUGS.TOOLS}
 						<SettingsChatToolsTab />
-					{:else if currentSection.title === SETTINGS_SECTION_TITLES.IMPORT_EXPORT}
+					{:else if currentSection.slug === SETTINGS_SECTION_SLUGS.IMPORT_EXPORT}
 						<SettingsChatImportExportTab />
 					{:else if currentSection.fields}
 						<div class="space-y-6">
@@ -173,7 +161,7 @@
 								onThemeChange={handleThemeChange}
 							/>
 
-							{#if currentSection.title === SETTINGS_SECTION_TITLES.GENERAL}
+							{#if currentSection.slug === SETTINGS_SECTION_SLUGS.GENERAL}
 								<div class="flex justify-end">
 									<Button variant="outline" onclick={() => window.location.reload()}>
 										<RefreshCw class="h-3 w-3" />

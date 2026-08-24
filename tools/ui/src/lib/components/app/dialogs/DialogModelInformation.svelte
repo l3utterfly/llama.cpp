@@ -2,8 +2,7 @@
 	import { ActionIconCopyToClipboard, BadgesModality } from '$lib/components/app';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as Table from '$lib/components/ui/table';
-	import { modelOptions, modelsLoading, modelsStore } from '$lib/stores/models.svelte';
-	import { serverStore } from '$lib/stores/server.svelte';
+	import { modelsStore, serverStore } from '$lib/stores';
 	import type { ApiLlamaCppServerProps } from '$lib/types';
 	import { formatFileSize, formatNumber, formatParameters } from '$lib/utils';
 
@@ -26,8 +25,8 @@
 	let serverProps = $derived(isRouter && modelId ? routerModelProps : serverStore.props);
 
 	let modelName = $derived(isRouter && modelId ? modelId : modelsStore.singleModelName);
-	let models = $derived(modelOptions());
-	let isLoadingModels = $derived(modelsLoading());
+	let models = $derived(modelsStore.models);
+	let isLoadingModels = $derived(modelsStore.loading);
 
 	// in router mode, find the model option matching modelId
 	// in single mode, use the first model as before
@@ -43,7 +42,7 @@
 	let modalities = $derived.by(() => {
 		if (!firstModel?.id) return [];
 
-		return modelsStore.getModelModalitiesArray(firstModel.id);
+		return modelsStore.props.getModelModalitiesArray(firstModel.id);
 	});
 
 	// Ensure models are fetched when dialog opens
@@ -57,7 +56,7 @@
 	$effect(() => {
 		if (open && isRouter && modelId) {
 			isLoadingRouterProps = true;
-			modelsStore
+			modelsStore.props
 				.fetchModelProps(modelId)
 				.then((props) => {
 					routerModelProps = props;
