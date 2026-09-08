@@ -1,0 +1,4 @@
+root          ::= cn-char+ ([ \t\n] cn-char+)*
+cn-char       ::= cjk | punctuation
+cjk           ::= [一-鿿] | [𠀀-𯿽]
+punctuation   ::= [、-〾]

@@ -63,7 +63,12 @@ if (Vulkan_FOUND)
                              ggml-vulkan.cpp
                              ../../include/ggml-vulkan.h
                             )
-
+    target_include_directories(ggml-vulkan PRIVATE
+            $ENV{VULKAN_SDK}/Include
+    )
+    target_compile_definitions(ggml-vulkan PRIVATE
+            VK_USE_PLATFORM_ANDROID_KHR
+    )
     set(VULKAN_SHADER_GEN_CMAKE_ARGS "")
 
     # Test all shader extensions
