@@ -63,9 +63,11 @@ if (Vulkan_FOUND)
                              ggml-vulkan.cpp
                              ../../include/ggml-vulkan.h
                             )
-    target_include_directories(ggml-vulkan PRIVATE
-            $ENV{VULKAN_SDK}/Include
-    )
+    if (DEFINED ENV{VULKAN_SDK} AND NOT "$ENV{VULKAN_SDK}" STREQUAL "")
+        target_include_directories(ggml-vulkan PRIVATE
+            "$ENV{VULKAN_SDK}/Include"
+        )
+    endif()
     target_compile_definitions(ggml-vulkan PRIVATE
             VK_USE_PLATFORM_ANDROID_KHR
     )
