@@ -1,7 +1,6 @@
 find_package(OpenCL REQUIRED)
 
-#find_package(Python3 REQUIRED)
-set(Python3_EXECUTABLE "C:/Python314/python.exe"  CACHE STRING "Python executable" FORCE)
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 set(TARGET_NAME ggml-opencl)
 
@@ -50,9 +49,10 @@ function(ggml_opencl_add_kernel KNAME)
         # Python must be accessible from command line
         add_custom_command(
             OUTPUT ${KERN_HDR}
-            COMMAND ${Python3_EXECUTABLE} ${EMBED_KERNEL_SCRIPT} ${KERN_SRC} ${KERN_HDR}
+            COMMAND "${Python3_EXECUTABLE}" "${EMBED_KERNEL_SCRIPT}" "${KERN_SRC}" "${KERN_HDR}"
             DEPENDS ${KERN_SRC} ${EMBED_KERNEL_SCRIPT}
             COMMENT "Generate ${KERN_HDR}"
+            VERBATIM
         )
 
         target_sources(${TARGET_NAME} PRIVATE ${KERN_HDR})
