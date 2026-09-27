@@ -74,6 +74,16 @@ if (Vulkan_FOUND)
                           CXX_VISIBILITY_PRESET hidden
                           VISIBILITY_INLINES_HIDDEN ON)
 
+    if (DEFINED ENV{VULKAN_SDK} AND NOT "$ENV{VULKAN_SDK}" STREQUAL "")
+        target_include_directories(ggml-vulkan PRIVATE
+            "$ENV{VULKAN_SDK}/Include"
+        )
+    endif()
+    
+    target_compile_definitions(ggml-vulkan PRIVATE
+            VK_USE_PLATFORM_ANDROID_KHR
+    )
+
     set(VULKAN_SHADER_GEN_CMAKE_ARGS "")
 
     # Test all shader extensions
