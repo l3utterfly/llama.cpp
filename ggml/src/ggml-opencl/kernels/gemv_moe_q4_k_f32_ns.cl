@@ -7,18 +7,16 @@
 #define N_SIMDGROUP 4
 #define SIMDGROUP_WIDTH 64
 
-inline void get_scale_min_k4(
+// Avoid uchar out parameters, which produce wrong values on Adreno E031.47.
+inline uint2 get_scale_min_k4(
     int j,
-    global const uchar * q,
-    uchar * d,
-    uchar * m
+    global const uchar * q
 ) {
     if (j < 4) {
-        *d = q[j]   & 63;
-        *m = q[j+4] & 63;
+        return (uint2)(q[j] & 63, q[j+4] & 63);
     } else {
-        *d = (q[j+4] & 0x0F) | ((q[j-4] & 0xC0) >> 2);
-        *m = ((q[j+4] >> 4) & 0x0F) | ((q[j]   & 0xC0) >> 2);
+        return (uint2)((q[j+4] & 0x0F) | ((q[j-4] & 0xC0) >> 2),
+            ((q[j+4] >> 4) & 0x0F) | ((q[j] & 0xC0) >> 2));
     }
 }
 
@@ -83,11 +81,10 @@ __kernel void kernel_gemv_moe_q4_k_f32_ns(
 
         // Load sub-block scale and min
         global const uchar * sc = src0_s + (expert_id * ne01 + i01) * scales_per_row + sb * K_SCALE_SIZE;
-        uchar sv, mn;
-        get_scale_min_k4(j, sc, &sv, &mn);
+        const uint2 sm = get_scale_min_k4(j, sc);
 
-        float scale = (float)d_val * (float)sv;
-        float minv  = (float)dm_val * (float)mn;
+        float scale = (float)d_val * (float)sm.x;
+        float minv  = (float)dm_val * (float)sm.y;
 
         // Load 4 uints of quants (32 nibbles = 32 elements)
         uint q_base = expert_q_offset + ib * ne01 * 4 + i01;
@@ -198,11 +195,10 @@ __kernel void kernel_gemv_moe_q4_k_f32_ns_wimg(
         half dm_val  = src0_dm[expert_d_offset + sb * ne01 + i01];
 
         global const uchar * sc = src0_s + (expert_id * ne01 + i01) * scales_per_row + sb * K_SCALE_SIZE;
-        uchar sv, mn;
-        get_scale_min_k4(j, sc, &sv, &mn);
+        const uint2 sm = get_scale_min_k4(j, sc);
 
-        float scale = (float)d_val * (float)sv;
-        float minv  = (float)dm_val * (float)mn;
+        float scale = (float)d_val * (float)sm.x;
+        float minv  = (float)dm_val * (float)sm.y;
 
         uint q_base = expert_q_offset + ib * ne01 * 4 + i01;
 
