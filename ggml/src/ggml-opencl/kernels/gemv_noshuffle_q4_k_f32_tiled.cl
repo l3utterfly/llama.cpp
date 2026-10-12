@@ -28,13 +28,12 @@
 
 // Decode one q4_K sub-block scale + min from the packed 12-byte block.
 // Identical to the o4 kernel's helper (masks hard-coded: d6=0x3F, d4=0x0F, hi2=0xC0).
-inline void q4k_scale_min(int j, __global const uchar * q, uchar * d, uchar * m) {
+inline uint2 q4k_scale_min(int j, __global const uchar * q) {
     if (j < 4) {
-        *d = q[j]   & 0x3F;
-        *m = q[j+4] & 0x3F;
+        return (uint2)(q[j] & 0x3F, q[j+4] & 0x3F);
     } else {
-        *d = (q[j+4] & 0x0F) | ((q[j-4] & 0xC0) >> 2);
-        *m = ((q[j+4] >> 4) & 0x0F) | ((q[j] & 0xC0) >> 2);
+        return (uint2)((q[j+4] & 0x0F) | ((q[j-4] & 0xC0) >> 2),
+            ((q[j+4] >> 4) & 0x0F) | ((q[j] & 0xC0) >> 2));
     }
 }
 
@@ -72,10 +71,9 @@ kernel void kernel_gemv_noshuffle_q4_k_f32_tiled(
         float scale[8], minv[8];
         #pragma unroll
         for (int is = 0; is < 8; ++is) {
-            uchar sd, sm;
-            q4k_scale_min(is, sc, &sd, &sm);
-            scale[is] = dval  * (float)sd;
-            minv[is]  = dmval * (float)sm;
+            uint2 codes = q4k_scale_min(is, sc);
+            scale[is] = dval  * (float)codes.x;
+            minv[is]  = dmval * (float)codes.y;
         }
 
         // 32 uints of 4-bit codes (8 codes/uint), e-order
