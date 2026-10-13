@@ -324,9 +324,12 @@ static std::pair<int, llama_model *> llama_model_load(struct gguf_context * meta
         ml.print_info();
         std::unique_ptr<llama_model> model_ptr(llama_model_create(ml, params));
 
-        bool ok = llama_prepare_model_devices(params, model_ptr.get());
-        if (!ok) {
-            return {-1, nullptr};
+        // Metadata reads must not register backends before the caller selects them.
+        if (!params.vocab_only) {
+            bool ok = llama_prepare_model_devices(params, model_ptr.get());
+            if (!ok) {
+                return {-1, nullptr};
+            }
         }
 
         auto * model = dynamic_cast<llama_model_base *>(model_ptr.get());
