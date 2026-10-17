@@ -7498,6 +7498,17 @@ static bool ggml_hexagon_supported_cpy(const struct ggml_hexagon_session * sess,
     const struct ggml_tensor * src0 = op->src[0];
     const struct ggml_tensor * dst  = op;
 
+    // F32 -> Q8_0 re-quantizes the KV cache during K-shift; the destination is a pre-allocated
+    // view of an HTP-resident cache, so the scheduler cannot fall back to the CPU for it.
+    if (dst->type == GGML_TYPE_Q8_0) {
+        return src0->type == GGML_TYPE_F32 && dst->ne[0] % QK8_0 == 0 &&
+               !ggml_is_transposed(src0) && !ggml_is_transposed(dst) &&
+               src0->nb[0] == sizeof(float) && dst->nb[0] == ggml_type_size(GGML_TYPE_Q8_0) &&
+               src0->nb[1] >= ggml_row_size(src0->type, src0->ne[0]) &&
+               dst->nb[1] >= ggml_row_size(dst->type, dst->ne[0]) &&
+               ggml_are_same_shape(src0, dst);
+    }
+
     if (src0->type != GGML_TYPE_F32 && src0->type != GGML_TYPE_F16 &&
         src0->type != GGML_TYPE_I32) return false;
     if (dst->type != GGML_TYPE_F32 && dst->type != GGML_TYPE_F16 &&

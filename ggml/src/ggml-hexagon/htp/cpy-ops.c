@@ -15,6 +15,7 @@
 #include "htp-ops.h"
 #include "htp-ops.h"
 #include "hvx-utils.h"
+#include "hvx-quant.h"
 #include "htp-tensor.h"
 #include "htp-fence.h"
 
@@ -381,6 +382,54 @@ static void cpy_thread_f32_i32_sameshape(unsigned int nth, unsigned int ith, voi
     }
 }
 
+// F32 -> Q8_0, used by the KV cache K-shift to re-quantize rotated K rows in place.
+// Rows are staged through an aligned buffer because the quantizer's 4-block path uses aligned loads.
+// Uses the same quantizer as SET_ROWS so shifted rows match freshly stored ones bit for bit.
+#define CPY_Q8_0_STAGE 256 // floats per quantizer call: two 4-block (128-float) iterations
+
+static void cpy_thread_q8_0_f32_sameshape(unsigned int nth, unsigned int ith, void * data) {
+    struct htp_copy_context * ct = (struct htp_copy_context *) data;
+    struct htp_ops_context * octx = ct->octx;
+    cpy_preamble;
+
+    const uint32_t dr  = ct->src0_nrows_per_thread;
+    const uint32_t ir0 = ct->row_start + dr * ith;
+    const uint32_t ir1 = MIN(ir0 + dr, ct->row_start + ct->nrows);
+    if (ir0 >= ir1) return;
+
+    float stage[CPY_Q8_0_STAGE] __attribute__((aligned(128)));
+
+    const uint32_t ne02_ne01 = ne02 * ne01;
+    uint32_t i03 = fastdiv(ir0, &ct->div_ne02_ne01);
+    uint32_t rem = ir0 - i03 * ne02_ne01;
+    uint32_t i02 = fastdiv(rem, &ct->div_ne01);
+    uint32_t i01 = rem - i02 * ne01;
+
+    uint8_t* dst_ptr  = (uint8_t*) dst->data  + i01*nb1  + i02*nb2  + i03*nb3;
+    uint8_t* src0_ptr = (uint8_t*) src0->data + i01*nb01 + i02*nb02 + i03*nb03;
+
+    for (uint32_t r = ir0; r < ir1; r++) {
+        hex_l2fetch(src0_ptr, ne00 * sizeof(float), nb01, 2);
+        // ne00 is a multiple of QK8_0 (32 floats = one HVX vector), so no partial vector is copied.
+        for (uint32_t i = 0; i < ne00; i += CPY_Q8_0_STAGE) {
+            const uint32_t n = MIN(CPY_Q8_0_STAGE, ne00 - i);
+            hvx_copy_f32_au((uint8_t *) stage, src0_ptr + i * sizeof(float), n);
+            hvx_quantize_row_q8_0_f32(dst_ptr + (i / QK8_0) * sizeof(block_q8_0), stage, n);
+        }
+        dst_ptr  += nb1;
+        src0_ptr += nb01;
+        if (++i01 == ne01) {
+            i01 = 0;
+            if (++i02 == ne02) {
+                i02 = 0;
+                i03++;
+            }
+            dst_ptr  = (uint8_t*) dst->data  + i02*nb2  + i03*nb3;
+            src0_ptr = (uint8_t*) src0->data + i02*nb02 + i03*nb03;
+        }
+    }
+}
+
 static inline void cpy_dma_push_2d_chunked(
     dma_queue * dma_q,
     dma_addr_t  dst,
@@ -442,6 +491,22 @@ static inline void cpy_dma_sametype_sameshape(
     dma_queue_flush(dma_q);
 }
 
+// Like htp_tensor_is_contiguous, but a row of a quantized type holds ne[0] / block_size blocks.
+static inline bool cpy_tensor_is_contiguous(const struct htp_tensor * t, uint32_t type_size, uint32_t block_size) {
+    uint32_t next_nb = type_size;
+    if (t->ne[0] != 1 && t->nb[0] != next_nb) {
+        return false;
+    }
+    next_nb *= t->ne[0] / block_size;
+    for (int i = 1; i < HTP_OP_MAX_DIMS; i++) {
+        if (t->ne[i] != 1 && t->nb[i] != next_nb) {
+            return false;
+        }
+        next_nb *= t->ne[i];
+    }
+    return true;
+}
+
 static int exec_cpy(struct htp_ops_context * octx, bool * use_dma) {
     cpy_preamble;
     *use_dma = false;
@@ -497,20 +562,27 @@ static int exec_cpy(struct htp_ops_context * octx, bool * use_dma) {
     case HTP_TYPE_F32: ct.dst_type_size = 4; ct.dst_block_size = 1; ct.dst_blocks_per_row = ne0 / 1; break;
     case HTP_TYPE_F16: ct.dst_type_size = 2; ct.dst_block_size = 1; ct.dst_blocks_per_row = ne0 / 1; break;
     case HTP_TYPE_I32: ct.dst_type_size = 4; ct.dst_block_size = 1; ct.dst_blocks_per_row = ne0 / 1; break;
+    case HTP_TYPE_Q8_0:
+        if (src0->type != HTP_TYPE_F32 || ne0 % QK8_0 != 0) {
+            return HTP_STATUS_NO_SUPPORT;
+        }
+        ct.dst_type_size = sizeof(block_q8_0); ct.dst_block_size = QK8_0; ct.dst_blocks_per_row = ne0 / QK8_0; break;
     default:
         return HTP_STATUS_NO_SUPPORT;
     }
 
+    const uint32_t dst_row_size = ct.dst_blocks_per_row * ct.dst_type_size;
+
     const bool sametype   = (src0->type == dst->type);
     const bool transposed = (nb00 > nb01) || (nb0 > nb1) ||
                             (nb00 != ct.src0_type_size) || (nb0 != ct.dst_type_size) ||
-                            (nb01 < ne00 * ct.src0_type_size) || (nb1 < ne0 * ct.dst_type_size);
+                            (nb01 < ne00 * ct.src0_type_size) || (nb1 < dst_row_size);
     const bool sameshape  = !transposed && (ne00 == ne0 && ne01 == ne1 && ne02 == ne2 && ne03 == ne3);
 
     const uint32_t n_threads = octx->n_threads;
 
     const bool src_is_contiguous = htp_tensor_is_contiguous(src0, ct.src0_type_size);
-    const bool dst_is_contiguous = htp_tensor_is_contiguous(dst, ct.dst_type_size);
+    const bool dst_is_contiguous = cpy_tensor_is_contiguous(dst, ct.dst_type_size, ct.dst_block_size);
 
     if (htp_tensor_is_extended(src0) || htp_tensor_is_extended(dst)) {
         if (!sametype) {
@@ -523,7 +595,7 @@ static int exec_cpy(struct htp_ops_context * octx, bool * use_dma) {
 
     if (sameshape) {
         const uint32_t total_rows = ne01 * ne02 * ne03;
-        const uint32_t row_size   = ne00 * ct.dst_type_size;
+        const uint32_t row_size   = dst_row_size;
 
         ct.div_ne01      = init_fastdiv_values(ne01);
         ct.div_ne02_ne01 = init_fastdiv_values(ne02 * ne01);
@@ -570,6 +642,8 @@ static int exec_cpy(struct htp_ops_context * octx, bool * use_dma) {
                 copy_fun = cpy_thread_i32_f32_sameshape;
             } else if (dst->type == HTP_TYPE_F32 && src0->type == HTP_TYPE_I32) {
                 copy_fun = cpy_thread_f32_i32_sameshape;
+            } else if (dst->type == HTP_TYPE_Q8_0 && src0->type == HTP_TYPE_F32) {
+                copy_fun = cpy_thread_q8_0_f32_sameshape;
             } else {
                 return HTP_STATUS_NO_SUPPORT;
             }
