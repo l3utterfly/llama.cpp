@@ -3,6 +3,7 @@
 
 #include "ggml-backend-impl.h"
 #include "ggml-backend.h"
+#include "ggml-cpu.h"
 #include "traits.h"
 #include "ggml-cpu-impl.h"
 #include "ggml-impl.h"
@@ -54,6 +55,16 @@
 #ifdef GGML_USE_CPU_RISCV64_SPACEMIT
 #    include "spacemit/ime.h"
 #endif
+
+// Process-global expert-ready hook, invoked from mul_mat_id before each expert is read.
+// Lets an external expert-streaming engine block until an expert's weights are resident.
+static ggml_cpu_expert_ready_hook_t g_expert_ready_hook      = NULL;
+static void *                       g_expert_ready_hook_data = NULL;
+
+void ggml_cpu_set_expert_ready_hook(ggml_cpu_expert_ready_hook_t hook, void * user_data) {
+    g_expert_ready_hook      = hook;
+    g_expert_ready_hook_data = user_data;
+}
 
 // Note: once we move threading into a separate C++ file
 // will use std::hardware_destructive_interference_size instead of hardcoding it here
@@ -1719,6 +1730,13 @@ static void ggml_compute_forward_mul_mat_id(
 
         if (cne1 == 0) {
             continue;
+        }
+
+        // Signal an external expert-streaming engine that this expert is about to be
+        // consumed; the hook may block until src0's expert weights are resident.
+        // Before the tiled path too: it reads the same src0 expert slice.
+        if (g_expert_ready_hook) {
+            g_expert_ready_hook(src0, cur_a, g_expert_ready_hook_data);
         }
 
         // tiled takes over if profitable for this expert (see tiled.h)

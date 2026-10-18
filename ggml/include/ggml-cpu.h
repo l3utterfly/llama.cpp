@@ -140,6 +140,17 @@ extern "C" {
 
     GGML_BACKEND_API ggml_backend_reg_t ggml_backend_cpu_reg(void);
 
+    // Called by the CPU backend from mul_mat_id for each expert weight matrix that is
+    // about to be consumed (src0 = the expert weight tensor, expert = index along dim 2).
+    // Invoked by every compute thread before any row of that expert is read; the hook
+    // may block until the expert's data is resident. Intended for out-of-band expert
+    // weight residency (streaming/prefetch) integrations.
+    typedef void (*ggml_cpu_expert_ready_hook_t)(const struct ggml_tensor * src0, int expert, void * user_data);
+
+    // Process-global registration; pass NULL to unregister. Not thread-safe with
+    // respect to concurrent graph computation - register before compute starts.
+    GGML_BACKEND_API void ggml_cpu_set_expert_ready_hook(ggml_cpu_expert_ready_hook_t hook, void * user_data);
+
     GGML_BACKEND_API void ggml_cpu_fp32_to_fp32(const float *,       float *, int64_t);
     GGML_BACKEND_API void ggml_cpu_fp32_to_i32 (const float *,     int32_t *, int64_t);
     GGML_BACKEND_API void ggml_cpu_fp32_to_fp16(const float *, ggml_fp16_t *, int64_t);
