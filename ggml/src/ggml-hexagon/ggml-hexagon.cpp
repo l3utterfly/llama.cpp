@@ -166,7 +166,7 @@ static int opt_opqueue  = 8;   // max number of pending batches
 static int opt_optrace  = 0;    // trace buffer size per thread (0 means default)
 static int opt_oppoll   = 0;    // polling for batch completions
 static int opt_opfusion  = 1;    // enable/disable op fusion
-static int opt_rt_repack = 1;    // runtime repacking: 0 = disabled, 1 = quantized only (default), 2 = always
+static int opt_rt_repack = 1;    // runtime repacking: 0 = disabled, 1 = quantized and fp weights (default), 2 = always
 
 enum ggml_hexagon_fusion_flags {
     GGML_HEXAGON_FUSE_ALLREDUCE_ADD = (1 << 1), // 2
@@ -498,7 +498,19 @@ static inline bool ggml_hexagon_can_rt_repack(const struct ggml_tensor * t) {
     if (t->buffer && ggml_backend_buft_is_host(t->buffer->buft)) {
         return false;
     }
-    return opt_rt_repack > 1 || ggml_is_quantized(t->type);
+    if (opt_rt_repack > 1 || ggml_is_quantized(t->type)) {
+        return true;
+    }
+    // fp weights are tiled by their first MUL_MAT/GET_ROWS, see ggml_hexagon_tile_at_load()
+    const auto * extra = (const ggml_hexagon_tensor_extra *) t->extra;
+    return extra && (extra->flags & GGML_HEXAGON_TENSOR_WEIGHT);
+}
+
+// An fp weight that only matmuls read could be tiled at load, but fp weights are also read by
+// other ops and through views (a vision encoder reshapes and resizes its position embeddings),
+// which address the flat layout. Leave them flat until a MUL_MAT or GET_ROWS repacks them.
+static inline bool ggml_hexagon_tile_at_load(const struct ggml_tensor * t) {
+    return ggml_is_quantized(t->type) && htp_is_tiled_weight_tensor(t);
 }
 
 static inline bool ggml_hexagon_tensor_is_tiled(const struct ggml_tensor * t) {
@@ -907,7 +919,7 @@ static void ggml_backend_hexagon_buffer_set_tensor(ggml_backend_buffer_t buffer,
 
     if (ggml_backend_buffer_get_usage(buffer) == GGML_BACKEND_BUFFER_USAGE_WEIGHTS) {
         extra->flags |= GGML_HEXAGON_TENSOR_WEIGHT;
-        if (htp_is_tiled_weight_tensor(tensor)) {
+        if (ggml_hexagon_tile_at_load(tensor)) {
             extra->flags |= GGML_HEXAGON_TENSOR_TILED;
         }
     }
@@ -984,7 +996,7 @@ static void ggml_backend_hexagon_buffer_set_tensor_2d(ggml_backend_buffer_t buff
 
     if (ggml_backend_buffer_get_usage(buffer) == GGML_BACKEND_BUFFER_USAGE_WEIGHTS) {
         extra->flags |= GGML_HEXAGON_TENSOR_WEIGHT;
-        if (htp_is_tiled_weight_tensor(tensor)) {
+        if (ggml_hexagon_tile_at_load(tensor)) {
             extra->flags |= GGML_HEXAGON_TENSOR_TILED;
         }
     }
