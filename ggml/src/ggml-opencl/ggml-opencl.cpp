@@ -1544,6 +1544,13 @@ static bool ggml_cl_coopk_dp4a_enabled(const ggml_backend_opencl_context * backe
     return true;
 }
 
+// The Q4_K cooperative-K kernels compute wrong results on Adreno 830: Gemma 4 E2B decodes a
+// repeated empty token after its 2-4 token prefill batches. Opt in with GGML_OPENCL_COOPK_Q4_K=1.
+static bool ggml_cl_coopk_q4_k_enabled() {
+    static const char * const env = getenv("GGML_OPENCL_COOPK_Q4_K");
+    return env && *env && atoi(env) != 0;
+}
+
 static bool ggml_cl_coopk_dp4a_narrow_on(const ggml_backend_opencl_context * backend_ctx,
                                          const ggml_tensor * op, int rows) {
     if (!ggml_cl_coopk_dp4a_enabled(backend_ctx)) {
@@ -22025,7 +22032,7 @@ static void ggml_cl_mul_mat_q4_k_f32_adreno_ila(ggml_backend_t backend, const gg
     // This switch disables only this bin-layout path; weight conversion is unchanged.
     static const char * env_coopk_bin = getenv("GGML_OPENCL_COOPK_Q4_K_BIN");
     const bool use_coopk_bin = !env_coopk_bin || !*env_coopk_bin || atoi(env_coopk_bin) != 0;
-    if (use_coopk_bin && ne1 >= 2 && ne1 <= 4 &&
+    if (use_coopk_bin && ne1 >= 2 && ne1 <= 4 && ggml_cl_coopk_q4_k_enabled() &&
         ggml_cl_coopk_dp4a_narrow_on(backend_ctx, dst, backend_ctx->rows_coopk_dp4a_q4_k) &&
         backend_ctx->kernel_gemm_coopk_q4_k_q8_1_dp4a_bin_c4 != nullptr &&
         ((ne1 <= 2) ? backend_ctx->kernel_gemm_coopk_q4_k_q8_1_dp4a_bin_c2
@@ -22550,7 +22557,8 @@ static void ggml_cl_mul_mat_q4_k_f32_adreno(ggml_backend_t backend, const ggml_t
 
         // CoopK handles without _bin use the same untiled weight layout as gemm_noshuffle_q4_k_f32.
         // Activations use K-major Q8_1 SoA (K contiguous).
-        if (ggml_cl_coopk_dp4a_narrow_on(backend_ctx, dst, backend_ctx->rows_coopk_dp4a_q4_k)
+        if (ggml_cl_coopk_q4_k_enabled()
+            && ggml_cl_coopk_dp4a_narrow_on(backend_ctx, dst, backend_ctx->rows_coopk_dp4a_q4_k)
             && backend_ctx->kernel_gemm_coopk_q4_k_q8_1_dp4a_c4 != nullptr
             && ((N <= 2) ? backend_ctx->kernel_gemm_coopk_q4_k_q8_1_dp4a_c2
                          : backend_ctx->kernel_gemm_coopk_q4_k_q8_1_dp4a_c4) != nullptr) {
