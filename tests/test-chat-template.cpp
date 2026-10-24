@@ -732,6 +732,30 @@ int main_automated_tests(void) {
         }
     }
 
+    // a built-in template name (e.g. the "mistral-v7-tekken" fallback for GGUFs without a template)
+    // must not be rendered by Jinja as literal text: Jinja falls back to chatml, legacy keeps the name
+    {
+        std::cout << "\n\n=== built-in template name ===\n\n";
+        auto msgs = messages;
+        const auto chatml_output = format_using_common("chatml", "", "", msgs);
+        const auto jinja_output  = format_using_common("mistral-v7-tekken", "", "", msgs);
+        assert(chatml_output.find("<|im_start|>user") != std::string::npos);
+        assert(jinja_output == chatml_output);
+
+        auto tmpls = common_chat_templates_init(/* model= */ nullptr, "mistral-v7-tekken", "", "");
+        common_chat_templates_inputs inputs;
+        inputs.use_jinja = false;
+        inputs.messages = msgs;
+        inputs.add_generation_prompt = true;
+        const auto legacy_output = common_chat_templates_apply(tmpls.get(), inputs).prompt.str();
+
+        formatted_chat.resize(2048);
+        res = llama_chat_apply_template("mistral-v7-tekken", conversation.data(), conversation.size(), true,
+                                        formatted_chat.data(), formatted_chat.size());
+        assert(res > 0);
+        assert(legacy_output == std::string(formatted_chat.data(), res));
+    }
+
     std::cout << "\nOK: All tests passed successfully.\n";
 
     return 0;

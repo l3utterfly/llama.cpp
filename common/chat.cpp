@@ -309,6 +309,7 @@ struct common_chat_templates {
     bool has_explicit_template;  // Model had builtin template or template overridden was specified.
     std::unique_ptr<common_chat_template> template_default;  // always set (defaults to chatml)
     std::unique_ptr<common_chat_template> template_tool_use;
+    std::string legacy_template_name;  // built-in template name for the legacy route; Jinja uses chatml instead
 };
 
 common_chat_tool_choice common_chat_tool_choice_parse_oaicompat(const std::string & tool_choice) {
@@ -749,7 +750,18 @@ common_chat_templates_ptr common_chat_templates_init(const struct llama_model * 
     } else {
         default_template_src = chat_template_override;
     }
-    if (default_template_src.empty() || default_template_src == "chatml") {
+    // a built-in template name (e.g. the "mistral-v7-tekken" fallback) is not Jinja and would render as literal text
+    std::string legacy_template_name;
+    if (!default_template_src.empty() && default_template_src.find("{{") == std::string::npos &&
+        default_template_src.find("{%") == std::string::npos) {
+        if (default_template_src != "chatml") {
+            LOG_WRN("%s: chat template '%s' is a built-in name, Jinja rendering will use ChatML\n", __func__,
+                    default_template_src.c_str());
+        }
+        legacy_template_name = std::move(default_template_src);
+        default_template_src.clear();
+    }
+    if (default_template_src.empty()) {
         if (!template_tool_use_src.empty()) {
             default_template_src = template_tool_use_src;
         } else {
@@ -808,6 +820,7 @@ common_chat_templates_ptr common_chat_templates_init(const struct llama_model * 
     tmpls->has_explicit_template = has_explicit_template;
     tmpls->add_bos               = add_bos;
     tmpls->add_eos               = add_eos;
+    tmpls->legacy_template_name  = legacy_template_name;
     try {
         tmpls->template_default = std::make_unique<common_chat_template>(default_template_src, token_bos, token_eos);
     } catch (const std::exception & e) {
@@ -1473,7 +1486,8 @@ static common_chat_params common_chat_templates_apply_legacy(const struct common
     std::vector<char> buf(alloc_size);
 
     // run the first time to get the total output length
-    const auto & src = tmpls->template_default->source();
+    const auto & src = tmpls->legacy_template_name.empty() ? tmpls->template_default->source() :
+                                                             tmpls->legacy_template_name;
     int32_t      res = llama_chat_apply_template(src.c_str(), chat.data(), chat.size(), inputs.add_generation_prompt,
                                                  buf.data(), buf.size());
 
