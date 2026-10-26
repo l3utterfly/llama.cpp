@@ -402,6 +402,14 @@ struct server_slot {
 
     server_slot_stats stats;
 
+    server_string_ban<completion_token_output> string_ban;
+    struct string_ban_checkpoint {
+        common_prompt_checkpoint memory{};
+        std::vector<float> logits;
+    };
+    std::deque<string_ban_checkpoint> string_ban_checkpoints;
+    std::unique_ptr<string_ban_checkpoint> string_ban_retry;
+
     // accepted tokens per draft position
     // not in server_slot_stats to avoid copying to every task result
     std::vector<uint64_t> n_accepted_per_pos;
@@ -417,6 +425,10 @@ struct server_slot {
         SLT_DBG(*this, "%s", "\n");
 
         spec_is_replay = false;
+
+        string_ban = {};
+        string_ban_checkpoints.clear();
+        string_ban_retry.reset();
 
         last_nl_pos    = 0;
         generated      = {};
@@ -545,7 +557,7 @@ struct server_slot {
     }
 
     bool can_speculate() const {
-        return !!spec;
+        return !!spec && string_ban.n_buffer == 0;
     }
 
     // at temp 0 both p and q are point masses, so rejection is the same as sample-and-match
@@ -651,7 +663,8 @@ struct server_slot {
 
             // do not keep context of the child slots - the parent's context is enough
             // nor of the stateless slots - no task ever reuses it
-            if (task->is_child() || task->is_stateless() || audio_stream) {
+            // Draft state is not advanced while phrase suppression disables speculation.
+            if (task->is_child() || task->is_stateless() || audio_stream || (string_ban.n_buffer && spec)) {
                 prompt_clear();
             }
 
@@ -2008,6 +2021,12 @@ private:
             }
         }
 
+        slot.string_ban.init(task.params.string_ban);
+        if (slot.string_ban.n_buffer && task.type != SERVER_TASK_TYPE_COMPLETION && task.type != SERVER_TASK_TYPE_INFILL) {
+            send_error(task, "banned_strings requires text generation", ERROR_TYPE_INVALID_REQUEST);
+            return false;
+        }
+
         // initialize samplers
         if (task.need_sampling()) {
             try {
@@ -2021,6 +2040,7 @@ private:
             const bool need_pre_sample_logits = task.params.sampling.n_probs > 0 && !task.params.post_sampling_probs;
 
             bool use_backend_sampling = task.params.sampling.backend_sampling;
+            use_backend_sampling &= slot.string_ban.n_buffer == 0;
 
             // TODO: getting pre sampling logits is not yet supported with backend sampling
             use_backend_sampling &= !need_pre_sample_logits;
@@ -2136,7 +2156,7 @@ private:
         }
 
         // if context shifting is disabled, make sure that we don't run out of context
-        if (!params_base.ctx_shift && slot.prompt.n_tokens() + 1 >= slot.n_ctx) {
+        if ((!params_base.ctx_shift || slot.string_ban.n_buffer) && slot.prompt.n_tokens() + 1 >= slot.n_ctx) {
             slot.truncated      = true;
             slot.stop           = STOP_TYPE_LIMIT;
             slot.has_next_token = false;
@@ -2214,7 +2234,7 @@ private:
         return slot.has_next_token; // continue
     }
 
-    void populate_token_probs(const server_slot & slot, completion_token_output & result, bool post_sampling, bool special, int idx) const {
+    void populate_token_probs(const server_slot & slot, completion_token_output & result, bool post_sampling, bool special, int idx, const float * logits_override = nullptr) const {
         const size_t n_probs_request = slot.task->params.sampling.n_probs;
 
         if (post_sampling) {
@@ -2246,7 +2266,7 @@ private:
                 });
             }
         } else {
-            std::vector<llama_token_data> cur = get_token_probabilities(ctx_tgt, idx, n_probs_request);
+            std::vector<llama_token_data> cur = get_token_probabilities(ctx_tgt, idx, n_probs_request, logits_override);
             const size_t max_probs = cur.size();
             const size_t n_probs = std::min(max_probs, n_probs_request);
 
@@ -3428,6 +3448,111 @@ private:
         return false;
     }
 
+    // ik_llama.cpp's buffered string-ban generation path. Its private rewind API
+    // is replaced by common_prompt_checkpoint plus the logits at that boundary:
+    // restoring these is equivalent to replaying the preceding token to obtain
+    // the same logits, including when the match starts in the first output token.
+    // Sampler/RNG history is deliberately not reset, matching upstream.
+    void sample_string_ban(server_slot & slot, int idx) {
+        auto & ban = slot.string_ban;
+        server_slot::string_ban_checkpoint checkpoint;
+        if (slot.string_ban_retry) {
+            checkpoint = std::move(*slot.string_ban_retry);
+            slot.string_ban_retry.reset();
+        } else {
+            const auto * logits = llama_get_logits_ith(slot.ctx_tgt, idx);
+            checkpoint.logits.assign(logits, logits + llama_vocab_n_tokens(vocab));
+            if (llama_model_is_recurrent(model_tgt) || llama_model_is_hybrid(model_tgt) || n_swa > 0) {
+                checkpoint.memory.update_tgt(slot.ctx_tgt, slot.id, LLAMA_STATE_SEQ_FLAGS_PARTIAL_ONLY);
+            }
+            checkpoint.memory.update_dft(slot.ctx_dft, slot.id, LLAMA_STATE_SEQ_FLAGS_PARTIAL_ONLY);
+        }
+
+        auto logits = checkpoint.logits;
+        const int32_t n_past = slot.prompt.n_tokens();
+        const auto bans = ban.positional_bans.find(n_past);
+        if (bans != ban.positional_bans.end()) {
+            for (llama_token token : bans->second) logits[token] += ban.params.banned_bias;
+        }
+
+        llama_token id;
+        {
+            scoped_timer timer(t_sampl, n_sampl);
+            id = common_sampler_sample(slot.smpl.get(), slot.ctx_tgt, idx, false, logits.data());
+        }
+        common_sampler_accept(slot.smpl.get(), id, true);
+        slot.stats.n_gen++;
+        if (slot.stats.n_gen == 1) {
+            slot.stats.update_prompt_last();
+            slot.t_print_last = ggml_time_us();
+            slot.n_gen_last = 0;
+        }
+        slot.stats.update_gen_last();
+
+        completion_token_output result;
+        result.tok = id;
+        const bool special = params_base.special || slot.task->params.sampling.preserved_tokens.count(id);
+        result.text_to_send = common_token_to_piece(slot.ctx_tgt, id, special);
+        result.prob = 1.0f;
+        if (slot.task->params.sampling.n_probs > 0) {
+            populate_token_probs(slot, result, slot.task->params.post_sampling_probs, params_base.special, idx, logits.data());
+        }
+        slot.sampled = id;
+        ban.token_buffer.push_back(std::move(result));
+        slot.string_ban_checkpoints.push_back(std::move(checkpoint));
+
+        const int32_t ban_pos = ban.check_ban_phrase(n_past);
+        if (ban_pos >= 0 && ban.allow_rewind()) {
+            const int32_t n_rewind_total = n_past + 1 - ban_pos;
+            const size_t keep = ban.rewind(n_past, ban_pos);
+            auto & saved = slot.string_ban_checkpoints.at(keep);
+            if ((!saved.memory.data_tgt.empty() &&
+                 !saved.memory.load_tgt(slot.ctx_tgt, slot.id, LLAMA_STATE_SEQ_FLAGS_PARTIAL_ONLY)) ||
+                !saved.memory.load_dft(slot.ctx_dft, slot.id, LLAMA_STATE_SEQ_FLAGS_PARTIAL_ONLY)) {
+                throw std::runtime_error("failed to restore string-ban checkpoint");
+            }
+            slot.prompt.tokens.keep_first(ban_pos);
+            slot.mem.seq_rm(slot.id, slot.prompt.tokens.pos_next(), -1);
+            auto & checkpoints = slot.prompt.checkpoints;
+            checkpoints.erase(std::remove_if(checkpoints.begin(), checkpoints.end(), [&](const auto & ckpt) {
+                return ckpt.n_tokens > ban_pos;
+            }), checkpoints.end());
+            slot.string_ban_retry = std::make_unique<server_slot::string_ban_checkpoint>(std::move(saved));
+            slot.string_ban_checkpoints.resize(keep);
+            if (ban.params.saturate_predict) slot.stats.n_gen -= n_rewind_total;
+            SLT_DBG(slot, "string ban at %d, rewound %d tokens (attempt %d)\n", ban_pos, n_rewind_total, ban.rewind_count);
+            return;
+        }
+
+        const bool next_token = slot.has_budget() && !llama_vocab_is_eog(vocab, id) &&
+            slot.prompt.n_tokens() + 1 < slot.n_ctx;
+        if (ban.token_buffer.size() < ban.n_buffer && next_token) return;
+
+        ban.rewind_count = 0;
+        int32_t start_pos = n_past - (int32_t) ban.token_buffer.size() + 1;
+        bool finish = false;
+        do {
+            const bool has_next = process_token(ban.token_buffer.front(), slot);
+            ban.positional_bans.erase(start_pos++);
+            ban.token_buffer.pop_front();
+            slot.string_ban_checkpoints.pop_front();
+            if (!has_next) {
+                finish = true;
+                if (slot.stop != STOP_TYPE_LIMIT) break;
+                // As in upstream, a length limit flushes the entire buffer;
+                // EOS and stop strings terminate immediately.
+            } else if (next_token && !finish) {
+                break;
+            }
+        } while (!ban.token_buffer.empty());
+        slot.sampled = id;
+        if (finish) {
+            slot.print_timings();
+            send_final_response(slot);
+            slot.release();
+        }
+    }
+
     void update_slots() {
 #ifdef DEBUG_TIMINGS
         static int64_t t_prev = 0;
@@ -3472,6 +3597,13 @@ private:
 
         try {
             scoped_timer t(t_pre_decode, n_pre_decode);
+            // Resample once per scheduler tick, so even unlimited retries remain
+            // cancellable. No decode is needed: the saved logits are exact.
+            iterate(slots, [&](server_slot & slot) {
+                if (slot.string_ban_retry) {
+                    sample_string_ban(slot, -1);
+                }
+            });
             pre_decode();
         } catch (const std::exception & e) {
             SRV_ERR("pre_decode() failed: %s\n", e.what());
@@ -3630,6 +3762,7 @@ private:
         // apply context-shift if needed
         // TODO: simplify and improve
         iterate(slots, [&](server_slot & slot) {
+            if (slot.string_ban_retry) return;
             if (slot.task && slot.task->type == SERVER_TASK_TYPE_TTS) {
                 // TTS slots drive their own decode loop in process_tts_slots(), never enter the shared batch
                 return;
@@ -3706,7 +3839,7 @@ private:
 
         // determine which slots are generating and drafting
         iterate(slots, [&](server_slot & slot) {
-            if (slot.state != SLOT_STATE_GENERATING || slot.task->type == SERVER_TASK_TYPE_TTS) {
+            if (slot.state != SLOT_STATE_GENERATING || slot.string_ban_retry || slot.task->type == SERVER_TASK_TYPE_TTS) {
                 return;
             }
 
@@ -4736,6 +4869,12 @@ private:
 
             // shifted according to the current sub-batch
             const int tok_idx = slot.i_batch - off;
+
+            if (slot.string_ban.n_buffer) {
+                slot.i_batch = -1;
+                sample_string_ban(slot, tok_idx);
+                return;
+            }
 
             llama_token id;
             {

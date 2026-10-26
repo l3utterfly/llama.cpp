@@ -379,6 +379,31 @@ std::vector<std::unique_ptr<field>> make_llama_cmpl_schema(const common_params &
             }
         }));
 
+    add((new field_json("banned_strings"))
+        ->set_desc("ik_llama.cpp buffered, ASCII case-insensitive substring suppression (best effort)")
+        ->set_handler([&](field_eval_context & ctx, const json & data) {
+            ctx.params.string_ban.banned_strings.clear();
+            const auto & values = data.at("banned_strings");
+            if (values.is_array()) {
+                for (const auto & value : values) {
+                    if (value.is_string() && !value.get<std::string>().empty()) {
+                        ctx.params.string_ban.banned_strings.push_back(value.get<std::string>());
+                    }
+                }
+            }
+        }));
+    add((new field_num("banned_bias", params.string_ban.banned_bias))
+        ->set_desc("Logit bias for offending tokens at the rewind position (default -999)"));
+    add((new field_num("banned_n", params.string_ban.banned_n))
+        ->set_desc("Tokens penalized at the rewind position: 1 by default, 0 none, negative all"));
+    add((new field_num("banbuffer_size", params.string_ban.banbuffer_size))
+        ->set_desc("Token buffer size; 0 uses longest banned string in bytes plus one"));
+    add((new field_num("rewind_count_max", params.string_ban.rewind_count_max))
+        ->set_hard_limits(-1, INT32_MAX)
+        ->set_desc("Rewind limit: -1 automatic, 0 unlimited, positive explicit limit"));
+    add((new field_bool("saturate_predict", params.string_ban.saturate_predict))
+        ->set_desc("Do not count discarded phrase tokens against n_predict"));
+
     add((new field_json("logit_bias"))
         ->set_desc("Modify the likelihood of specific tokens. Accepts an array of [token, bias] pairs or an object mapping token to bias. Use false as bias to ban a token")
         ->set_handler([&](field_eval_context & ctx, const json & data) {

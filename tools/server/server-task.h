@@ -10,6 +10,7 @@
 
 // TODO: prevent including the whole server-common.h as we only use server_tokens
 #include "server-common.h"
+#include "server-string-ban.h"
 #include "mtmd-helper.h"
 
 
@@ -88,6 +89,7 @@ struct task_params {
     bool post_sampling_probs = false;
 
     struct common_params_sampling sampling;
+    server_string_ban_params string_ban;
     struct common_params_speculative speculative;
 
     // response formatting
