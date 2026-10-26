@@ -2,6 +2,8 @@ name: Python Type-Check
 
 on:
   push:
+    branches:
+      - layla-build
     paths:
       - '.github/workflows/python-type-check.yml'
       - 'ty.toml'
@@ -9,6 +11,8 @@ on:
       - '**/requirements*.txt'
       # - 'pyrightconfig.json'
   pull_request:
+    branches:
+      - layla-build
     paths:
       - '.github/workflows/python-type-check.yml'
       - 'ty.toml'

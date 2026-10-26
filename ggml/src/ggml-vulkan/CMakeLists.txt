@@ -80,9 +80,9 @@ if (Vulkan_FOUND)
         )
     endif()
     
-    target_compile_definitions(ggml-vulkan PRIVATE
-            VK_USE_PLATFORM_ANDROID_KHR
-    )
+    if (ANDROID)
+        target_compile_definitions(ggml-vulkan PRIVATE VK_USE_PLATFORM_ANDROID_KHR)
+    endif()
 
     set(VULKAN_SHADER_GEN_CMAKE_ARGS "")
 

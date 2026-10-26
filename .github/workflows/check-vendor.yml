@@ -4,13 +4,15 @@ on:
   workflow_dispatch: # allows manual triggering
   push:
     branches:
-      - master
+      - layla-build
     paths: [
       'vendor/**',
       'scripts/sync_vendor.py'
     ]
 
   pull_request:
+    branches:
+      - layla-build
     types: [opened, synchronize, reopened]
     paths: [
       'vendor/**',

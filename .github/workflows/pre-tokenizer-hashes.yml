@@ -2,10 +2,14 @@ name: Check Pre-Tokenizer Hashes
 
 on:
     push:
+        branches:
+            - layla-build
         paths:
             - 'conversion/base.py'
             - 'convert_hf_to_gguf_update.py'
     pull_request:
+        branches:
+            - layla-build
         paths:
             - 'conversion/base.py'
             - 'convert_hf_to_gguf_update.py'

@@ -4,7 +4,7 @@ on:
   workflow_dispatch: # allows manual triggering
   push:
     branches:
-      - master
+      - layla-build
     paths: [
       '.github/workflows/build-openvino.yml',
       '**/CMakeLists.txt',
@@ -16,6 +16,8 @@ on:
     ]
 
   pull_request:
+    branches:
+      - layla-build
     types: [opened, synchronize, reopened]
     paths: [
       '.github/workflows/build-openvino.yml',
@@ -119,7 +121,7 @@ jobs:
           key: openvino-windows-2022
           variant: ccache
           evict-old-files: 1d
-          save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+          save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/layla-build' }}
 
       - name: Setup Cache
         uses: actions/cache@v5
@@ -184,4 +186,4 @@ jobs:
           key: openvino-windows-2022
           older: 5m
           min: 1
-          dry-run: ${{ github.event_name != 'push' || github.ref != 'refs/heads/master' }}
+          dry-run: ${{ github.event_name != 'push' || github.ref != 'refs/heads/layla-build' }}

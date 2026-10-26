@@ -5,9 +5,13 @@ name: "Copilot Setup Steps"
 on:
   workflow_dispatch:
   push:
+    branches:
+      - layla-build
     paths:
       - .github/workflows/copilot-setup-steps.yml
   pull_request:
+    branches:
+      - layla-build
     paths:
       - .github/workflows/copilot-setup-steps.yml
 

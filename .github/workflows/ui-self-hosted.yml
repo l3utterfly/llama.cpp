@@ -13,7 +13,7 @@ on:
         type: string
   push:
     branches:
-      - master
+      - layla-build
     paths: [
       '.github/workflows/ui-self-hosted.yml',
       '.github/workflows/ui-build-self-hosted.yml',
@@ -21,6 +21,8 @@ on:
       'tools/server/tests/**.*'
     ]
   pull_request:
+    branches:
+      - layla-build
     types: [opened, synchronize, reopened]
     paths: [
       '.github/workflows/ui-self-hosted.yml',

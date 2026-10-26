@@ -13,7 +13,7 @@ on:
         type: boolean
   push:
     branches:
-      - master
+      - layla-build
     paths: [
       '.github/workflows/server.yml',
       '**/CMakeLists.txt',
@@ -28,6 +28,8 @@ on:
       'tools/server/**.*'
     ]
   pull_request:
+    branches:
+      - layla-build
     types: [opened, synchronize, reopened]
     paths: [
       '.github/workflows/server.yml',
@@ -106,7 +108,7 @@ jobs:
           cmake --build build --config Release -j $(nproc) --target llama-server
 
       - name: ccache-buckets-save
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/layla-build' }}
         uses: ./.github/actions/ccache-buckets
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN_CACHE_OUTPUT }}
@@ -173,7 +175,7 @@ jobs:
         with:
           key: server-windows-2025-x64
           evict-old-files: 1d
-          save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+          save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/layla-build' }}
 
       - name: Build
         id: cmake_build
@@ -219,4 +221,4 @@ jobs:
           key: server-windows-2025-x64
           older: 5m
           min: 1
-          dry-run: ${{ github.event_name != 'push' || github.ref != 'refs/heads/master' }}
+          dry-run: ${{ github.event_name != 'push' || github.ref != 'refs/heads/layla-build' }}

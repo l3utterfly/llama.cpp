@@ -4,7 +4,7 @@ on:
   workflow_dispatch: # allows manual triggering
   push:
     branches:
-      - master
+      - layla-build
     paths: [
       '.github/workflows/ci-self-hosted-cuda.yml',
       'ci/run.sh',
@@ -19,6 +19,8 @@ on:
     ]
 
   pull_request:
+    branches:
+      - layla-build
     types: [opened, synchronize, reopened]
     paths: [
       '.github/workflows/ci-self-hosted-cuda.yml',
@@ -81,7 +83,7 @@ jobs:
           GG_BUILD_CUDA=1 CUDACXX=/usr/local/cuda/bin/nvcc bash ./ci/run.sh ~/results/llama.cpp ~/mnt/llama.cpp
 
       - name: ccache-buckets-save
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/layla-build' }}
         uses: ./.github/actions/ccache-buckets
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN_CACHE_OUTPUT }}

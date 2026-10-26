@@ -9,7 +9,7 @@ on:
         type: boolean
   push:
     branches:
-      - master
+      - layla-build
     paths: [
       '.github/workflows/release.yml',
       '**/CMakeLists.txt',
@@ -58,9 +58,9 @@ jobs:
         env:
           COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.ref }}" == "refs/heads/layla-build" ]]; then
             echo "should_release=true" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/master" ]]; then
+          elif [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/layla-build" ]]; then
             if echo "$COMMIT_MESSAGE" | grep -q '\[no release\]'; then
               echo "should_release=false" >> $GITHUB_OUTPUT
             else

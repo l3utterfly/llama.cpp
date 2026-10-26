@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - master
+      - layla-build
     paths: [
       '.github/workflows/build-cross.yml',
       'ggml/src/spacemit/*',

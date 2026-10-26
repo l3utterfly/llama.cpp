@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - master
+      - layla-build
     paths:
       - '.github/workflows/build-and-test-snapdragon.yml'
       - 'ggml/include/ggml-hexagon.h'
@@ -14,6 +14,8 @@ on:
       - 'CMakePresets.json'
 
   pull_request:
+    branches:
+      - layla-build
     types: [opened, synchronize, reopened]
     paths:
       - '.github/workflows/build-and-test-snapdragon.yml'

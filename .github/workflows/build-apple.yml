@@ -4,7 +4,7 @@ on:
   workflow_dispatch: # allows manual triggering
   push:
     branches:
-      - master
+      - layla-build
     paths: [
       '.github/workflows/build-apple.yml',
       '**/CMakeLists.txt',
@@ -19,6 +19,8 @@ on:
     ]
 
   pull_request:
+    branches:
+      - layla-build
     types: [opened, synchronize, reopened]
     paths: [
       '.github/workflows/build-apple.yml',
@@ -81,7 +83,7 @@ jobs:
           time cmake --build build --config Release -j $(sysctl -n hw.logicalcpu)
 
       - name: ccache-buckets-save
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/layla-build' }}
         uses: ./.github/actions/ccache-buckets
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN_CACHE_OUTPUT }}
@@ -146,7 +148,7 @@ jobs:
           time cmake --build build --config Release -j $(sysctl -n hw.logicalcpu)
 
       - name: ccache-buckets-save
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/layla-build' }}
         uses: ./.github/actions/ccache-buckets
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN_CACHE_OUTPUT }}
