@@ -43,7 +43,7 @@ struct htp_copy_kernel_params {
     uint8_t  dst_type_size;
     uint8_t  n_threads;
 
-    uint32_t total_elems;
+    uint32_t total_elems; // Storage elements: Q8_0 blocks for same-type copies, scalar values otherwise.
     uint32_t total_rows;
     uint32_t vtcm_size;
 

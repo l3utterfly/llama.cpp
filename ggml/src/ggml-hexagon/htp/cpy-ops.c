@@ -339,7 +339,14 @@ static int cpy_sameshape_sametype(struct htp_ops_context * octx, const struct ht
 
     if (nrows > 0) {
         dma_queue * q = octx->ctx->dma[0];
-        dma_cpy_sametype_sameshape_range(q, dst, src0, kparams->src0_type_size, row_start, nrows);
+        // Present Q8_0 as dense 34-byte blocks to the generic strided row copier.
+        struct htp_tensor src_blocks = *src0;
+        struct htp_tensor dst_blocks = *dst;
+        if (src0->type == HTP_TYPE_Q8_0) {
+            src_blocks.ne[0] /= QK8_0;
+            dst_blocks.ne[0] /= QK8_0;
+        }
+        dma_cpy_sametype_sameshape_range(q, &dst_blocks, &src_blocks, kparams->src0_type_size, row_start, nrows);
         dma_queue_flush(q);
     }
 

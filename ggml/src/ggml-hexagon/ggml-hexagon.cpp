@@ -631,7 +631,7 @@ struct ggml_hexagon_session {
 
     void enqueue_mdev_group();
     void enqueue_op(const htp_opnode & node);
-    void enqueue_cpy(const ggml_tensor * src, ggml_tensor * dst, const ggml_tensor * sync_tensor = nullptr, uint32_t fence_seq = 0);
+    bool enqueue_cpy(const ggml_tensor * src, ggml_tensor * dst, const ggml_tensor * sync_tensor = nullptr, uint32_t fence_seq = 0);
     void enqueue_fence(const ggml_tensor * sync_tensor, uint32_t fence_seq = 0, bool wait = true);
     void enqueue_allreduce(const ggml_tensor * dst, const std::vector<const ggml_tensor *> & src_tensors,
                            const std::vector<const ggml_tensor *> & sync_tensors, uint32_t rank, uint32_t n_ranks,
@@ -2823,7 +2823,7 @@ void ggml_hexagon_session::enqueue_mdev_group() {
     op_batch->add_op(group_node);
 }
 
-void ggml_hexagon_session::enqueue_cpy(const ggml_tensor * src, ggml_tensor * dst, const ggml_tensor * sync_tensor, uint32_t fence_seq) {
+bool ggml_hexagon_session::enqueue_cpy(const ggml_tensor * src, ggml_tensor * dst, const ggml_tensor * sync_tensor, uint32_t fence_seq) {
     const bool with_fence = sync_tensor != nullptr;
     htp_opnode cpy_node(with_fence ? HTP_OP_CPY_FENCE : HTP_OP_CPY);
 
@@ -2840,11 +2840,15 @@ void ggml_hexagon_session::enqueue_cpy(const ggml_tensor * src, ggml_tensor * ds
         cpy_node.name = "CPY+FENCE";
     }
     const bool ok = ggml_hexagon_precompute_cpy_params(this, node, (struct htp_copy_kernel_params *) cpy_node.kernel_params);
+    if (!ok) {
+        return false;
+    }
     const auto * kparams = (const struct htp_copy_kernel_params *) cpy_node.kernel_params;
-    if (ok && !with_fence && kparams->total_elems == 0) {
-        return;
+    if (!with_fence && kparams->total_elems == 0) {
+        return true;
     }
     this->enqueue_op(cpy_node);
+    return true;
 }
 
 void ggml_hexagon_session::enqueue_fence(const ggml_tensor * sync_tensor, uint32_t fence_seq, bool wait) {
@@ -5123,19 +5127,21 @@ static bool ggml_hexagon_precompute_cpy_params(
         return false;
     }
 
-    if (src0->type != GGML_TYPE_F32 && src0->type != GGML_TYPE_F16 && src0->type != GGML_TYPE_I32) {
+    const bool is_q8_0_copy = src0->type == GGML_TYPE_Q8_0 && dst->type == GGML_TYPE_Q8_0;
+    if (src0->type != GGML_TYPE_F32 && src0->type != GGML_TYPE_F16 && src0->type != GGML_TYPE_I32 && !is_q8_0_copy) {
         return false;
     }
     // F32 -> Q8_0 re-quantizes the KV cache during K-shift; the destination is a pre-allocated
     // view of an HTP-resident cache, so the scheduler cannot fall back to the CPU for it.
     const bool is_q8_0_dst = (dst->type == GGML_TYPE_Q8_0 && src0->type == GGML_TYPE_F32);
-    if (dst->type != GGML_TYPE_F32 && dst->type != GGML_TYPE_F16 && dst->type != GGML_TYPE_I32 && !is_q8_0_dst) {
+    if (dst->type != GGML_TYPE_F32 && dst->type != GGML_TYPE_F16 && dst->type != GGML_TYPE_I32 && !is_q8_0_dst && !is_q8_0_copy) {
         return false;
     }
 
     const int64_t nelem_src = ggml_nelements(src0);
     const int64_t nelem_dst = ggml_nelements(dst);
-    if (nelem_src != nelem_dst || nelem_src < 0) {
+    if (nelem_src != nelem_dst || nelem_src < 0 || nelem_src > UINT32_MAX ||
+        ggml_nbytes(src0) > UINT32_MAX || ggml_nbytes(dst) > UINT32_MAX) {
         return false;
     }
 
@@ -5183,6 +5189,25 @@ static bool ggml_hexagon_precompute_cpy_params(
 
     const bool src_is_contiguous = ggml_is_contiguous(src0);
     const bool dst_is_contiguous = ggml_is_contiguous(dst);
+
+    if (is_q8_0_copy) {
+        // Q8_0 stores 32 values in each 34-byte block. DMA must count blocks, not values.
+        if (src0->ne[0] % QK8_0 != 0 || dst->ne[0] % QK8_0 != 0 ||
+            src0->nb[0] != src_type_size || dst->nb[0] != dst_type_size) {
+            return false;
+        }
+        kparams->total_elems = (uint32_t) (nelem_src / QK8_0);
+        if (src_is_contiguous && dst_is_contiguous) {
+            kparams->kernel_type = HTP_COPY_KERNEL_1D_CONTIG;
+            return true;
+        }
+        if (sameshape) {
+            kparams->kernel_type = HTP_COPY_KERNEL_SAMESHAPE_SAMETYPE;
+            kparams->total_rows = (uint32_t) (src0->ne[1] * src0->ne[2] * src0->ne[3]);
+            return true;
+        }
+        return false;
+    }
 
     if (sametype) {
         if (src_is_contiguous && dst_is_contiguous) {
@@ -6921,6 +6946,8 @@ static bool is_mergeable_mul_mat_id_pair(const ggml_tensor * n1, const ggml_tens
     return true;
 }
 
+static bool ggml_backend_hexagon_device_supports_op(ggml_backend_dev_t dev, const struct ggml_tensor * op);
+
 static ggml_status ggml_backend_hexagon_graph_compute(ggml_backend_t backend, ggml_cgraph * graph) {
     auto sess = static_cast<ggml_hexagon_session *>(backend->context);
 
@@ -6938,6 +6965,15 @@ static ggml_status ggml_backend_hexagon_graph_compute(ggml_backend_t backend, gg
     if (cache_hit) {
         nodes_ptr = &sess->cached_nodes;
     } else {
+        // Validate the whole graph before queuing any of it, including direct backend callers.
+        for (int i = 0; i < graph->n_nodes; ++i) {
+            auto * n = graph->nodes[i];
+            if (op_is_compute(n) && !ggml_backend_hexagon_device_supports_op(backend->device, n)) {
+                GGML_LOG_ERROR("ggml-hex: %s unsupported op %s (%s)\n", sess->c_name(), ggml_op_desc(n), n->name);
+                return GGML_STATUS_FAILED;
+            }
+        }
+
         // Tag fusable tensors in graph
         for (int i = 0; i < graph->n_nodes; i++) {
             auto * extra = (ggml_hexagon_tensor_extra *) graph->nodes[i]->extra;
@@ -7062,8 +7098,11 @@ static ggml_status ggml_backend_hexagon_graph_compute(ggml_backend_t backend, gg
                     node.node,
                     (struct htp_copy_kernel_params *) node.kernel_params
                 );
+                if (!ok) {
+                    return GGML_STATUS_FAILED;
+                }
                 const auto * kparams = (const struct htp_copy_kernel_params *) node.kernel_params;
-                if (ok && node.opcode == HTP_OP_CPY && kparams->total_elems == 0) {
+                if (node.opcode == HTP_OP_CPY && kparams->total_elems == 0) {
                     continue;
                 }
             } else if (node.opcode == HTP_OP_IM2COL) {
@@ -7390,7 +7429,7 @@ static bool ggml_hexagon_cpy_tensor_async_phys(ggml_backend_t backend_src, ggml_
     fence_tensor.nb[3]  = sizeof(int32_t);
     fence_tensor.op     = GGML_OP_NONE;
 
-    sess_src->enqueue_cpy(src, dst, &fence_tensor, fence_seq);
+    if (!sess_src->enqueue_cpy(src, dst, &fence_tensor, fence_seq)) { return false; }
     sess_dst->enqueue_fence(&fence_tensor, fence_seq, /* wait = */ true);
 
     sess_dst->add_peer(sess_src);
@@ -7410,7 +7449,7 @@ static bool ggml_hexagon_cpy_tensor_async_virt(ggml_backend_t backend_src, ggml_
     HEX_VERBOSE("ggml-hex: %s cpy-tensor-async %s -> %s size %zu\n",
                 sess_dst->name.c_str(), src->name, dst->name, ggml_nbytes(src));
 
-    sess_dst->enqueue_cpy(src, dst);
+    if (!sess_dst->enqueue_cpy(src, dst)) { return false; }
     sess_dst->add_peer(sess_src);
 
     return true;
@@ -7418,6 +7457,19 @@ static bool ggml_hexagon_cpy_tensor_async_virt(ggml_backend_t backend_src, ggml_
 
 static bool ggml_backend_hexagon_cpy_tensor_async(ggml_backend_t backend_src, ggml_backend_t backend_dst, const ggml_tensor * src, ggml_tensor * dst) {
     if (!ggml_backend_is_hexagon(backend_src) || !ggml_backend_is_hexagon(backend_dst)) {
+        return false;
+    }
+
+    auto sess_src = static_cast<ggml_hexagon_session *>(backend_src->context);
+    auto sess_dst = static_cast<ggml_hexagon_session *>(backend_dst->context);
+    // Refuse unsupported transfers before touching buffer flags, mappings, peers, or fences.
+    // Returning false lets ggml synchronize both backends and use its host-copy fallback.
+    ggml_tensor copy = *dst;
+    copy.op = GGML_OP_CPY;
+    copy.src[0] = const_cast<ggml_tensor *>(src);
+    struct htp_copy_kernel_params kparams;
+    auto copy_sess = sess_src->phys_idx != sess_dst->phys_idx ? sess_src : sess_dst;
+    if (!ggml_hexagon_precompute_cpy_params(copy_sess, &copy, &kparams)) {
         return false;
     }
 
@@ -7430,13 +7482,9 @@ static bool ggml_backend_hexagon_cpy_tensor_async(ggml_backend_t backend_src, gg
     const auto * src_extra = static_cast<const ggml_hexagon_tensor_extra *>(src->extra);
     dst_extra->flags = src_extra->flags & ~GGML_HEXAGON_TENSOR_FUSEABLE;
 
-    auto sess_src = static_cast<ggml_hexagon_session *>(backend_src->context);
-    auto sess_dst = static_cast<ggml_hexagon_session *>(backend_dst->context);
-
     if (sess_src == sess_dst) {
         HEX_VERBOSE("ggml-hex: %s cpy-tensor-async %s -> %s size %zu\n", sess_dst->name.c_str(), src->name, dst->name, ggml_nbytes(src));
-        sess_src->enqueue_cpy(src, dst);
-        return true;
+        return sess_src->enqueue_cpy(src, dst);
     }
 
     if (sess_src->phys_idx != sess_dst->phys_idx)

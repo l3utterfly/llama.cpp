@@ -1,5 +1,11 @@
 # Snapdragon-based devices
 
+## Q8 cache copies
+
+The Hexagon backend advertises Q8_0 -> Q8_0 `CPY`, `DUP`, and `CONT` through `supports_op` before tensor allocation. It supports contiguous copies (including reshapes), and equal-shape copies with dense 32-value blocks in dimension 0 and strided or permuted outer dimensions. DMA preserves the quantized blocks byte for byte and leaves row padding untouched. Noncontiguous reshapes, a strided block dimension, and Q8_0 conversions to other types are declined. F32 -> Q8_0 cache requantization remains supported separately.
+
+The same copy planner validates transfers within and between HTP sessions. Unsupported asynchronous transfers return false before queuing copies or fences, allowing ggml's synchronized host-copy fallback. Direct graph execution validates all operations before queuing any graph nodes and returns `GGML_STATUS_FAILED` for unsupported operations. The host library and DSP libraries must be rebuilt and deployed together for the Q8 block-copy support.
+
 ## Setup
 
 The cross-compilation toolchain images are provided by the
