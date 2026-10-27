@@ -954,12 +954,7 @@ const std::vector<llama_token> common_sampler_prev(common_sampler * gsmpl) {
 }
 
 void common_sampler_rollback(common_sampler * gsmpl, int rollback_num) {
-    if(rollback_num > gsmpl->prev.size()) {
-        rollback_num = gsmpl->prev.size();
-    }
-
-    // continuously pop the last token
-    for(int i = 0; i < rollback_num; i++) {
+    for (int i = 0; i < rollback_num && !gsmpl->prev.empty(); ++i) {
         gsmpl->prev.pop_back();
     }
 }
