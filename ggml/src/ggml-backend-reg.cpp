@@ -299,15 +299,14 @@ static ggml_backend_registry & get_reg() {
 }
 
 #if defined(__linux__) && defined(__aarch64__)
+#include <asm/hwcap.h>
 #include <sys/auxv.h>
 #elif defined(__APPLE__)
 #include <sys/sysctl.h>
 #endif
-int is_i8mm_supported()
-{
+static int is_i8mm_supported() {
 #if defined(__linux__) && defined(__aarch64__)
-    uint32_t hwcap = getauxval(AT_HWCAP);
-    uint32_t hwcap2 = getauxval(AT_HWCAP2);
+    const unsigned long hwcap2 = getauxval(AT_HWCAP2);
 
     return !!(hwcap2 & HWCAP2_I8MM);
 #elif defined(__APPLE__)

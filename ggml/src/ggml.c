@@ -700,20 +700,20 @@ FILE * ggml_fopen(const char * fname, const char * mode) {
 FILE * ggml_fdopen(int fd, const char * mode, size_t fd_offset) {
     int duplicated_fd = dup(fd);
     if (duplicated_fd < 0) {
-        GGML_LOG_ERROR("ggml_fopen: dup(%ld) failed: %s (errno: %d)\n", fd, strerror(errno), errno);
+        GGML_LOG_ERROR("ggml_fopen: dup(%d) failed: %s (errno: %d)\n", fd, strerror(errno), errno);
         return NULL;
     }
-    GGML_LOG_DEBUG("ggml_fopen: Duplicated FD: %d (from original: %ld)\n", duplicated_fd, fd);
+    GGML_LOG_DEBUG("ggml_fopen: Duplicated FD: %d (from original: %d)\n", duplicated_fd, fd);
 
     // seek to the specified offset
     // Note: lseek() is used here to set the file position before fdopen()
     int lseek_result = lseek(duplicated_fd, fd_offset, SEEK_SET);
     if (lseek_result == -1) {
-        GGML_LOG_ERROR("ggml_fopen: lseek(%d, %ld, SEEK_SET) FAILED: %s (errno: %d)\n", duplicated_fd, fd_offset, strerror(errno), errno);
+        GGML_LOG_ERROR("ggml_fopen: lseek(%d, %zu, SEEK_SET) FAILED: %s (errno: %d)\n", duplicated_fd, fd_offset, strerror(errno), errno);
         close(duplicated_fd);
         return NULL;
     }
-    GGML_LOG_DEBUG("ggml_fopen: lseek(%d, %ld, SEEK_SET) SUCCESS. New position reported by lseek: %ld\n", duplicated_fd, fd_offset, (long)lseek_result);
+    GGML_LOG_DEBUG("ggml_fopen: lseek(%d, %zu, SEEK_SET) SUCCESS. New position reported by lseek: %ld\n", duplicated_fd, fd_offset, (long)lseek_result);
 
 
     FILE *file = fdopen(duplicated_fd, mode);
