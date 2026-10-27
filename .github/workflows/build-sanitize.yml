@@ -44,14 +44,11 @@ jobs:
 
     strategy:
       matrix:
-        include:
-        # thread and address doesn't run properly on some self hosted machines, so run it on Github instead
-        - sanitizer: ADDRESS
-          machine: ubuntu-24.04
-        - sanitizer: THREAD
-          machine: ubuntu-24.04
-        - sanitizer: UNDEFINED
-          machine: [self-hosted, X64, Linux]
+        # Keep the hosted checks on Layla; UNDEFINED requires a custom runner.
+        include: ${{ fromJSON(
+          (github.ref == 'refs/heads/layla-build' || github.base_ref == 'layla-build') &&
+          '[{"sanitizer":"ADDRESS","machine":"ubuntu-24.04"},{"sanitizer":"THREAD","machine":"ubuntu-24.04"}]' ||
+          '[{"sanitizer":"ADDRESS","machine":"ubuntu-24.04"},{"sanitizer":"THREAD","machine":"ubuntu-24.04"},{"sanitizer":"UNDEFINED","machine":["self-hosted","X64","Linux"]}]') }}
 
     runs-on: ${{ matrix.machine }}
 

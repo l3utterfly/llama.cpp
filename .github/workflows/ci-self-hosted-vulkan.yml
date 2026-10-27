@@ -51,6 +51,7 @@ env:
 
 jobs:
   gpu-vulkan-nvidia-cm:
+    if: ${{ github.ref != 'refs/heads/layla-build' && github.base_ref != 'layla-build' }}
     # runs-on: "hf-jobs-t4-small:ubuntu26_04"
     runs-on: [self-hosted, Linux, NVIDIA]
 
@@ -96,6 +97,7 @@ jobs:
       #     save: true
 
   gpu-vulkan-nvidia-cm2:
+    if: ${{ github.ref != 'refs/heads/layla-build' && github.base_ref != 'layla-build' }}
     # runs-on: "hf-jobs-t4-small:ubuntu26_04"
     runs-on: [self-hosted, Linux, NVIDIA, COOPMAT2]
 
@@ -141,6 +143,7 @@ jobs:
       #     save: true
 
   gpu-vulkan-apple:
+    if: ${{ github.ref != 'refs/heads/layla-build' && github.base_ref != 'layla-build' }}
     runs-on: [self-hosted, macOS, ARM64]
 
     steps:
@@ -155,6 +158,7 @@ jobs:
           GG_BUILD_VULKAN=1 bash ./ci/run.sh ~/results/llama.cpp ~/mnt/llama.cpp
 
   gpu-vulkan-intel-linux:
+    if: ${{ github.ref != 'refs/heads/layla-build' && github.base_ref != 'layla-build' }}
     runs-on: [self-hosted, Linux, Intel]
 
     steps:
@@ -171,6 +175,7 @@ jobs:
           GG_BUILD_VULKAN=1 bash ./ci/run.sh ~/results/llama.cpp ~/mnt/llama.cpp
 
   gpu-vulkan-intel-windows:
+    if: ${{ github.ref != 'refs/heads/layla-build' && github.base_ref != 'layla-build' }}
     runs-on: [self-hosted, Windows, X64, Intel]
 
     steps:

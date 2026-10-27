@@ -46,6 +46,7 @@ concurrency:
 
 jobs:
   server-metal:
+    if: ${{ github.ref != 'refs/heads/layla-build' && github.base_ref != 'layla-build' }}
     runs-on: [self-hosted, llama-server, macOS, ARM64]
 
     steps:
@@ -106,6 +107,7 @@ jobs:
           PYTEST_WORKERS=1 ./tests.sh
 
   server-cuda:
+    if: ${{ github.ref != 'refs/heads/layla-build' && github.base_ref != 'layla-build' }}
     runs-on: "hf-jobs-t4-medium:cuda13"
 
     steps:
@@ -196,6 +198,7 @@ jobs:
           PYTEST_WORKERS=1 ./tests.sh
 
   server-kleidiai:
+    if: ${{ github.ref != 'refs/heads/layla-build' && github.base_ref != 'layla-build' }}
     runs-on: ah-ubuntu_24_04-c8g_8x
 
     steps:

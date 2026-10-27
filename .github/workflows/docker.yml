@@ -80,7 +80,7 @@ jobs:
         id: matrices
         shell: bash
         env:
-          SKIP_S390X: ${{ inputs.skip_s390x || 'false' }}
+          SKIP_S390X: ${{ github.ref == 'refs/heads/layla-build' || github.base_ref == 'layla-build' || inputs.skip_s390x || 'false' }}
         run: |
           set -euo pipefail
 

@@ -51,6 +51,7 @@ concurrency:
 
 jobs:
   server:
+    if: ${{ github.ref != 'refs/heads/layla-build' && github.base_ref != 'layla-build' }}
     runs-on: hf-jobs-cpu-performance
 
     strategy:

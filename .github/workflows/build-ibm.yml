@@ -46,6 +46,7 @@ env:
 
 jobs:
   ubuntu-24-s390x:
+    if: ${{ github.ref != 'refs/heads/layla-build' && github.base_ref != 'layla-build' }}
     name: ubuntu-24-s390x (VXE ${{ matrix.vxe }})
     runs-on: ubuntu-24.04-s390x
 
@@ -117,6 +118,7 @@ jobs:
           ./tests/test-quantize-be.sh ./build/bin/llama-quantize ./build/bin/llama-perplexity 2>&1
 
   ubuntu-26-zdnn-s390x:
+    if: ${{ github.ref != 'refs/heads/layla-build' && github.base_ref != 'layla-build' }}
     name: ubuntu-26-zdnn-s390x
     runs-on: ubuntu-24.04-s390x
     container: ubuntu:26.04  # required to get GCC 15.1 and binutils 2.44
@@ -157,6 +159,7 @@ jobs:
           time cmake --build build --config Release -j $(nproc)
 
   ubuntu-24-ppc64le:
+    if: ${{ github.ref != 'refs/heads/layla-build' && github.base_ref != 'layla-build' }}
     runs-on: ubuntu-24.04-ppc64le
 
     steps:

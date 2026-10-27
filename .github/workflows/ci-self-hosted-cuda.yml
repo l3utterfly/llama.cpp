@@ -51,6 +51,7 @@ env:
 
 jobs:
   gpu-cuda:
+    if: ${{ github.ref != 'refs/heads/layla-build' && github.base_ref != 'layla-build' }}
     runs-on: "hf-jobs-t4-medium:cuda13"
 
     steps:
@@ -95,6 +96,7 @@ jobs:
           save: true
 
   gpu-rocm:
+    if: ${{ github.ref != 'refs/heads/layla-build' && github.base_ref != 'layla-build' }}
     runs-on: [self-hosted, Linux, AMD]
 
     steps:

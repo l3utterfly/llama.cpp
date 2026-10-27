@@ -43,6 +43,7 @@ env:
 
 jobs:
   ubuntu-24-openvino:
+    if: ${{ github.ref != 'refs/heads/layla-build' && github.base_ref != 'layla-build' }}
     runs-on: [self-hosted, Linux, Intel, OpenVINO]
 
     env:

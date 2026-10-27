@@ -50,6 +50,7 @@ env:
 
 jobs:
   gpu-webgpu-nvidia:
+    if: ${{ github.ref != 'refs/heads/layla-build' && github.base_ref != 'layla-build' }}
     runs-on: "hf-jobs-t4-small:ubuntu26_04"
 
     steps:
@@ -109,6 +110,7 @@ jobs:
           save: true
 
   gpu-webgpu-apple:
+    if: ${{ github.ref != 'refs/heads/layla-build' && github.base_ref != 'layla-build' }}
     runs-on: [self-hosted, macOS, ARM64]
 
     steps:

@@ -173,13 +173,11 @@ jobs:
     if: ${{ needs.check-release.outputs.should_release == 'true' }}
     strategy:
       matrix:
-        include:
-          - build: 'x64'
-            os: ubuntu-22.04
-          - build: 'arm64'
-            os: ubuntu-24.04-arm
-          - build: 's390x'
-            os: ubuntu-24.04-s390x
+        # The s390x runner is only available in the upstream infrastructure.
+        include: ${{ fromJSON(
+          (github.ref == 'refs/heads/layla-build' || github.base_ref == 'layla-build') &&
+          '[{"build":"x64","os":"ubuntu-22.04"},{"build":"arm64","os":"ubuntu-24.04-arm"}]' ||
+          '[{"build":"x64","os":"ubuntu-22.04"},{"build":"arm64","os":"ubuntu-24.04-arm"},{"build":"s390x","os":"ubuntu-24.04-s390x"}]') }}
 
     runs-on: ${{ matrix.os }}
 

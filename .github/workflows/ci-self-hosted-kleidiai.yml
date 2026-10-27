@@ -48,6 +48,7 @@ env:
 
 jobs:
   cpu-arm64-graviton4-kleidiai:
+    if: ${{ github.ref != 'refs/heads/layla-build' && github.base_ref != 'layla-build' }}
     runs-on: ah-ubuntu_24_04-c8g_8x
 
     steps:

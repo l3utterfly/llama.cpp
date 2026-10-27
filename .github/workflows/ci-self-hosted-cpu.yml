@@ -48,6 +48,7 @@ env:
 
 jobs:
   cpu-x64-high-perf:
+    if: ${{ github.ref != 'refs/heads/layla-build' && github.base_ref != 'layla-build' }}
     runs-on: [self-hosted, Linux, X64]
 
     steps:
@@ -61,6 +62,7 @@ jobs:
           LLAMA_ARG_THREADS=$(nproc) GG_BUILD_HIGH_PERF=1 GG_BUILD_EXTRA_TESTS_0=1 bash ./ci/run.sh ~/results/llama.cpp ~/mnt/llama.cpp
 
   cpu-arm64-high-perf-graviton4:
+    if: ${{ github.ref != 'refs/heads/layla-build' && github.base_ref != 'layla-build' }}
     runs-on: ah-ubuntu_24_04-c8g_8x
 
     steps:

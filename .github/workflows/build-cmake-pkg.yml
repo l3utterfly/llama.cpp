@@ -9,6 +9,7 @@ permissions:
 
 jobs:
   linux:
+    if: ${{ github.ref != 'refs/heads/layla-build' && github.base_ref != 'layla-build' }}
     runs-on: [self-hosted, Linux, CPU]
     steps:
       - uses: actions/checkout@v6
