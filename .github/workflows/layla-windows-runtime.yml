@@ -7,7 +7,6 @@ on:
     paths:
       - '.github/workflows/layla-windows-runtime.yml'
       - '.github/actions/windows-setup-cuda/**'
-      - '.github/actions/windows-setup-rocm/**'
       - 'scripts/layla-windows-runtime.ps1'
       - 'scripts/install-oneapi.bat'
       - 'docs/layla-windows-runtime.md'
@@ -38,8 +37,6 @@ env:
   CUDA13_VERSION: '13.4'
   CUDA_CCCL_VERSION: v3.4.3
   VULKAN_VERSION: 1.4.357.0
-  ROCM_VERSION: '10.0.0'
-  AMDGPU_TARGETS: gfx1010;gfx1011;gfx1012;gfx1030;gfx1031;gfx1032;gfx1033;gfx1034;gfx1035;gfx1036;gfx1100;gfx1101;gfx1102;gfx1103;gfx1150;gfx1151;gfx1152;gfx1153;gfx1200;gfx1201
   ONEAPI_ROOT: 'C:\Program Files (x86)\Intel\oneAPI'
   WINDOWS_DLE_URL: https://registrationcenter-download.intel.com/akdlm/IRC_NAS/a51104eb-6f4a-4a0e-9dae-1b81b0c81ae1/intel-deep-learning-essentials-2026.1.4.16_offline.exe
   WINDOWS_ONEDNN_URL: https://registrationcenter-download.intel.com/akdlm/IRC_NAS/34e28083-d04b-46a3-826c-8c1d00bf1e1c/intel-onednn-2026.0.2.47_offline.exe
@@ -58,7 +55,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        backend: [cpu, cuda12, cuda13, vulkan, rocm, sycl]
+        backend: [cpu, cuda12, cuda13, vulkan, sycl]
     steps:
       - uses: actions/checkout@v6
 
@@ -81,26 +78,6 @@ jobs:
           if ($process.ExitCode -ne 0) { throw "Vulkan SDK installation failed: $($process.ExitCode)" }
           "VULKAN_SDK=C:\VulkanSDK\$env:VULKAN_VERSION" >> $env:GITHUB_ENV
           "C:\VulkanSDK\$env:VULKAN_VERSION\Bin" >> $env:GITHUB_PATH
-
-      - name: Install ROCm
-        if: matrix.backend == 'rocm'
-        uses: ./.github/actions/windows-setup-rocm
-        with:
-          version: ${{ env.ROCM_VERSION }}
-
-      - name: Initialize ROCm paths
-        if: matrix.backend == 'rocm'
-        run: |
-          & C:\TheRock\build\.venv\Scripts\Activate.ps1
-          $root = (rocm-sdk path --root).Trim()
-          if ($LASTEXITCODE -ne 0 -or !$root) { throw 'ROCm root not found.' }
-          $bin = (rocm-sdk path --bin).Trim()
-          if ($LASTEXITCODE -ne 0 -or !$bin) { throw 'ROCm binaries not found.' }
-          "HIP_PATH=$root" >> $env:GITHUB_ENV
-          "HIP_BIN=$bin" >> $env:GITHUB_ENV
-          "HIP_DEVICE_LIB_PATH=$root\lib\llvm\amdgcn\bitcode" >> $env:GITHUB_ENV
-          'HIP_PLATFORM=amd' >> $env:GITHUB_ENV
-          $bin >> $env:GITHUB_PATH
 
       - name: Install oneAPI
         if: matrix.backend == 'sycl'

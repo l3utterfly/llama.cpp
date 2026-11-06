@@ -1,7 +1,7 @@
 [CmdletBinding(DefaultParameterSetName = 'Build')]
 param(
     [Parameter(Mandatory, ParameterSetName = 'Build')]
-    [ValidateSet('cpu', 'cuda12', 'cuda13', 'vulkan', 'rocm', 'sycl')]
+    [ValidateSet('cpu', 'cuda12', 'cuda13', 'vulkan', 'sycl')]
     [string] $Backend,
     [Parameter(Mandatory, ParameterSetName = 'Assemble')]
     [switch] $Assemble
@@ -13,8 +13,8 @@ $source = Split-Path $PSScriptRoot
 Set-Location -LiteralPath $source
 $revision = (& git rev-parse HEAD).Trim()
 if ($LASTEXITCODE -ne 0) { throw 'Cannot determine the source revision.' }
-$plugins = @{ cpu = 'ggml-cpu-x64.dll'; cuda12 = 'ggml-cuda.dll'; cuda13 = 'ggml-cuda.dll'; vulkan = 'ggml-vulkan.dll'; rocm = 'ggml-hip.dll'; sycl = 'ggml-sycl.dll' }
-$backends = @('cpu', 'cuda12', 'cuda13', 'vulkan', 'rocm', 'sycl')
+$plugins = @{ cpu = 'ggml-cpu-x64.dll'; cuda12 = 'ggml-cuda.dll'; cuda13 = 'ggml-cuda.dll'; vulkan = 'ggml-vulkan.dll'; sycl = 'ggml-sycl.dll' }
+$backends = @('cpu', 'cuda12', 'cuda13', 'vulkan', 'sycl')
 
 function Copy-Required([string] $File, [string] $Directory) {
     if (!(Test-Path -LiteralPath $File -PathType Leaf)) { throw "Missing runtime file: $File" }
@@ -119,14 +119,6 @@ switch ($Backend) {
         $argsCmake += @('-DCMAKE_C_COMPILER=cl', '-DCMAKE_CXX_COMPILER=cl', '-DGGML_VULKAN=ON')
         $sdk = $env:VULKAN_SDK
     }
-    rocm {
-        if (!$env:HIP_PATH) { throw 'HIP_PATH is required.' }
-        $clang = "$env:HIP_PATH/lib/llvm/bin/clang.exe"
-        $argsCmake += @('-DGGML_HIP=ON', "-DCMAKE_PREFIX_PATH=$env:HIP_PATH", "-DHIP_PATH=$env:HIP_PATH",
-            "-DCMAKE_C_COMPILER=$clang", "-DCMAKE_CXX_COMPILER=$env:HIP_PATH/lib/llvm/bin/clang++.exe",
-            "-DCMAKE_HIP_COMPILER=$clang", '-DCMAKE_C_FLAGS=-Wno-error=incompatible-pointer-types', "-DAMDGPU_TARGETS=$env:AMDGPU_TARGETS")
-        $sdk = $env:ROCM_VERSION
-    }
     sycl {
         $argsCmake += @('-DGGML_SYCL=ON', '-DCMAKE_C_COMPILER=cl', '-DCMAKE_CXX_COMPILER=icx')
         $sdk = (& icx --version) -join "`n"
@@ -158,21 +150,6 @@ if ($Backend -in @('cuda12', 'cuda13')) {
         Copy-VendorDll @("$env:CUDA_PATH/bin", "$env:CUDA_PATH/bin/x64", "$env:CUDA_PATH/lib") $name $payload
     }
     Copy-SdkLicenses $env:CUDA_PATH "$payload/licenses/$Backend"
-} elseif ($Backend -eq 'rocm') {
-    foreach ($name in @('amdhip64_7.dll', 'rocm_kpack.dll', 'amd_comgr.dll', 'rocblas.dll', 'hipblas.dll')) {
-        Copy-VendorDll @($env:HIP_BIN) $name $payload
-    }
-    if (Test-Path -LiteralPath "$env:HIP_BIN/hipblaslt.dll") { Copy-Required "$env:HIP_BIN/hipblaslt.dll" $payload }
-    Get-ChildItem -LiteralPath $env:HIP_BIN -Filter '*.kpack' -File | ForEach-Object { Copy-Required $_.FullName $payload }
-    foreach ($library in @('rocblas', 'hipblaslt')) {
-        foreach ($directory in @("$env:HIP_BIN/$library", "$env:HIP_PATH/lib/$library")) {
-            if (Test-Path -LiteralPath $directory -PathType Container) {
-                Copy-Item -LiteralPath $directory -Destination "$payload/$library" -Recurse
-                break
-            }
-        }
-    }
-    Copy-SdkLicenses $env:HIP_PATH "$payload/licenses/rocm"
 } elseif ($Backend -eq 'sycl') {
     $components = @{
         mkl = @('mkl_sycl_blas.6.dll', 'mkl_core.3.dll', 'mkl_def.3.dll', 'mkl_avx2.3.dll', 'mkl_tbb_thread.3.dll')
