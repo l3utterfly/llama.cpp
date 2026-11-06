@@ -27,6 +27,7 @@ static __global__ void lightning_indexer_kernel_mma(
         size_t nbm1, size_t nbm2, size_t nbm3,
         int64_t nem3
     ) {
+#if defined(TURING_MMA_AVAILABLE) || defined(AMD_WMMA_AVAILABLE) || defined(AMD_MFMA_AVAILABLE)
     constexpr int MMA_DIM = 16;
     constexpr int WAVE_SIZE = ggml_cuda_get_physical_warp_size();
     constexpr int THREADS_PER_BLOCK = WARPS_PER_BLOCK * WAVE_SIZE;
@@ -183,6 +184,12 @@ static __global__ void lightning_indexer_kernel_mma(
             dst_base[i_kv] = score_shared[i_kv_local] + __half2float(m_base[i_kv]);
         }
     }
+#else
+    GGML_UNUSED_VARS(Q, K, W, M, dst, n_stream, n_batch, n_kv,
+        nb1, nb2, nb3, nbq1, nbq2, nbq3, nbk1, nbk2, nbk3,
+        nbw1, nbw2, nbw3, nbm1, nbm2, nbm3, nem3);
+    NO_DEVICE_CODE;
+#endif // defined(TURING_MMA_AVAILABLE) || defined(AMD_WMMA_AVAILABLE) || defined(AMD_MFMA_AVAILABLE)
 }
 
 // TODO there is one ugly assumption used in this kernel - that WARP_SIZE is equal to 32
