@@ -10673,6 +10673,18 @@ static bool ggml_opencl_can_fuse(const ggml_backend_opencl_context * backend_ctx
             !use_adreno_kernels(backend_ctx, up->src[0])) {
             return false;
         }
+        // The allocator can reuse the activation after the second matmul.
+        // A fused GEMV must not overwrite it while other workgroups still read it.
+        const ggml_tensor * input = gate->src[1];
+        const auto * input_extra = (const ggml_tensor_extra_cl *) input->extra;
+        const auto * output_extra = (const ggml_tensor_extra_cl *) glu->extra;
+        const size_t input_offset = input_extra->offset + input->view_offs;
+        const size_t output_offset = output_extra->offset + glu->view_offs;
+        if (input_extra->data_device == output_extra->data_device &&
+            input_offset < output_offset + ggml_nbytes(glu) &&
+            output_offset < input_offset + ggml_nbytes(input)) {
+            return false;
+        }
         return true;
     }
 
