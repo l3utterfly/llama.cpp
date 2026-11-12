@@ -40,6 +40,9 @@ extern int    opt_rt_repack;
     if (opt_verbose) GGML_LOG_DEBUG(__VA_ARGS__)
 #endif
 
+// Host-only layout ownership; never sent to the DSP.
+static constexpr uint32_t HTP_TENSOR_STREAMING = 1u << 31;
+
 static inline uint32_t ggml_hexagon_tensor_get_flags(const struct ggml_tensor * t) {
     return (uint32_t) (uintptr_t) t->extra;
 }
@@ -61,7 +64,7 @@ static inline bool ggml_hexagon_tensor_is_tiled(const struct ggml_tensor * t) {
 }
 
 static inline bool ggml_hexagon_tensor_can_tile(const struct ggml_tensor * t) {
-    if (opt_rt_repack == 0) {
+    if (opt_rt_repack == 0 || (ggml_hexagon_tensor_get_flags(t) & HTP_TENSOR_STREAMING)) {
         return false;
     }
     if (t->buffer) {
