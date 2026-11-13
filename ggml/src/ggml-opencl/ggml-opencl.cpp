@@ -35,6 +35,9 @@ typedef const void * (*get_adreno_bin_kernel_func_t)(
 
 #include <inttypes.h>
 #include <string.h>
+#ifdef __ANDROID__
+#include <android/log.h>
+#endif
 
 #include <cstddef>
 #include <cstdint>
@@ -1335,6 +1338,23 @@ struct ggml_backend_opencl_context {
         }
 #else
         GGML_UNUSED(tensor);
+        static const bool trace_sync = getenv("GGML_OPENCL_TRACE_SYNC") != nullptr;
+        if (trace_sync) {
+            char name[128] = {0};
+            clGetKernelInfo(kernel, CL_KERNEL_FUNCTION_NAME, sizeof(name) - 1, name, NULL);
+            size_t g[3] = {1, 1, 1}, l[3] = {0, 0, 0};
+            for (cl_uint i = 0; i < work_dim && i < 3; i++) {
+                g[i] = global_work_size[i];
+                l[i] = local_work_size ? local_work_size[i] : 0;
+            }
+            char buf[256];
+            snprintf(buf, sizeof(buf), "TRACE   kernel %s gws[%zu,%zu,%zu] lws[%zu,%zu,%zu]", name, g[0], g[1], g[2], l[0], l[1], l[2]);
+            fprintf(stderr, "%s\n", buf);
+            fflush(stderr);
+#ifdef __ANDROID__
+            __android_log_write(ANDROID_LOG_INFO, "ggml_cl_trace", buf);
+#endif
+        }
         CL_CHECK(clEnqueueNDRangeKernel(queue, kernel, work_dim, NULL, global_work_size, local_work_size, 0, NULL, NULL));
 #endif
     }
@@ -11000,8 +11020,42 @@ static void ggml_opencl_op_rms_norm_mul_add_fused(ggml_backend_t backend, ggml_t
     backend_ctx->enqueue_ndrange_kernel(kernel, 3, global_work_size, local_work_size, dst);
 }
 
+// Debug: GGML_OPENCL_TRACE_SYNC=1 finishes the queue after each node and logs it, so a GPU hang names its node.
+static void ggml_cl_trace_line(const char * line) {
+    fprintf(stderr, "%s\n", line);
+    fflush(stderr);
+#ifdef __ANDROID__
+    __android_log_write(ANDROID_LOG_INFO, "ggml_cl_trace", line);
+#endif
+}
+
+static void ggml_cl_trace_node(int graph_id, int i, const ggml_tensor * node) {
+    char buf[1024];
+    int n = snprintf(buf, sizeof(buf), "TRACE g%d n%d %s '%s' %s [%lld,%lld,%lld,%lld] nb[%zu,%zu,%zu,%zu]",
+        graph_id, i, ggml_op_desc(node), node->name, ggml_type_name(node->type),
+        (long long) node->ne[0], (long long) node->ne[1], (long long) node->ne[2], (long long) node->ne[3],
+        node->nb[0], node->nb[1], node->nb[2], node->nb[3]);
+    for (int s = 0; s < GGML_MAX_SRC && node->src[s] && n > 0 && n < (int) sizeof(buf); s++) {
+        const ggml_tensor * src = node->src[s];
+        n += snprintf(buf + n, sizeof(buf) - n, " | s%d '%s' %s [%lld,%lld,%lld,%lld] nb[%zu,%zu,%zu,%zu]%s",
+            s, src->name, ggml_type_name(src->type),
+            (long long) src->ne[0], (long long) src->ne[1], (long long) src->ne[2], (long long) src->ne[3],
+            src->nb[0], src->nb[1], src->nb[2], src->nb[3], src->view_src ? " view" : "");
+    }
+    ggml_cl_trace_line(buf);
+}
+
 static ggml_status ggml_backend_opencl_graph_compute(ggml_backend_t backend, ggml_cgraph * cgraph) {
     ggml_backend_opencl_context *backend_ctx = (ggml_backend_opencl_context *)backend->context;
+
+    static const bool trace_sync = getenv("GGML_OPENCL_TRACE_SYNC") != nullptr;
+    static int trace_graph_id = 0;
+    const int graph_id = trace_graph_id++;
+    if (trace_sync) {
+        char buf[128];
+        snprintf(buf, sizeof(buf), "TRACE g%d begin n_nodes=%d", graph_id, cgraph->n_nodes);
+        ggml_cl_trace_line(buf);
+    }
 
     for (int i = 0; i < cgraph->n_nodes; i++) {
         ggml_tensor * node = cgraph->nodes[i];
@@ -11017,6 +11071,11 @@ static ggml_status ggml_backend_opencl_graph_compute(ggml_backend_t backend, ggm
 
         if ((node->flags & GGML_TENSOR_FLAG_COMPUTE) == 0) {
             continue;
+        }
+
+        if (trace_sync) {
+            CL_CHECK(clFinish(backend_ctx->queue));
+            ggml_cl_trace_node(graph_id, i, node);
         }
 
         if (!backend_ctx->disable_fusion && ggml_opencl_can_fuse(backend_ctx, cgraph, i, { GGML_OP_NORM, GGML_OP_MUL, GGML_OP_ADD })) {
@@ -11100,6 +11159,13 @@ static ggml_status ggml_backend_opencl_graph_compute(ggml_backend_t backend, ggm
             GGML_LOG_ERROR("%s: error: op not supported %s (%s)\n", __func__, node->name, ggml_op_name(node->op));
         }
         GGML_ASSERT(ok);
+    }
+
+    if (trace_sync) {
+        CL_CHECK(clFinish(backend_ctx->queue));
+        char buf[64];
+        snprintf(buf, sizeof(buf), "TRACE g%d end", graph_id);
+        ggml_cl_trace_line(buf);
     }
 
     return GGML_STATUS_SUCCESS;
@@ -27134,6 +27200,31 @@ static void ggml_cl_mul_mat_q4_k_f32_adreno(ggml_backend_t backend, const ggml_t
         if (splitk_wide) {
             const size_t maxwg = backend_ctx->get_kernel_workgroup_size(kernel);
             while (nsg_y > 4 && 64 * nsg_y > maxwg) { nsg_y >>= 1; }
+            // A7X (Adreno 750, compiler E031.45.02.06) reports maxwg 1024 for this kernel but 16 subgroups hang the GPU (TDR). 8 works.
+            if (backend_ctx->adreno_gen == ADRENO_GPU_GEN::A7X) {
+                nsg_y = std::min<size_t>(nsg_y, 8);
+            }
+            // Debug: GGML_OPENCL_Q4K_GEMV_NSG=4|8|16 forces the K-split.
+            static const int nsg_override = []{
+                const char * e = std::getenv("GGML_OPENCL_Q4K_GEMV_NSG");
+                return e ? atoi(e) : 0;
+            }();
+            if (nsg_override == 4 || nsg_override == 8 || nsg_override == 16) {
+                nsg_y = nsg_override;
+            }
+            static bool logged = false;
+            if (!logged && getenv("GGML_OPENCL_TRACE_SYNC")) {
+                logged = true;
+                cl_ulong pm = 0, lm = 0;
+                size_t pwg = 0;
+                clGetKernelWorkGroupInfo(kernel, backend_ctx->device, CL_KERNEL_PRIVATE_MEM_SIZE, sizeof(pm), &pm, NULL);
+                clGetKernelWorkGroupInfo(kernel, backend_ctx->device, CL_KERNEL_LOCAL_MEM_SIZE, sizeof(lm), &lm, NULL);
+                clGetKernelWorkGroupInfo(kernel, backend_ctx->device, CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, sizeof(pwg), &pwg, NULL);
+                char buf[256];
+                snprintf(buf, sizeof(buf), "TRACE   q4k gemv wide: gen=%d maxwg=%zu private=%llu local=%llu pref_multiple=%zu nsg_y=%zu",
+                    (int) backend_ctx->adreno_gen, maxwg, (unsigned long long) pm, (unsigned long long) lm, pwg, nsg_y);
+                ggml_cl_trace_line(buf);
+            }
         }
         size_t local_work_size[3] = {64, nsg_y, 1};
         size_t global_work_size[3] = {(size_t)CEIL_DIV(use_tiled ? ne01 : (use_q4k_o4 ? ne01/4 : ne01/2), 64)*64, nsg_y, 1};
