@@ -446,6 +446,8 @@ class common_chat_session {
     common_chat_msg            result;
     bool                       templated = false;
     bool                       finished  = false;
+
+    common_chat_msg recover_unparsed() const;
 };
 
 // used by arg and server

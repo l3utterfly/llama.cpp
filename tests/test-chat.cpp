@@ -8214,6 +8214,67 @@ static void test_chat_session() {
         common_chat_session echoed(tmpls.get(), nullptr, cont, echo);
         assert_equals(true, echoed.msg().empty());
     }
+
+    // Layla: output the parser cannot place keeps the reply instead of failing the turn
+    {
+        auto glm = read_templates("models/templates/GLM-4.7-Flash.jinja");
+        static common_chat_tool weather_tool{
+            "get_weather", "Get weather",
+            R"({"type":"object","properties":{"city":{"type":"string"}},"required":["city"]})",
+        };
+        common_chat_templates_inputs gin;
+        gin.tools            = { weather_tool };
+        gin.enable_thinking  = true;
+        gin.reasoning_format = COMMON_REASONING_FORMAT_AUTO;
+        gin.messages         = { message_user };
+
+        // a newline after the tool name is not GLM's call format, so the final parse throws
+        const std::string call = "<tool_call>get_weather\n<arg_key>city</arg_key>\n<arg_value>Tokyo</arg_value>\n</tool_call>";
+        {
+            common_chat_session session(glm.get(), nullptr, gin);
+            const auto & msg = session.finish(common_chat_input("Thinking.\n</think>Sure, checking." + call));
+            assert_equals(std::string("Thinking."), msg.reasoning_content);
+            assert_equals(std::string("Sure, checking." + call), msg.content);
+            assert_equals(size_t(0), msg.tool_calls.size());
+        }
+        // streamed a byte at a time, as the server does: the stream already showed the call
+        // half-parsed, so the final message keeps it rather than retracting it mid-diff
+        {
+            common_chat_session session(glm.get(), nullptr, gin);
+            const std::string out = "Thinking.\n</think>Sure, checking." + call;
+            common_chat_msg prev;
+            prev.role = "assistant";
+            for (size_t i = 0; i + 1 < out.size(); ++i) {
+                const auto & msg = session.feed(common_chat_input(out.substr(i, 1)));
+                common_chat_msg_diff::compute_diffs(prev, msg);
+                prev = msg;
+            }
+            const auto & msg = session.finish(common_chat_input(out.substr(out.size() - 1)));
+            common_chat_msg_diff::compute_diffs(prev, msg);
+            assert_equals(std::string("Thinking."), string_strip(msg.reasoning_content));
+            assert_equals(std::string("Sure, checking."), msg.content);
+            assert_equals(size_t(1), msg.tool_calls.size());
+        }
+        // streamed only up to the call: the final message extends the stream with the raw text
+        {
+            common_chat_session session(glm.get(), nullptr, gin);
+            session.feed(common_chat_input("Thinking.\n</think>Sure, checking."));
+            const common_chat_msg prev = session.msg();
+            const auto & msg = session.finish(common_chat_input(call));
+            common_chat_msg_diff::compute_diffs(prev, msg);
+            assert_equals(std::string("Thinking."), string_strip(msg.reasoning_content));
+            assert_equals(std::string("Sure, checking." + call), msg.content);
+        }
+        // thinking disabled: the whole output is the content
+        {
+            common_chat_templates_inputs off = gin;
+            off.enable_thinking = false;
+            common_chat_session session(glm.get(), nullptr, off);
+            const auto & msg = session.finish(common_chat_input("Sure." + call));
+            assert_equals(std::string(""), msg.reasoning_content);
+            assert_equals(std::string("Sure." + call), msg.content);
+        }
+    }
 }
 
 static void test_chat_json_depth() {

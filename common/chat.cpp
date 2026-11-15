@@ -1946,11 +1946,85 @@ const common_chat_msg & common_chat_session::feed(const common_chat_input & chun
     return result;
 }
 
+// The final parse failed, and a lenient re-parse fails the same way: a PEG sequence that
+// breaks anywhere reports nothing captured. So the reply is rebuilt from the template's
+// thinking tags alone: the thinking block becomes the reasoning, and everything after it is
+// the content, verbatim, including any tool call markup the parser could not place. No tool
+// call is made from it; whatever the model wrote stays visible instead.
+common_chat_msg common_chat_session::recover_unparsed() const {
+    common_chat_msg msg;
+    msg.role = "assistant";
+
+    // Parsing runs over the generation prompt too: it may open the thinking block or, when
+    // continuing a message, hold the prefill.
+    const std::string full = generation_prompt_text + input.text;
+    const size_t      body = generation_prompt_text.size();
+
+    size_t from = std::string::npos;
+    if (!thinking_start.empty()) {
+        // Only a block the prompt opened, or one the output opens with, is the reasoning.
+        const size_t start = full.find(thinking_start);
+        if (start != std::string::npos && (start < body || full.find_first_not_of(" \t\r\n", body) == start)) {
+            from = start + thinking_start.size();
+        }
+    } else if (!thinking_ends.empty()) {
+        from = body; // delimiter style: the reasoning runs from the start of the output
+    }
+
+    size_t end = std::string::npos;
+    size_t end_len = 0;
+    if (from != std::string::npos) {
+        for (const auto & tag : thinking_ends) {
+            const size_t at = tag.empty() ? std::string::npos : full.find(tag, from);
+            if (at < end) {
+                end = at;
+                end_len = tag.size();
+            }
+        }
+    }
+
+    if (end != std::string::npos) {
+        msg.reasoning_content = string_strip(full.substr(from, end - from));
+        msg.content           = string_strip(full.substr(end + end_len));
+    } else if (from != std::string::npos && !thinking_start.empty()) {
+        msg.reasoning_content = string_strip(full.substr(from)); // cut off while thinking
+    } else {
+        msg.content = string_strip(input.text);
+    }
+    return msg;
+}
+
 const common_chat_msg & common_chat_session::finish(const common_chat_input & chunk) {
     GGML_ASSERT(!finished && "finish() called twice");
     finished = true;
     input.append(chunk);
-    auto msg = common_chat_parse(input, false, parser_params);
+    common_chat_msg msg;
+    try {
+        msg = common_chat_parse(input, false, parser_params);
+    } catch (const std::runtime_error & e) {
+        // Layla: a reply the format's parser cannot place (typically a tool call written in a
+        // variant of the template's syntax) is kept as text rather than failing the turn.
+        LOG_WRN("%s: %s; keeping the reply as text\n", __func__, e.what());
+        msg = recover_unparsed();
+        // A streaming client already holds `result`, and the final diff can only extend it.
+        // The stream keeps whitespace the split trims, so a field equal but for that keeps
+        // its streamed form. Once the stream showed a tool call, or the split disagrees with
+        // what streamed, the streamed message is the reply.
+        const auto align = [](const std::string & prev, std::string & cur) {
+            if (string_starts_with(cur, prev)) {
+                return true;
+            }
+            if (string_strip(prev) == cur) {
+                cur = prev;
+                return true;
+            }
+            return false;
+        };
+        if (!result.tool_calls.empty() || !align(result.reasoning_content, msg.reasoning_content) ||
+            !align(result.content, msg.content)) {
+            msg = result;
+        }
+    }
     if (!msg.empty()) {
         result = std::move(msg);
     }
