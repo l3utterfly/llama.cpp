@@ -214,7 +214,12 @@ common_chat_params common_chat_params_init_gemma4(const common_chat_template &  
             auto response_format = p.literal("```json") <<
                 p.content(p.schema(p.json(), "response-format-schema", inputs.json_schema)) <<
                 p.literal("```");
-            return start + p.optional(thought) + response_format;
+            auto reasoning = p.optional(thought);
+            if (!inputs.enable_thinking && !inputs.has_continuation()) {
+                // Keep parsing tolerant, but do not generate thought blocks when thinking is disabled.
+                reasoning = p.gbnf(reasoning, "");
+            }
+            return start + reasoning + response_format;
         }
 
         if (has_tools && inputs.tool_choice != COMMON_CHAT_TOOL_CHOICE_NONE) {
