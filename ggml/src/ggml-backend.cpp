@@ -2135,7 +2135,10 @@ static enum ggml_status ggml_backend_sched_compute_splits(ggml_backend_sched_t s
 
         // ensure the previous split's async work has completed before we start
         // this split, the allocator may have reused buffer regions across splits
-        if (split->n_inputs == 0 && prev_backend_id >= 0 && prev_backend_id != split_backend_id) {
+        // Host buffers can be read directly by an accelerator. An input copy from
+        // another backend does not wait for that reader before host scratch is reused.
+        if ((split->n_inputs == 0 || ggml_backend_buft_is_host(sched->bufts[split_backend_id])) &&
+                prev_backend_id >= 0 && prev_backend_id != split_backend_id) {
             if (sched->events[prev_backend_id][sched->cur_copy] != NULL) {
                 ggml_backend_event_synchronize(sched->events[prev_backend_id][sched->cur_copy]);
             } else {
