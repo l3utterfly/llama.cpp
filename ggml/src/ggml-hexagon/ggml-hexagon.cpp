@@ -2845,6 +2845,9 @@ static bool ggml_hexagon_cpy_tensor_async_virt(ggml_backend_t backend_src, ggml_
 
     if (!sess_dst->enqueue_cpy(src, dst)) { return false; }
     sess_dst->add_peer(sess_src);
+    // A peer tracks the whole pending batch, not the producer's position in it.
+    // Complete the copy before later source work can reuse its storage or form a peer cycle.
+    sess_dst->flush_sync();
 
     return true;
 }
