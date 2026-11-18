@@ -33,7 +33,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  CUDA12_VERSION: '12.4'
+  CUDA12_VERSION: '12.9'
   CUDA13_VERSION: '13.4'
   CUDA_CCCL_VERSION: v3.4.3
   VULKAN_VERSION: 1.4.357.0
