@@ -7,7 +7,10 @@ dl_handle * dl_load_library(const fs::path & path) {
     DWORD old_mode = SetErrorMode(SEM_FAILCRITICALERRORS);
     SetErrorMode(old_mode | SEM_FAILCRITICALERRORS);
 
-    HMODULE handle = LoadLibraryW(path.wstring().c_str());
+    // Resolve the plugin's own imports (e.g. a GPU vendor runtime shipped beside it) from the plugin's
+    // folder first, then the application folder and System32. PATH is not used (packaged apps ignore it).
+    HMODULE handle = LoadLibraryExW(path.wstring().c_str(), nullptr,
+                                    LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
 
     SetErrorMode(old_mode);
 
