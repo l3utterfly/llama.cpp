@@ -2208,7 +2208,7 @@ private:
         }
 
         // if context shifting is disabled, make sure that we don't run out of context
-        if ((!params_base.ctx_shift || slot.string_ban.n_buffer) && slot.prompt.n_tokens() + 1 >= slot.n_ctx) {
+        if (!params_base.ctx_shift && slot.prompt.n_tokens() + 1 >= slot.n_ctx) {
             slot.truncated      = true;
             slot.stop           = STOP_TYPE_LIMIT;
             slot.has_next_token = false;
@@ -3644,6 +3644,7 @@ private:
             return;
         }
 
+        // A full context flushes the whole buffer, so a context shift never has to renumber buffered positions.
         const bool next_token = slot.has_budget() && !llama_vocab_is_eog(vocab, id) &&
             slot.prompt.n_tokens() + 1 < slot.n_ctx;
         if (ban.token_buffer.size() < ban.n_buffer && next_token) return;
@@ -3930,6 +3931,14 @@ private:
                     slot.release();
                     return;
                 }
+
+                // string-ban state is keyed by token position and was flushed when the context filled
+                if (!slot.string_ban.token_buffer.empty() || !slot.string_ban_checkpoints.empty()) {
+                    send_error(slot, "context shift with buffered banned-string tokens", ERROR_TYPE_SERVER);
+                    slot.release();
+                    return;
+                }
+                slot.string_ban.positional_bans.clear();
 
                 // Shift context
                 int n_keep = slot.task->params.n_keep < 0 ? slot.task->n_tokens() : slot.task->params.n_keep;

@@ -1344,6 +1344,54 @@ server_tokens tokenize_oai_content_array(const llama_vocab * vocab, mtmd_context
     return process_mtmd_prompt(mctx, prompt, files, init_opt);
 }
 
+// Token length of the rendered prompt up to the end of the leading system messages, which a context shift keeps.
+// A probe user turn marks where the conversation starts, so templates that fold the system prompt into the first turn resolve too.
+static int32_t chat_system_keep_tokens(
+    const llama_vocab * vocab,
+    const common_chat_templates * tmpls,
+    common_chat_templates_inputs inputs,
+    const std::string & prompt)
+{
+    size_t n_system = 0;
+    while (n_system < inputs.messages.size() && inputs.messages[n_system].role == "system") {
+        n_system++;
+    }
+    if (n_system == 0) {
+        return 0;
+    }
+
+    static const std::string probe = "LLAMA_KEEP_PROBE_3f9c1e";
+    common_chat_msg user;
+    user.role    = "user";
+    user.content = probe;
+    inputs.messages.resize(n_system);
+    inputs.messages.push_back(user);
+    inputs.grammar.clear();
+    inputs.json_schema.clear();
+    inputs.add_generation_prompt  = false;
+    inputs.continue_final_message = COMMON_CHAT_CONTINUATION_NONE;
+
+    std::string head;
+    try {
+        head = common_chat_templates_apply(tmpls, inputs).prompt.str();
+    } catch (const std::exception &) {
+        return 0; // the template cannot render this probe, keep the default
+    }
+    const size_t end = head.find(probe);
+    if (end == std::string::npos) {
+        return 0;
+    }
+    size_t n = 0;
+    while (n < end && n < prompt.size() && head[n] == prompt[n]) {
+        n++;
+    }
+    // do not split a UTF-8 sequence
+    while (n > 0 && n < prompt.size() && (prompt[n] & 0xC0) == 0x80) {
+        n--;
+    }
+    return (int32_t) common_tokenize(vocab, prompt.substr(0, n), false, true).size();
+}
+
 // used by /chat/completions endpoint
 json oaicompat_chat_params_parse(
     const llama_vocab * vocab,
@@ -1512,7 +1560,16 @@ json oaicompat_chat_params_parse(
     session_params.echo = json_value(body, "echo", false);
     out_session = common_chat_session(opt.tmpls.get(), vocab, inputs, session_params);
 
-    llama_params["prompt"] = out_session.prompt().str();
+    const std::string prompt = out_session.prompt().str();
+    llama_params["prompt"] = prompt;
+
+    // A context shift keeps the system prompt unless the request chooses its own n_keep
+    if (!body.contains("n_keep")) {
+        const int32_t n_keep = chat_system_keep_tokens(vocab, opt.tmpls.get(), inputs, prompt);
+        if (n_keep > 0) {
+            llama_params["n_keep"] = n_keep;
+        }
+    }
 
     // Reasoning budget: pass parameters through to sampling layer
     {
