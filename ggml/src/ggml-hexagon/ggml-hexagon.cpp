@@ -708,10 +708,14 @@ static void ggml_backend_hexagon_buffer_set_tensor(ggml_backend_buffer_t buffer,
     // A weight written in whole 2-D slices (all of it, or one expert at a time) is tiled as it is
     // written, by the writer's thread, so a weight rewritten between graphs does not have to be
     // tiled again whole by the graph, and many writers tile in parallel.
-    // Layla: only quantized weights. A float weight stays flat until a matmul first uses it, because
-    // other readers address the flat layout (Qwen3-VL reshapes its F32 position embeddings, and read
-    // tiled F16 bytes as F32: every image came out "black").
-    if (weights && ggml_is_quantized(tensor->type) && ggml_hexagon_tensor_can_tile(tensor)) {
+    // Layla: a float weight stays flat until a matmul first uses it, because other readers address
+    // the flat layout (Qwen3-VL reshapes its F32 position embeddings, and read tiled F16 bytes as
+    // F32: every image came out "black"). A weight streamer rebinds its buffers between graphs and
+    // needs every matrix it writes tiled, float ones too (a MoE router is F32): it sets
+    // GGML_HEXAGON_TILE_FP_ON_WRITE=1 while it runs. Read per write, so it can be turned off again.
+    const char * tile_fp_env = ggml_is_quantized(tensor->type) ? nullptr : getenv("GGML_HEXAGON_TILE_FP_ON_WRITE");
+    const bool   tile_type   = ggml_is_quantized(tensor->type) || (tile_fp_env && atoi(tile_fp_env) != 0);
+    if (weights && tile_type && ggml_hexagon_tensor_can_tile(tensor)) {
         const size_t slice = (size_t) tensor->ne[1] * ggml_row_size(tensor->type, tensor->ne[0]);
         if (offset % slice == 0 && size % slice == 0) {
             htp_repack_tensor_tiled_range(tensor, data, offset, size);
