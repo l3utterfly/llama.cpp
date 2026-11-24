@@ -6,32 +6,6 @@ The Hexagon backend advertises Q8_0 -> Q8_0 `CPY`, `DUP`, and `CONT` through `su
 
 The same copy planner validates transfers within and between HTP sessions. Unsupported asynchronous transfers return false before queuing copies or fences, allowing ggml's synchronized host-copy fallback. Direct graph execution validates all operations before queuing any graph nodes and returns `GGML_STATUS_FAILED` for unsupported operations. The host library and DSP libraries must be rebuilt and deployed together for the Q8 block-copy support.
 
-## Caller-synchronized streaming buffers (Layla)
-
-The optional registry capability `ggml_backend_streaming_buffer_type_v1` has signature
-`ggml_backend_buffer_type_t (ggml_backend_dev_t device, bool matrix)`. It returns a buffer
-type for arena-managed storage, not a replacement for the default HTP buffer type.
-`matrix=true` declares matrix operands: eligible tensors are tiled on every complete upload.
-`matrix=false` keeps non-matrix weights flat. Layout metadata is fixed by `init_tensor`, before
-aliases are bound or graphs are optimized. Graph repacking skips these buffers. Normal buffers
-keep their existing synchronized setters and graph-time tiling; no environment switch is added.
-
-The caller must allocate/init/bind on the graph thread, wait for prior readers before reusing a
-slot, wait for uploads before submitting its consumers, and join workers before freeing storage.
-Complete uploads into disjoint idle destinations may run concurrently with graph execution in
-other slots. Streaming setters do not touch the session queue or mutate tensor metadata.
-Partial uploads, tensor views, and multi-row `set_tensor_2d` calls are not supported.
-Multi-expert F32 tensors are rejected because F16 packing shrinks their physical expert stride;
-2-D F32 matrix uploads are supported. Per-expert
-uploads use independent complete tensors placed at the backend's allocated expert stride.
-Buffer clear/free and get/readback require caller synchronization too. Do not use these buffers
-for arbitrary model weights without establishing the same ownership contract.
-
-The Android backend probe covers repeated concurrent uploads while a separate slot computes,
-Q4_0/IQ4_NL/Q8_0 whole-versus-expert readback, CPU numerical references, and normal and flat
-non-matrix buffers in the same HTP session. The BigMoE arena retains graph-thread uploads when
-this capability is absent.
-
 ## Setup
 
 The cross-compilation toolchain images are provided by the

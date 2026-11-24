@@ -406,7 +406,6 @@ struct ggml_backend_hexagon_device_context {
     ggml_backend_buffer_type buffer_type       = {};
     ggml_backend_buffer_type host_buffer_type  = {};
     ggml_backend_buffer_type fence_buffer_type = {};
-    ggml_backend_buffer_type streaming_buffer_type[2] = {};
 
     std::unique_ptr<ggml_hexagon_session> sess;
 
@@ -947,82 +946,6 @@ static ggml_backend_buffer_t ggml_backend_hexagon_buffer_type_alloc_buffer(
     }
 }
 
-// Streaming buffers are caller-synchronized. Allocate and bind before starting workers;
-// only disjoint, idle destinations may be written while the graph thread owns the queue.
-static bool ggml_hexagon_streaming_tiled(ggml_backend_buffer_type_t buft) {
-    auto ctx = static_cast<ggml_backend_hexagon_buffer_type_context *>(buft->context);
-    return buft == &ctx->dev_ctx->streaming_buffer_type[1];
-}
-
-static enum ggml_status ggml_backend_hexagon_streaming_init_tensor(ggml_backend_buffer_t buffer, ggml_tensor * tensor) {
-    if (ggml_is_view(tensor) || !ggml_is_contiguous(tensor)) {
-        return GGML_STATUS_FAILED;
-    }
-    uint32_t flags = HTP_TENSOR_STREAMING | HTP_TENSOR_WEIGHT;
-    if (ggml_hexagon_streaming_tiled(buffer->buft) && htp_is_tiled_weight_tensor(tensor)) {
-        // F32 tiles shrink to F16, so allocation-size / experts is not their packed stride.
-        if (tensor->type == GGML_TYPE_F32 && tensor->ne[2] > 1) return GGML_STATUS_FAILED;
-        flags |= HTP_TENSOR_TILED;
-    }
-    tensor->extra = (void *) (uintptr_t) flags;
-    return GGML_STATUS_SUCCESS;
-}
-
-static void ggml_backend_hexagon_streaming_set_tensor(ggml_backend_buffer_t buffer, ggml_tensor * tensor,
-                                                       const void * data, size_t offset, size_t size) {
-    GGML_UNUSED(buffer);
-    if (size == 0) return;
-    GGML_ASSERT(offset == 0 && size == ggml_nbytes(tensor));
-    // Metadata is immutable after init_tensor, including on aliases bound to the graph.
-    if (ggml_hexagon_tensor_is_tiled(tensor)) {
-        htp_repack_tensor_tiled(tensor, data, size);
-    } else {
-        memcpy(tensor->data, data, size);
-    }
-}
-
-static void ggml_backend_hexagon_streaming_set_tensor_2d(ggml_backend_buffer_t buffer, ggml_tensor * tensor,
-                                                          const void * data, size_t offset, size_t size,
-                                                          size_t n_copies, size_t stride_tensor, size_t stride_data) {
-    GGML_UNUSED(stride_tensor);
-    GGML_UNUSED(stride_data);
-    GGML_ASSERT(n_copies == 1);
-    ggml_backend_hexagon_streaming_set_tensor(buffer, tensor, data, offset, size);
-}
-
-static void ggml_backend_hexagon_streaming_set_tensor_n(ggml_backend_buffer_t buffer,
-                                                         ggml_tensor * const * tensors, const void * const * data,
-                                                         const size_t * offsets, const size_t * sizes, size_t count) {
-    for (size_t i = 0; i < count; ++i) {
-        ggml_backend_hexagon_streaming_set_tensor(buffer, tensors[i], data[i], offsets[i], sizes[i]);
-    }
-}
-
-static ggml_backend_buffer_t ggml_backend_hexagon_streaming_alloc_buffer(ggml_backend_buffer_type_t buft, size_t size) {
-    auto buffer = ggml_backend_hexagon_buffer_type_alloc_buffer(buft, size);
-    if (buffer) {
-        buffer->iface.init_tensor = ggml_backend_hexagon_streaming_init_tensor;
-        buffer->iface.set_tensor = ggml_backend_hexagon_streaming_set_tensor;
-        buffer->iface.set_tensor_2d = ggml_backend_hexagon_streaming_set_tensor_2d;
-        buffer->iface.set_tensor_n = ggml_backend_hexagon_streaming_set_tensor_n;
-    }
-    return buffer;
-}
-
-static size_t ggml_backend_hexagon_streaming_alloc_size(ggml_backend_buffer_type_t buft, const ggml_tensor * t) {
-    if (ggml_hexagon_streaming_tiled(buft) && htp_is_tiled_weight_tensor(t)) {
-        GGML_ASSERT(t->ne[1] > 0 && uint64_t(t->ne[1]) <= uint64_t(INT64_MAX - 31));
-        const size_t rows = size_t(hex_round_up(t->ne[1], 32));
-        const size_t row_bytes = htp_tiled_row_size(t->type, t->ne[0]);
-        GGML_ASSERT(row_bytes <= SIZE_MAX / rows);
-        const size_t matrix_bytes = row_bytes * rows;
-        GGML_ASSERT(t->ne[2] > 0 && uint64_t(t->ne[2]) <= SIZE_MAX / matrix_bytes);
-        const size_t tiled = matrix_bytes * size_t(t->ne[2]);
-        return std::max(tiled, ggml_nbytes(t));
-    }
-    return ggml_nbytes(t);
-}
-
 static ggml_backend_buffer_t ggml_backend_hexagon_host_buffer_type_alloc_buffer(
             ggml_backend_buffer_type_t buffer_type, size_t size) {
     auto dev_ctx = static_cast<ggml_backend_hexagon_buffer_type_context *>(buffer_type->context)->dev_ctx;
@@ -1329,18 +1252,6 @@ ggml_backend_hexagon_device_context::ggml_backend_hexagon_device_context(int dev
     host_buffer_type.iface   = ggml_backend_hexagon_host_buffer_type_interface;
     host_buffer_type.context = new ggml_backend_hexagon_buffer_type_context(config.name + "-HOST", this);
 
-    for (int tiled = 0; tiled < 2; ++tiled) {
-        auto & buft = streaming_buffer_type[tiled];
-        buft.device = dev;
-        buft.iface = ggml_backend_hexagon_buffer_type_interface;
-        buft.iface.alloc_buffer = ggml_backend_hexagon_streaming_alloc_buffer;
-        buft.iface.alloc_buffer_n = nullptr;
-        buft.iface.get_alloc_size = ggml_backend_hexagon_streaming_alloc_size;
-        buft.iface.get_alloc_size_n = nullptr;
-        buft.context = new ggml_backend_hexagon_buffer_type_context(
-            config.name + (tiled ? "-STREAM-MATRIX" : "-STREAM-FLAT"), this);
-    }
-
     fence_buffer_type.device  = dev;
     fence_buffer_type.iface   = ggml_backend_hexagon_buffer_type_interface;
     fence_buffer_type.context = new ggml_backend_hexagon_buffer_type_context(config.name + "-FENCE", this);
@@ -1350,9 +1261,6 @@ ggml_backend_hexagon_device_context::~ggml_backend_hexagon_device_context() {
     delete static_cast<ggml_backend_hexagon_buffer_type_context *>(buffer_type.context);
     delete static_cast<ggml_backend_hexagon_buffer_type_context *>(host_buffer_type.context);
     delete static_cast<ggml_backend_hexagon_buffer_type_context *>(fence_buffer_type.context);
-    for (auto & buft : streaming_buffer_type) {
-        delete static_cast<ggml_backend_hexagon_buffer_type_context *>(buft.context);
-    }
 }
 
 static bool ggml_backend_buffer_is_hexagon(const struct ggml_backend_buffer * b) {
@@ -3292,8 +3200,7 @@ static bool ggml_backend_hexagon_device_supports_op(ggml_backend_dev_t dev, cons
 static bool ggml_backend_hexagon_device_supports_buft(ggml_backend_dev_t dev, ggml_backend_buffer_type_t buft) {
     auto dev_ctx = static_cast<ggml_backend_hexagon_device_context *>(dev->context);
 
-    bool supp = (buft == &dev_ctx->host_buffer_type) || (buft == &dev_ctx->buffer_type) ||
-                (buft == &dev_ctx->streaming_buffer_type[0]) || (buft == &dev_ctx->streaming_buffer_type[1]);
+    bool supp = (buft == &dev_ctx->host_buffer_type) || (buft == &dev_ctx->buffer_type);
 
     HEX_VERBOSE("ggml-hex: %s device-supports-buft %s %s\n", dev_ctx->c_name(), ggml_backend_buft_name(buft), supp ? "yes" : "no");
     return supp;
@@ -3514,17 +3421,8 @@ static ggml_backend_buffer_type_t ggml_backend_hexagon_split_buffer_type(int mai
     return &dev_ctx->buffer_type;
 }
 
-// Versioned capability: complete tensor uploads, immutable layout, caller-owned synchronization.
-static ggml_backend_buffer_type_t ggml_backend_hexagon_streaming_buffer_type(ggml_backend_dev_t dev, bool matrix) {
-    auto ctx = static_cast<ggml_backend_hexagon_device_context *>(dev->context);
-    return &ctx->streaming_buffer_type[matrix ? 1 : 0];
-}
-
 static void * ggml_backend_hexagon_get_proc_address(ggml_backend_reg_t reg, const char * name) {
     GGML_UNUSED(reg);
-    if (strcmp(name, "ggml_backend_streaming_buffer_type_v1") == 0) {
-        return (void *) ggml_backend_hexagon_streaming_buffer_type;
-    }
     if (strcmp(name, "ggml_backend_split_buffer_type") == 0) {
         return (void *) ggml_backend_hexagon_split_buffer_type;
     }
