@@ -71,17 +71,6 @@ struct ring_buffer {
         return value;
     }
 
-    T pop_back() {
-        if (sz == 0) {
-            throw std::runtime_error("ring buffer is empty");
-        }
-        // Move pos backwards, wrapping around if necessary
-        pos = (pos == 0) ? capacity - 1 : pos - 1;
-        T value = data[pos];
-        sz--;
-        return value;
-    }
-
     const T & rat(size_t i) const {
         if (i >= sz) {
             throw std::runtime_error("ring buffer: index out of bounds");
@@ -463,18 +452,6 @@ struct common_sampler * common_sampler_init(
     };
 
     return result;
-}
-
-void common_sampler_reinit_grammar(struct common_sampler * gsmpl, const struct llama_vocab * vocab, const std::string& grammar) {
-    // free existing grammar (if any)
-    if(gsmpl->grmr) {
-        llama_sampler_free(gsmpl->grmr);
-        gsmpl->grmr = NULL;
-    }
-
-    if(!grammar.empty()) {
-        gsmpl->grmr = llama_sampler_init_grammar(vocab, grammar.c_str(), "root");
-    }
 }
 
 void common_sampler_free(struct common_sampler * gsmpl) {
@@ -955,16 +932,6 @@ std::string common_sampler_prev_str(common_sampler * gsmpl, llama_context * ctx_
     }
 
     return result;
-}
-
-const std::vector<llama_token> common_sampler_prev(common_sampler * gsmpl) {
-    return gsmpl->prev.to_vector();
-}
-
-void common_sampler_rollback(common_sampler * gsmpl, int rollback_num) {
-    for (int i = 0; i < rollback_num && !gsmpl->prev.empty(); ++i) {
-        gsmpl->prev.pop_back();
-    }
 }
 
 char common_sampler_type_to_chr(enum common_sampler_type cnstr) {
