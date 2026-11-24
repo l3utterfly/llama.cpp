@@ -708,7 +708,10 @@ static void ggml_backend_hexagon_buffer_set_tensor(ggml_backend_buffer_t buffer,
     // A weight written in whole 2-D slices (all of it, or one expert at a time) is tiled as it is
     // written, by the writer's thread, so a weight rewritten between graphs does not have to be
     // tiled again whole by the graph, and many writers tile in parallel.
-    if (weights && ggml_hexagon_tensor_can_tile(tensor)) {
+    // Layla: only quantized weights. A float weight stays flat until a matmul first uses it, because
+    // other readers address the flat layout (Qwen3-VL reshapes its F32 position embeddings, and read
+    // tiled F16 bytes as F32: every image came out "black").
+    if (weights && ggml_is_quantized(tensor->type) && ggml_hexagon_tensor_can_tile(tensor)) {
         const size_t slice = (size_t) tensor->ne[1] * ggml_row_size(tensor->type, tensor->ne[0]);
         if (offset % slice == 0 && size % slice == 0) {
             htp_repack_tensor_tiled_range(tensor, data, offset, size);
