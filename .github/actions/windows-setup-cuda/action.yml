@@ -88,6 +88,7 @@ runs:
           curl -O "https://developer.download.nvidia.com/compute/cuda/redist/visual_studio_integration/windows-x86_64/visual_studio_integration-windows-x86_64-12.9.79-archive.zip"
           curl -O "https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvprof/windows-x86_64/cuda_nvprof-windows-x86_64-12.9.79-archive.zip"
           curl -O "https://developer.download.nvidia.com/compute/cuda/redist/cuda_cccl/windows-x86_64/cuda_cccl-windows-x86_64-12.9.27-archive.zip"
+          curl -O "https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvml_dev/windows-x86_64/cuda_nvml_dev-windows-x86_64-12.9.79-archive.zip"
           unzip '*.zip' -d "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.9"
           xcopy "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.9\cuda_cudart-windows-x86_64-12.9.79-archive\*" "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.9" /E /I /H /Y
           xcopy "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.9\cuda_nvcc-windows-x86_64-12.9.86-archive\*" "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.9" /E /I /H /Y
@@ -98,6 +99,7 @@ runs:
           xcopy "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.9\visual_studio_integration-windows-x86_64-12.9.79-archive\*" "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.9" /E /I /H /Y
           xcopy "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.9\cuda_nvprof-windows-x86_64-12.9.79-archive\*" "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.9" /E /I /H /Y
           xcopy "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.9\cuda_cccl-windows-x86_64-12.9.27-archive\*" "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.9" /E /I /H /Y
+          xcopy "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.9\cuda_nvml_dev-windows-x86_64-12.9.79-archive\*" "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.9" /E /I /H /Y
           echo "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.9\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           echo "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.9\libnvvp" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           echo "CUDA_PATH=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.9" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8

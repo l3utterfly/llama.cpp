@@ -34,7 +34,7 @@ concurrency:
 
 env:
   CUDA12_VERSION: '12.9'
-  CUDA13_VERSION: '13.4'
+  CUDA13_VERSION: '13.5'
   CUDA_CCCL_VERSION: v3.4.3
   VULKAN_VERSION: 1.4.357.0
   ONEAPI_ROOT: 'C:\Program Files (x86)\Intel\oneAPI'
